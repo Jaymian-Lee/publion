@@ -1,0 +1,60 @@
+/* Admin styles for Publion */
+
+/* Arrow animation for both accordions */
+.publion-accordion-arrow {
+    transition: transform 0.2s ease-in-out;
+}
+
+/* Rotated arrow for main accordion */
+.publion-openai-settings-header .publion-main-accordion-arrow.rotated {
+    transform: rotate(180deg);
+}
+
+/* Rotated arrow for instructions accordion (if used) */
+.publion-openai-instructions-header .publion-accordion-arrow.rotated {
+    transform: rotate(180deg);
+}
+
+/* Optional enhancements */
+#publion-suggestions li,
+#publion-ai-queue li {
+    margin: 6px 0;
+    line-height: 1.6;
+}
+
+#publion-ai-queue .remove-topic,
+#publion-suggestions .add-topic {
+    margin-left: 10px;
+}
+
+#publion-loading {
+    font-style: italic;
+    color: #666;
+    padding-left: 2px;
+}
+
+.publion-accordion-heading {
+    cursor: pointer;
+    display: block;
+    margin-bottom: 10px;
+}
+
+.publion-accordion-heading .publion-heading-inner {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.publion-accordion-arrow {
+    font-size: 16px;
+    transition: transform 0.2s ease;
+}
+
+.publion-accordion-heading.active {
+    color: #007cba;
+}
+
+.publion-accordion-body {
+    padding: 12px 0;
+}
+
