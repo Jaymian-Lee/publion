@@ -3,7 +3,7 @@
 Plugin Name: Publion
 Plugin URI: https://jaymian-lee.com/publion
 Description: Genereer en verfijn blogposts met AI. Kies een categorie, krijg onderwerp-ideeën, zet SEO-geoptimaliseerde posts met afbeeldingen in de wachtrij en plan het aanmaken in WordPress.
-Version: 1.0.0
+Version: 1.2.8
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'PUBLION_VERSION', '1.0.0' );
+define( 'PUBLION_VERSION', '1.2.8' );
 define( 'PUBLION_PATH', plugin_dir_path( __FILE__ ) );
 define( 'PUBLION_URL', plugin_dir_url( __FILE__ ) );
 
@@ -58,6 +58,8 @@ function publion_create_queue_table() {
 		category_label VARCHAR(255) NOT NULL,
 		status VARCHAR(50) DEFAULT 'pending',
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		scheduled_at DATETIME DEFAULT NULL,
+		schedule_locked TINYINT(1) DEFAULT 0,
 		post_created_at DATETIME DEFAULT NULL,
 		published_at DATETIME DEFAULT NULL,
 		PRIMARY KEY (id)
@@ -90,14 +92,39 @@ add_action(
 );
 
 // Init.
-add_action(
+	add_action(
 	'plugins_loaded',
 	function () {
+		publion_maybe_update_queue_table();
 		new Publion_Admin();
 		new Publion_Settings();
 		new Publion_Cron();
 	}
 );
+
+function publion_maybe_update_queue_table() {
+	global $wpdb;
+
+	$table_name      = $wpdb->prefix . 'publion_queue';
+	$charset_collate = $wpdb->get_charset_collate();
+
+	$sql = "CREATE TABLE $table_name (
+		id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+		topic TEXT NOT NULL,
+		category_id BIGINT NOT NULL,
+		category_label VARCHAR(255) NOT NULL,
+		status VARCHAR(50) DEFAULT 'pending',
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		scheduled_at DATETIME DEFAULT NULL,
+		schedule_locked TINYINT(1) DEFAULT 0,
+		post_created_at DATETIME DEFAULT NULL,
+		published_at DATETIME DEFAULT NULL,
+		PRIMARY KEY (id)
+	) $charset_collate;";
+
+	require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+	dbDelta( $sql );
+}
 
 register_deactivation_hook( __FILE__, 'publion_deactivation_notice' );
 function publion_deactivation_notice() {

@@ -130,6 +130,278 @@ function publion_mysql_to_timestamp( $mysql_datetime ) {
 	return strtotime( $mysql_datetime );
 }
 
+function publion_datetime_from_mysql( $mysql_datetime, DateTimeZone $tz ) {
+	$ts = publion_mysql_to_timestamp( $mysql_datetime );
+	if ( ! $ts ) {
+		return null;
+	}
+	return ( new DateTimeImmutable( '@' . $ts ) )->setTimezone( $tz );
+}
+
+function publion_parse_time_string( $value, $default = '00:00' ) {
+	$normalized = $default;
+	$hour       = 0;
+	$minute     = 0;
+
+	if ( is_string( $value ) && preg_match( '/^([01]\d|2[0-3]):([0-5]\d)$/', $value, $matches ) ) {
+		$hour       = (int) $matches[1];
+		$minute     = (int) $matches[2];
+		$normalized = $matches[1] . ':' . $matches[2];
+	} elseif ( is_string( $default ) && preg_match( '/^([01]\d|2[0-3]):([0-5]\d)$/', $default, $matches ) ) {
+		$hour       = (int) $matches[1];
+		$minute     = (int) $matches[2];
+		$normalized = $matches[1] . ':' . $matches[2];
+	}
+
+	return array( $hour, $minute, $normalized );
+}
+
+function publion_get_post_creation_interval_days( $settings = null ) {
+	if ( ! is_array( $settings ) ) {
+		$settings = get_option( 'publion_post_settings', array() );
+	}
+	return max( 1, (int) ( $settings['time_frame_days'] ?? 3 ) );
+}
+
+function publion_get_post_creation_time( $settings = null ) {
+	if ( ! is_array( $settings ) ) {
+		$settings = get_option( 'publion_post_settings', array() );
+	}
+	$time = $settings['post_creation_time'] ?? '00:00';
+	$parsed = publion_parse_time_string( $time, '00:00' );
+	return $parsed[2];
+}
+
+function publion_get_daily_topic_interval_days( $settings = null ) {
+	if ( ! is_array( $settings ) ) {
+		$settings = get_option( 'publion_post_settings', array() );
+	}
+	return max( 1, (int) ( $settings['daily_topic_interval_days'] ?? 1 ) );
+}
+
+function publion_get_daily_topic_time( $settings = null ) {
+	if ( ! is_array( $settings ) ) {
+		$settings = get_option( 'publion_post_settings', array() );
+	}
+	$time = $settings['daily_topic_time'] ?? '00:00';
+	$parsed = publion_parse_time_string( $time, '00:00' );
+	return $parsed[2];
+}
+
+function publion_get_post_author_id( $settings = null, $fallback_mode = 'current' ) {
+	if ( ! is_array( $settings ) ) {
+		$settings = get_option( 'publion_post_settings', array() );
+	}
+
+	$author_id = isset( $settings['default_post_author'] ) ? (int) $settings['default_post_author'] : 0;
+	if ( $author_id ) {
+		$user = get_user_by( 'id', $author_id );
+		if ( $user && user_can( $user, 'edit_posts' ) ) {
+			return $author_id;
+		}
+	}
+
+	if ( 'current' === $fallback_mode ) {
+		$current_id = get_current_user_id();
+		if ( $current_id ) {
+			return $current_id;
+		}
+	}
+
+	if ( 'first' === $fallback_mode ) {
+		$users = get_users(
+			array(
+				'number'  => 20,
+				'orderby' => 'ID',
+				'order'   => 'ASC',
+				'fields'  => array( 'ID' ),
+			)
+		);
+		foreach ( $users as $user ) {
+			if ( user_can( $user, 'edit_posts' ) ) {
+				return (int) $user->ID;
+			}
+		}
+	}
+
+	return 0;
+}
+
+function publion_get_next_post_schedule_slot( $after_dt, $interval_days, $time_str, DateTimeZone $tz ) {
+	$parsed = publion_parse_time_string( $time_str, '00:00' );
+	$hour   = $parsed[0];
+	$minute = $parsed[1];
+
+	if ( ! $after_dt instanceof DateTimeImmutable ) {
+		$now       = new DateTimeImmutable( 'now', $tz );
+		$candidate = $now->setTime( $hour, $minute, 0 );
+		if ( $candidate <= $now ) {
+			$candidate = $candidate->modify( '+1 day' );
+		}
+		return $candidate;
+	}
+
+	$base_date = $after_dt->setTime( 0, 0, 0 );
+	return $base_date->modify( '+' . (int) $interval_days . ' days' )->setTime( $hour, $minute, 0 );
+}
+
+function publion_invalidate_pending_cache() {
+	publion_cache_delete( 'pending_ids' );
+	publion_cache_delete( 'pending_total' );
+	foreach ( array( 'pending_page_' ) as $prefix ) {
+		for ( $i = 0; $i <= 50; $i += 10 ) {
+			publion_cache_delete( $prefix . $i . '_10' );
+		}
+	}
+}
+
+function publion_schedule_pending_entries( $force_reschedule = false ) {
+	global $wpdb;
+	publion_register_table_on_wpdb();
+
+	$settings      = get_option( 'publion_post_settings', array() );
+	$interval_days = publion_get_post_creation_interval_days( $settings );
+	$time_str      = publion_get_post_creation_time( $settings );
+	$tz            = wp_timezone();
+
+	$entries = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->prepare(
+			"SELECT id, scheduled_at, schedule_locked FROM {$wpdb->publion_queue} WHERE status = %s ORDER BY id ASC",
+			'pending'
+		)
+	);
+
+	if ( empty( $entries ) ) {
+		return 0;
+	}
+
+	$last_created_at = get_option( 'publion_last_post_created_at' );
+	$cursor_after    = $last_created_at ? publion_datetime_from_mysql( $last_created_at, $tz ) : null;
+	$updated         = 0;
+
+	foreach ( $entries as $entry ) {
+		$locked       = ! empty( $entry->schedule_locked );
+		$scheduled_dt = $entry->scheduled_at ? publion_datetime_from_mysql( $entry->scheduled_at, $tz ) : null;
+
+		if ( $locked && $scheduled_dt ) {
+			if ( ! $cursor_after || $scheduled_dt->getTimestamp() > $cursor_after->getTimestamp() ) {
+				$cursor_after = $scheduled_dt;
+			}
+			continue;
+		}
+
+		if ( ! $force_reschedule && $scheduled_dt ) {
+			if ( ! $cursor_after || $scheduled_dt->getTimestamp() > $cursor_after->getTimestamp() ) {
+				$cursor_after = $scheduled_dt;
+			}
+			continue;
+		}
+
+		$next_slot = publion_get_next_post_schedule_slot( $cursor_after, $interval_days, $time_str, $tz );
+
+		$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->publion_queue,
+			array(
+				'scheduled_at'   => $next_slot->format( 'Y-m-d H:i:s' ),
+				'schedule_locked' => 0,
+			),
+			array( 'id' => (int) $entry->id ),
+			array( '%s', '%d' ),
+			array( '%d' )
+		);
+
+		$updated++;
+		$cursor_after = $next_slot;
+	}
+
+	if ( $updated ) {
+		publion_invalidate_pending_cache();
+	}
+
+	return $updated;
+}
+
+function publion_calculate_initial_daily_topic_timestamp( $settings, DateTimeImmutable $now = null ) {
+	$tz            = wp_timezone();
+	$now           = $now ?: new DateTimeImmutable( 'now', $tz );
+	$interval_days = publion_get_daily_topic_interval_days( $settings );
+	$time_str      = publion_get_daily_topic_time( $settings );
+	$parsed        = publion_parse_time_string( $time_str, '00:00' );
+
+	$candidate = $now->setTime( $parsed[0], $parsed[1], 0 );
+	if ( $candidate <= $now ) {
+		$candidate = $candidate->modify( '+' . $interval_days . ' days' );
+	}
+
+	return $candidate->getTimestamp();
+}
+
+function publion_calculate_next_daily_topic_timestamp( DateTimeImmutable $from_dt, $settings ) {
+	$interval_days = publion_get_daily_topic_interval_days( $settings );
+	$time_str      = publion_get_daily_topic_time( $settings );
+	$parsed        = publion_parse_time_string( $time_str, '00:00' );
+	$base_date     = $from_dt->setTime( 0, 0, 0 );
+	$next          = $base_date->modify( '+' . $interval_days . ' days' )->setTime( $parsed[0], $parsed[1], 0 );
+	return $next->getTimestamp();
+}
+
+function publion_reschedule_daily_topic_event( $settings = null ) {
+	if ( ! is_array( $settings ) ) {
+		$settings = get_option( 'publion_post_settings', array() );
+	}
+
+	if ( ( $settings['auto_daily_topic'] ?? 'no' ) !== 'yes' ) {
+		wp_clear_scheduled_hook( 'publion_daily_topic_hook' );
+		return 0;
+	}
+
+	wp_clear_scheduled_hook( 'publion_daily_topic_hook' );
+	$next_ts = publion_calculate_initial_daily_topic_timestamp( $settings );
+	wp_schedule_single_event( $next_ts, 'publion_daily_topic_hook' );
+	return $next_ts;
+}
+
+function publion_update_existing_posts_author( $author_id ) {
+	$author_id = (int) $author_id;
+	if ( ! $author_id ) {
+		return 0;
+	}
+
+	$user = get_user_by( 'id', $author_id );
+	if ( ! $user || ! user_can( $user, 'edit_posts' ) ) {
+		return 0;
+	}
+
+	$posts = get_posts(
+		array(
+			'post_type'              => 'post',
+			'post_status'            => 'any',
+			'posts_per_page'         => 200,
+			'fields'                 => 'ids',
+			'meta_key'               => '_publion_queue_id',
+			'no_found_rows'          => true,
+			'update_post_meta_cache' => false,
+			'update_post_term_cache' => false,
+		)
+	);
+
+	$updated = 0;
+	foreach ( $posts as $post_id ) {
+		$result = wp_update_post(
+			array(
+				'ID'          => (int) $post_id,
+				'post_author' => $author_id,
+			),
+			true
+		);
+		if ( ! is_wp_error( $result ) ) {
+			$updated++;
+		}
+	}
+
+	return $updated;
+}
+
 /**
  * Title normalization to tolerate slashes/quotes/whitespace.
  */
@@ -428,6 +700,8 @@ function publion_save_queue() {
 		publion_cache_delete( 'pending_ids' );
 		publion_cache_delete( 'pending_total' );
 	}
+
+	publion_schedule_pending_entries( false );
 	wp_send_json_success( [ 'count' => count( $queue ) ] );
 }
 
@@ -440,27 +714,51 @@ function publion_save_post_settings_callback() {
 		wp_send_json_error( 'Niet geautoriseerd' );
 	}
 
+	$existing_settings  = get_option( 'publion_post_settings', array() );
 	$time_frame_days    = isset( $_POST['time_frame_days'] ) ? intval( wp_unslash( $_POST['time_frame_days'] ) ) : 7;
+	$post_creation_time = isset( $_POST['post_creation_time'] )
+		? sanitize_text_field( wp_unslash( $_POST['post_creation_time'] ) )
+		: ( $existing_settings['post_creation_time'] ?? '00:00' );
 	$post_status        = sanitize_text_field( wp_unslash( $_POST['post_status'] ?? 'draft' ) );
+	$default_post_author = isset( $_POST['default_post_author'] )
+		? absint( wp_unslash( $_POST['default_post_author'] ) )
+		: (int) ( $existing_settings['default_post_author'] ?? 0 );
 	$cta_enabled_raw    = sanitize_text_field( wp_unslash( $_POST['cta_enabled'] ?? 'no' ) );
 	$cta_text           = sanitize_text_field( wp_unslash( $_POST['cta_text'] ?? '' ) );
 	$cta_link           = esc_url_raw( wp_unslash( $_POST['cta_link'] ?? '' ) );
 	$notification_email = sanitize_email( wp_unslash( $_POST['notification_email'] ?? '' ) );
 	$hide_title         = ( isset( $_POST['hide_title'] ) && 'yes' === $_POST['hide_title'] ) ? 'yes' : 'no';
 	$auto_daily_topic   = ( isset( $_POST['auto_daily_topic'] ) && 'yes' === $_POST['auto_daily_topic'] ) ? 'yes' : 'no';
+	$daily_topic_time   = isset( $_POST['daily_topic_time'] )
+		? sanitize_text_field( wp_unslash( $_POST['daily_topic_time'] ) )
+		: ( $existing_settings['daily_topic_time'] ?? '00:00' );
+	$daily_topic_interval_days = isset( $_POST['daily_topic_interval_days'] )
+		? intval( wp_unslash( $_POST['daily_topic_interval_days'] ) )
+		: (int) ( $existing_settings['daily_topic_interval_days'] ?? 1 );
 	$rank_math_integration = ( isset( $_POST['rank_math_integration'] ) && 'yes' === $_POST['rank_math_integration'] ) ? 'yes' : 'no';
 	$preferred_external_domain = sanitize_text_field( wp_unslash( $_POST['preferred_external_domain'] ?? '' ) );
 	$preferred_external_urls   = wp_kses_post( wp_unslash( $_POST['preferred_external_urls'] ?? '' ) );
 
+	if ( $default_post_author ) {
+		$user = get_user_by( 'id', $default_post_author );
+		if ( ! $user || ! user_can( $user, 'edit_posts' ) ) {
+			$default_post_author = 0;
+		}
+	}
+
 	$settings = [
 		'time_frame_days'    => $time_frame_days,
+		'post_creation_time' => $post_creation_time,
 		'post_status'        => $post_status,
+		'default_post_author' => $default_post_author,
 		'cta_enabled'        => ( 'yes' === $cta_enabled_raw ? 'yes' : 'no' ),
 		'cta_text'           => $cta_text,
 		'cta_link'           => $cta_link,
 		'notification_email' => $notification_email,
 		'hide_title'         => $hide_title,
 		'auto_daily_topic'   => $auto_daily_topic,
+		'daily_topic_time'   => $daily_topic_time,
+		'daily_topic_interval_days' => max( 1, (int) $daily_topic_interval_days ),
 		'rank_math_integration' => $rank_math_integration,
 		'preferred_external_domain' => $preferred_external_domain,
 		'preferred_external_urls'   => $preferred_external_urls,
@@ -468,7 +766,92 @@ function publion_save_post_settings_callback() {
 
 	update_option( 'publion_post_settings', $settings );
 
-	wp_send_json_success( [ 'message' => 'Instellingen succesvol opgeslagen.' ] );
+	$next_daily_ts = 0;
+	$time_frame_changed = (int) ( $existing_settings['time_frame_days'] ?? 3 ) !== (int) $time_frame_days;
+	$post_time_changed  = ( $existing_settings['post_creation_time'] ?? '00:00' ) !== $post_creation_time;
+	if ( $time_frame_changed || $post_time_changed ) {
+		publion_schedule_pending_entries( true );
+	}
+
+	$daily_time_changed = ( $existing_settings['daily_topic_time'] ?? '00:00' ) !== $daily_topic_time;
+	$daily_interval_changed = (int) ( $existing_settings['daily_topic_interval_days'] ?? 1 ) !== (int) $daily_topic_interval_days;
+	$daily_toggle_changed = ( $existing_settings['auto_daily_topic'] ?? 'no' ) !== $auto_daily_topic;
+	if ( $daily_time_changed || $daily_interval_changed || $daily_toggle_changed ) {
+		$next_daily_ts = publion_reschedule_daily_topic_event( $settings );
+	} else {
+		$next_daily_ts = (int) wp_next_scheduled( 'publion_daily_topic_hook' );
+	}
+
+	$author_changed = (int) ( $existing_settings['default_post_author'] ?? 0 ) !== (int) $default_post_author;
+	if ( $author_changed && $default_post_author ) {
+		publion_update_existing_posts_author( $default_post_author );
+	}
+
+	wp_send_json_success(
+		[
+			'message'          => 'Instellingen succesvol opgeslagen.',
+			'next_daily_topic' => $next_daily_ts ? wp_date( 'M d, Y H:i', $next_daily_ts ) : '',
+		]
+	);
+}
+
+/* ===== Update Queue Schedule ===== */
+add_action( 'wp_ajax_publion_update_schedule', 'publion_update_schedule_callback' );
+function publion_update_schedule_callback() {
+	check_ajax_referer( 'publion_nonce', 'nonce' );
+
+	if ( ! current_user_can( 'manage_options' ) ) {
+		wp_send_json_error( 'Niet geautoriseerd' );
+	}
+
+	$topic_id      = intval( $_POST['id'] ?? 0 );
+	$scheduled_raw = sanitize_text_field( wp_unslash( $_POST['scheduled_at'] ?? '' ) );
+
+	if ( ! $topic_id || empty( $scheduled_raw ) ) {
+		wp_send_json_error( 'Ongeldige planning.' );
+	}
+
+	$tz = wp_timezone();
+	$dt = DateTimeImmutable::createFromFormat( 'Y-m-d\\TH:i', $scheduled_raw, $tz );
+	if ( ! $dt ) {
+		wp_send_json_error( 'Ongeldig datum/tijd-formaat.' );
+	}
+
+	global $wpdb;
+	publion_register_table_on_wpdb();
+
+	$updated = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->publion_queue,
+		array(
+			'scheduled_at'   => $dt->format( 'Y-m-d H:i:s' ),
+			'schedule_locked' => 1,
+		),
+		array( 'id' => $topic_id ),
+		array( '%s', '%d' ),
+		array( '%d' )
+	);
+
+	if ( false === $updated ) {
+		wp_send_json_error( 'Opslaan mislukt.' );
+	}
+
+	publion_invalidate_pending_cache();
+
+	$today_dt     = ( new DateTimeImmutable( 'now', $tz ) )->setTime( 0, 0, 0 );
+	$scheduled_dt = $dt->setTime( 0, 0, 0 );
+	if ( $scheduled_dt < $today_dt ) {
+		$days_until = 0;
+	} else {
+		$days_until = (int) $today_dt->diff( $scheduled_dt )->days;
+	}
+
+	wp_send_json_success(
+		array(
+			'scheduled_input' => $dt->format( 'Y-m-d\\TH:i' ),
+			'scheduled_label' => wp_date( 'M d, Y H:i', $dt->getTimestamp() ),
+			'days_until'      => $days_until,
+		)
+	);
 }
 
 /* ===== Save API Key ===== */
@@ -533,6 +916,8 @@ function publion_load_queue_entries_callback() {
 	global $wpdb;
 	publion_register_table_on_wpdb();
 
+	publion_schedule_pending_entries( false );
+
 	$offset = max( 0, intval( $_POST['offset'] ?? 0 ) );
 	$limit  = max( 1, intval( $_POST['limit'] ?? 10 ) );
 
@@ -544,48 +929,18 @@ function publion_load_queue_entries_callback() {
 		$page_key
 	);
 
-	// Global ordered list of pending IDs for stable position across pages.
-	$ids_key = 'pending_ids';
-	$all_ids = publion_db_get_col_cached(
-		"SELECT id FROM {$wpdb->publion_queue} WHERE status = %s ORDER BY id ASC",
-		array( 'pending' ),
-		$ids_key
-	);
-
 	$row_html = '';
-
-	$settings           = get_option( 'publion_post_settings', [] );
-	$post_creation_days = max( 1, (int) ( $settings['time_frame_days'] ?? 3 ) );
 
 	$tz       = wp_timezone();
 	$now_dt   = new DateTimeImmutable( 'now', $tz );
 	$today_dt = $now_dt->setTime( 0, 0, 0 );
 
-	$last_created_at = get_option( 'publion_last_post_created_at' );
-	$last_created_ts = $last_created_at ? publion_mysql_to_timestamp( $last_created_at ) : false;
-
-	// Determine the first scheduled *date* (midnight) using site timezone.
-	if ( false !== $last_created_ts ) {
-		$last_dt          = ( new DateTimeImmutable( '@' . $last_created_ts ) )->setTimezone( $tz )->setTime( 0, 0, 0 );
-		$candidate_first  = $last_dt->modify( '+' . $post_creation_days . ' days' );
-
-		if ( $candidate_first < $today_dt ) {
-			// Last + frame is in the past → first is today (0 days).
-			$first_scheduled_date = $today_dt;
-		} elseif ( $candidate_first == $today_dt ) {
-			// Last + frame is today → push to today + frame (e.g., shows 1 when frame=1).
-			$first_scheduled_date = $today_dt->modify( '+' . $post_creation_days . ' days' );
-		} else {
-			// Future date already.
-			$first_scheduled_date = $candidate_first;
-		}
-	} else {
-		// No last-created yet → start today.
-		$first_scheduled_date = $today_dt;
-	}
-
 	foreach ( $entries as $entry ) {
 		$row_html .= '<tr>';
+
+		$row_html .= '<td style="text-align:center;">';
+		$row_html .= '<input type="checkbox" class="publion-row-select" data-id="' . esc_attr( $entry->id ) . '">';
+		$row_html .= '</td>';
 
 		// Actions column (create/delete for pending).
 		$row_html .= '<td style="text-align: center; white-space: nowrap; padding: 0;">';
@@ -598,21 +953,28 @@ function publion_load_queue_entries_callback() {
 		$row_html .= '<td>' . stripslashes( esc_html( $entry->topic ) ) . '</td>';
 		$row_html .= '<td style="text-align: center;">' . esc_html( $entry->category_label ) . '</td>';
 
-		// Position within the full pending list.
-		$entry_position = array_search( $entry->id, $all_ids, true );
-		$entry_position = ( false === $entry_position ) ? 0 : (int) $entry_position;
+		$scheduled_ts = $entry->scheduled_at ? publion_mysql_to_timestamp( $entry->scheduled_at ) : 0;
+		$scheduled_dt = $scheduled_ts ? ( new DateTimeImmutable( '@' . $scheduled_ts ) )->setTimezone( $tz ) : null;
 
-		// Schedule date = first_scheduled_date + (position * frame_days).
-		$scheduled_date = $first_scheduled_date->modify( '+' . ( $entry_position * $post_creation_days ) . ' days' );
+		$scheduled_input = $scheduled_ts ? wp_date( 'Y-m-d\\TH:i', $scheduled_ts ) : '';
+		$row_html .= '<td class="publion-schedule-cell" style="text-align: center;">';
+		$row_html .= '<input type="datetime-local" class="publion-schedule-input" value="' . esc_attr( $scheduled_input ) . '">';
+		$row_html .= '<button class="button publion-schedule-save" data-id="' . esc_attr( $entry->id ) . '" style="margin-left:6px;">Opslaan</button>';
+		$row_html .= '<span class="publion-schedule-status" style="margin-left:6px;"></span>';
+		$row_html .= '</td>';
 
-		// Days until = date-only difference in site timezone.
-		$days_until = (int) $today_dt->diff( $scheduled_date )->days;
+		if ( $scheduled_dt ) {
+			$scheduled_date = $scheduled_dt->setTime( 0, 0, 0 );
+			$days_until = ( $scheduled_date < $today_dt ) ? 0 : (int) $today_dt->diff( $scheduled_date )->days;
+		} else {
+			$days_until = 0;
+		}
 
-		$row_html .= '<td style="text-align: center;">' . esc_html( (string) $days_until ) . '</td>';
+		$row_html .= '<td class="publion-days-until" style="text-align: center;">' . esc_html( (string) $days_until ) . '</td>';
 
 		// Created at (display only).
 		$created_ts           = publion_mysql_to_timestamp( $entry->created_at );
-		$formatted_created_at = ( $created_ts ) ? wp_date( 'M d, Y g:ia', $created_ts ) : '';
+		$formatted_created_at = ( $created_ts ) ? wp_date( 'M d, Y H:i', $created_ts ) : '';
 		$row_html .= '<td style="text-align: center;">' . esc_html( $formatted_created_at ) . '</td>';
 
 		$row_html .= '</tr>';
@@ -707,9 +1069,9 @@ function publion_load_created_posts_callback() {
 		$post_created_ts = $entry->post_created_at ? publion_mysql_to_timestamp( $entry->post_created_at ) : 0;
 		$published_ts    = $entry->published_at ? publion_mysql_to_timestamp( $entry->published_at ) : 0;
 
-		$row_html .= '<td style="text-align:center;">' . esc_html( $created_ts ? wp_date( 'M d, Y g:ia', $created_ts ) : '' ) . '</td>';
-		$row_html .= '<td style="text-align:center;">' . esc_html( $post_created_ts ? wp_date( 'M d, Y g:ia', $post_created_ts ) : '-' ) . '</td>';
-		$row_html .= '<td style="text-align:center;">' . ( $published_ts ? esc_html( wp_date( 'M d, Y g:ia', $published_ts ) ) : 'Niet gepubliceerd' ) . '</td>';
+		$row_html .= '<td style="text-align:center;">' . esc_html( $created_ts ? wp_date( 'M d, Y H:i', $created_ts ) : '' ) . '</td>';
+		$row_html .= '<td style="text-align:center;">' . esc_html( $post_created_ts ? wp_date( 'M d, Y H:i', $post_created_ts ) : '-' ) . '</td>';
+		$row_html .= '<td style="text-align:center;">' . ( $published_ts ? esc_html( wp_date( 'M d, Y H:i', $published_ts ) ) : 'Niet gepubliceerd' ) . '</td>';
 
 		$row_html .= '</tr>';
 	}
@@ -764,6 +1126,7 @@ function publion_create_post_now() {
 
 	$settings    = get_option( 'publion_post_settings', [] );
 	$post_status = sanitize_key( $settings['post_status'] ?? 'draft' );
+	$author_id   = publion_get_post_author_id( $settings, 'current' );
 
 	$add_cta  = ( isset( $settings['cta_enabled'] ) && 'yes' === $settings['cta_enabled'] );
 	$cta_text = sanitize_text_field( $settings['cta_text'] ?? '' );
@@ -808,14 +1171,6 @@ function publion_create_post_now() {
 	// Insert 5 images into content.
 	$post_html = publion_insert_images_into_content( $post_html, array_slice( $final_image_urls, 0, 5 ) );
 
-	// Optional CTA (safe quoting).
-	if ( $add_cta && $cta_text && $cta_link ) {
-		$post_html .= '<div style="clear:both; padding-top:20px; margin-top:30px; border-top:1px solid #ccc;">'
-			. '<p>Hulp nodig bij <strong>' . esc_html( $topic->topic ) . '</strong>? '
-			. '<a href="' . esc_url( $cta_link ) . '" target="_blank">' . esc_html( $cta_text ) . '</a></p>'
-			. '</div>';
-	}
-
 	// Create post.
 	$post_id = wp_insert_post(
 		[
@@ -824,6 +1179,7 @@ function publion_create_post_now() {
 			'post_status'   => $post_status,
 			'post_category' => [ (int) $topic->category_id ],
 			'post_type'     => 'post',
+			'post_author'   => $author_id,
 		],
 		true
 	);
@@ -947,5 +1303,6 @@ function publion_delete_topic_callback() {
 		}
 	}
 
+	publion_schedule_pending_entries( true );
 	wp_send_json_success( [ 'message' => 'Onderwerp verwijderd' ] );
 }

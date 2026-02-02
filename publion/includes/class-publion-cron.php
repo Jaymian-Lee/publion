@@ -67,9 +67,23 @@ class Publion_Cron {
 			wp_schedule_event( time(), 'every_15_minutes', 'publion_cron_hook' );
 		}
 
-		if ( ! wp_next_scheduled( 'publion_daily_topic_hook' ) ) {
-			wp_schedule_event( time(), 'daily', 'publion_daily_topic_hook' );
+		$settings = get_option( 'publion_post_settings', array() );
+		if ( ( $settings['auto_daily_topic'] ?? 'no' ) !== 'yes' ) {
+			wp_clear_scheduled_hook( 'publion_daily_topic_hook' );
+			return;
 		}
+
+		if ( ! wp_next_scheduled( 'publion_daily_topic_hook' ) ) {
+			publion_reschedule_daily_topic_event( $settings );
+		}
+	}
+
+	protected function schedule_next_daily_topic( $settings ) {
+		$tz      = wp_timezone();
+		$now     = new DateTimeImmutable( 'now', $tz );
+		$next_ts = publion_calculate_next_daily_topic_timestamp( $now, $settings );
+		wp_clear_scheduled_hook( 'publion_daily_topic_hook' );
+		wp_schedule_single_event( $next_ts, 'publion_daily_topic_hook' );
 	}
 
 	public function maybe_create_daily_topic() {
@@ -80,6 +94,7 @@ class Publion_Cron {
 
 		$api_key = get_option( 'publion_api_key', '' );
 		if ( empty( $api_key ) ) {
+			$this->schedule_next_daily_topic( $settings );
 			return;
 		}
 
@@ -90,6 +105,7 @@ class Publion_Cron {
 			)
 		);
 		if ( empty( $categories ) ) {
+			$this->schedule_next_daily_topic( $settings );
 			return;
 		}
 
@@ -187,10 +203,14 @@ class Publion_Cron {
 				// Invalidate caches affected by this write.
 				wp_cache_delete( 'pending_ids', $this->cache_group );
 				wp_cache_delete( 'pending_total', $this->cache_group );
+				publion_schedule_pending_entries( false );
+				$this->schedule_next_daily_topic( $settings );
 
 				return;
 			}
 		}
+
+		$this->schedule_next_daily_topic( $settings );
 	}
 
 	public function maybe_create_queued_post() {
@@ -203,28 +223,16 @@ class Publion_Cron {
 
 		// Read settings.
 		$settings           = get_option( 'publion_post_settings', array() );
-		$time_frame_days    = (int) ( $settings['time_frame_days'] ?? 3 );
 		$post_status        = $settings['post_status'] ?? 'draft';
 		$add_cta            = ( ( $settings['cta_enabled'] ?? 'no' ) === 'yes' );
 		$cta_text           = $settings['cta_text'] ?? '';
 		$cta_link           = $settings['cta_link'] ?? '';
 		$notification_email = $settings['notification_email'] ?? '';
 		$rank_math_enabled  = ( ( $settings['rank_math_integration'] ?? 'no' ) === 'yes' );
+		$author_id          = publion_get_post_author_id( $settings, 'first' );
 
-		// First-run timing gate (same as before).
-		$last_created_raw = get_option( 'publion_last_post_created_at' );
-		if ( ! $last_created_raw ) {
-			update_option( 'publion_last_post_created_at', current_time( 'mysql' ) );
-			return;
-		}
-
-		$last_time    = strtotime( $last_created_raw );
-		$next_allowed = strtotime( '+' . $time_frame_days . ' days', $last_time );
-		$now_ts       = current_time( 'timestamp' );
-
-		if ( $now_ts < $next_allowed ) {
-			return;
-		}
+		// Ensure schedule exists for pending entries.
+		publion_schedule_pending_entries( false );
 
 		// Normalize stragglers: pending + has post_created_at -> created.
 		// Writes are not cacheable. We invalidate the read cache below.
@@ -242,7 +250,7 @@ class Publion_Cron {
 
 		// Select next pending by lowest ID via cached helper (keeps call site WPCS-clean).
 		$topic = publion_db_get_row_cached_cron(
-			"SELECT * FROM {$wpdb->publion_queue} WHERE status = %s AND post_created_at IS NULL ORDER BY id ASC LIMIT 1",
+			"SELECT * FROM {$wpdb->publion_queue} WHERE status = %s AND post_created_at IS NULL ORDER BY (scheduled_at IS NULL) ASC, scheduled_at ASC, id ASC LIMIT 1",
 			array( 'pending' ),
 			$this->cache_key_next_topic,
 			$this->cache_group,
@@ -250,6 +258,12 @@ class Publion_Cron {
 		);
 
 		if ( ! $topic ) {
+			return;
+		}
+
+		$scheduled_ts = $topic->scheduled_at ? publion_mysql_to_timestamp( $topic->scheduled_at ) : 0;
+		$now_ts       = current_time( 'timestamp' );
+		if ( $scheduled_ts && $now_ts < $scheduled_ts ) {
 			return;
 		}
 
@@ -292,12 +306,6 @@ class Publion_Cron {
 		// Insert images into content (first 5).
 		$post_html = publion_insert_images_into_content( $post_html, array_slice( $final_image_urls, 0, 5 ) );
 
-		// Optional CTA (same behavior).
-		if ( $add_cta && $cta_text && $cta_link ) {
-			$post_html .= "<div style='clear:both; padding-top:20px; margin-top:30px; border-top:1px solid #ccc;'>
-				<p>Hulp nodig bij <strong>" . esc_html( $topic->topic ) . "</strong>? <a href='" . esc_url( $cta_link ) . "' target='_blank'>" . esc_html( $cta_text ) . "</a></p>
-			</div>";
-		}
 
 		// Create post.
 		$post_id = wp_insert_post( array(
@@ -306,6 +314,7 @@ class Publion_Cron {
 			'post_status'   => $post_status,
 			'post_category' => array( $topic->category_id ),
 			'post_type'     => 'post',
+			'post_author'   => $author_id,
 		) );
 		
 		if ( ! is_wp_error( $post_id ) && $post_id ) {

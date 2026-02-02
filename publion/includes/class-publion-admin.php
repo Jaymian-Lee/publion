@@ -22,12 +22,20 @@ class Publion_Admin {
     }
 
     public function enqueue_assets( $hook ) {
-        if ( $hook !== 'posts_page_publion' ) {
+        $is_publion_page = ( $hook === 'posts_page_publion' );
+        if ( ! $is_publion_page ) {
+            $page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
+            $is_publion_page = ( $page === 'publion' );
+        }
+        if ( ! $is_publion_page ) {
             return;
         }
 
-        wp_enqueue_style( 'publion-style', PUBLION_URL . 'assets/admin.css', [], PUBLION_VERSION );
-        wp_enqueue_script( 'publion-script', PUBLION_URL . 'assets/admin.js', [ 'jquery' ], PUBLION_VERSION, true );
+        $css_version = file_exists( PUBLION_PATH . 'assets/admin.css' ) ? filemtime( PUBLION_PATH . 'assets/admin.css' ) : PUBLION_VERSION;
+        $js_version  = file_exists( PUBLION_PATH . 'assets/admin.js' ) ? filemtime( PUBLION_PATH . 'assets/admin.js' ) : PUBLION_VERSION;
+
+        wp_enqueue_style( 'publion-style', PUBLION_URL . 'assets/admin.css', [], $css_version );
+        wp_enqueue_script( 'publion-script', PUBLION_URL . 'assets/admin.js', [ 'jquery' ], $js_version, true );
 
         // Localize a reusable nonce for all AJAX requests that call check_ajax_referer( 'publion_nonce', 'nonce' ).
         wp_localize_script(
@@ -112,6 +120,7 @@ class Publion_Admin {
                             'created_at'     => current_time( 'mysql' ),
                         ]
                     );
+					publion_schedule_pending_entries( false );
 
                     // Redirect to preserve tab and show success.
                     wp_redirect( admin_url( 'admin.php?page=publion&publion_active_tab=publion-queue&topic_added=1' ) );
@@ -133,10 +142,10 @@ class Publion_Admin {
             <?php settings_errors( 'publion_messages' ); ?>
 
             <h2 class="nav-tab-wrapper">
-                <a href="#" class="nav-tab nav-tab-active" data-tab="publion-generate"><?php esc_html_e( 'Onderwerpen genereren & in wachtrij zetten', 'publion' ); ?></a>
-                <a href="#" class="nav-tab" data-tab="publion-queue"><?php esc_html_e( 'Postcreatie', 'publion' ); ?></a>
-                <a href="#" class="nav-tab" data-tab="publion-post-settings"><?php esc_html_e( 'Instellingen voor postcreatie', 'publion' ); ?></a>
-                <a href="#" class="nav-tab" data-tab="publion-settings"><?php esc_html_e( 'OpenAI/ChatGPT instellingen', 'publion' ); ?></a>
+                <a href="javascript:void(0)" class="nav-tab nav-tab-active" data-tab="publion-generate"><?php esc_html_e( 'Onderwerpen genereren & in wachtrij zetten', 'publion' ); ?></a>
+                <a href="javascript:void(0)" class="nav-tab" data-tab="publion-queue"><?php esc_html_e( 'Postcreatie', 'publion' ); ?></a>
+                <a href="javascript:void(0)" class="nav-tab" data-tab="publion-post-settings"><?php esc_html_e( 'Instellingen voor postcreatie', 'publion' ); ?></a>
+                <a href="javascript:void(0)" class="nav-tab" data-tab="publion-settings"><?php esc_html_e( 'OpenAI/ChatGPT instellingen', 'publion' ); ?></a>
             </h2>
 
             <!-- Tab: Generate Topics & Queue Posts -->
@@ -238,12 +247,27 @@ class Publion_Admin {
                   <span class="publion-accordion-arrow">▲</span>
                 </h2>
                 <div class="publion-accordion-body" style="display:block;">
+                    <div class="publion-bulk-actions" style="display:flex; align-items:center; gap:10px; margin:10px 0;">
+                        <label style="display:flex; align-items:center; gap:6px; font-weight:600;">
+                            <input type="checkbox" id="publion-select-all">
+                            <?php esc_html_e( 'Alles selecteren', 'publion' ); ?>
+                        </label>
+                        <select id="publion-bulk-action">
+                            <option value=""><?php esc_html_e( 'Bulkactie kiezen', 'publion' ); ?></option>
+                            <option value="generate"><?php esc_html_e( 'Genereren', 'publion' ); ?></option>
+                            <option value="delete"><?php esc_html_e( 'Verwijderen', 'publion' ); ?></option>
+                        </select>
+                        <button type="button" id="publion-bulk-apply" class="button"><?php esc_html_e( 'Toepassen', 'publion' ); ?></button>
+                        <span id="publion-bulk-status" style="margin-left:6px;"></span>
+                    </div>
                     <table class="widefat striped" id="publion-queue-table">
                         <thead>
                             <tr>
+                                <th style="text-align:center; width:36px;"><?php esc_html_e( 'Selectie', 'publion' ); ?></th>
                                 <th style="text-align: center;"><?php esc_html_e( 'Acties', 'publion' ); ?></th>
                                 <th><?php esc_html_e( 'Onderwerp', 'publion' ); ?></th>
                                 <th style="text-align: center;"><?php esc_html_e( 'Categorie', 'publion' ); ?></th>
+                                <th style="text-align: center;"><?php esc_html_e( 'Gepland op', 'publion' ); ?></th>
                                 <th style="text-align: center;"><?php esc_html_e( 'Dagen tot aanmaak', 'publion' ); ?></th>
                                 <th style="text-align: center;"><?php esc_html_e( 'Onderwerp aangemaakt op', 'publion' ); ?></th>
                             </tr>
@@ -283,6 +307,14 @@ class Publion_Admin {
             <?php
             $settings    = get_option( 'publion_post_settings', [] );
             $cta_enabled = $settings['cta_enabled'] ?? 'no';
+            $author_id   = isset( $settings['default_post_author'] ) ? (int) $settings['default_post_author'] : 0;
+            $author_users = get_users(
+                [
+                    'orderby' => 'display_name',
+                    'order'   => 'ASC',
+                    'fields'  => [ 'ID', 'display_name', 'user_login' ],
+                ]
+            );
             ?>
             <div id="publion-post-settings" class="publion-tab-content" style="display:none;">
                 <form id="publion-post-settings-form">
@@ -294,6 +326,17 @@ class Publion_Admin {
                             <td>
                                 <input type="number" id="publion_time_frame_days" name="time_frame_days" style="width:60px;" min="1"
                                     value="<?php echo esc_attr( $settings['time_frame_days'] ?? 3 ); ?>" />
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th><label for="publion_post_creation_time"><?php esc_html_e( 'Standaardtijd voor postcreatie', 'publion' ); ?></label></th>
+                            <td>
+                                <input type="time" id="publion_post_creation_time" name="post_creation_time"
+                                    value="<?php echo esc_attr( $settings['post_creation_time'] ?? '00:00' ); ?>" />
+                                <p class="description" style="margin-top:6px; max-width: 600px;">
+                                    <?php esc_html_e( 'Wordt gebruikt om de standaardplanning te bepalen (bijv. 00:00).', 'publion' ); ?>
+                                </p>
                             </td>
                         </tr>
 
@@ -312,6 +355,27 @@ class Publion_Admin {
                         </tr>
 
                         <tr>
+                            <th><label for="publion_default_post_author"><?php esc_html_e( 'Standaard auteur voor posts', 'publion' ); ?></label></th>
+                            <td>
+                                <select id="publion_default_post_author" name="default_post_author">
+                                    <option value="0"><?php esc_html_e( 'Geen voorkeur (gebruik uitvoerende gebruiker)', 'publion' ); ?></option>
+                                    <?php
+                                    foreach ( $author_users as $user ) {
+                                        if ( empty( $user->ID ) || ! user_can( (int) $user->ID, 'edit_posts' ) ) {
+                                            continue;
+                                        }
+                                        $label = $user->display_name . ' (' . $user->user_login . ')';
+                                        echo '<option value="' . esc_attr( $user->ID ) . '" ' . selected( $author_id, $user->ID, false ) . '>' . esc_html( $label ) . '</option>';
+                                    }
+                                    ?>
+                                </select>
+                                <p class="description" style="margin-top:6px; max-width: 600px;">
+                                    <?php esc_html_e( 'Wordt gebruikt voor automatisch aangemaakte posts.', 'publion' ); ?>
+                                </p>
+                            </td>
+                        </tr>
+
+                        <tr>
                             <th scope="row"><?php esc_html_e( 'Posttitel verbergen', 'publion' ); ?></th>
                             <td>
                                 <label>
@@ -322,12 +386,36 @@ class Publion_Admin {
                         </tr>
 
                         <tr>
-                            <th scope="row"><?php esc_html_e( 'Dagelijks automatisch onderwerp toevoegen', 'publion' ); ?></th>
+                            <th scope="row"><?php esc_html_e( 'Automatisch onderwerp toevoegen', 'publion' ); ?></th>
                             <td>
                                 <label>
                                     <input type="checkbox" name="auto_daily_topic" id="publion_auto_daily_topic" value="yes" <?php checked( $settings['auto_daily_topic'] ?? '', 'yes' ); ?> />
-                                    <?php esc_html_e( 'Voeg elke dag automatisch een nieuw onderwerp toe (willekeurige categorie)', 'publion' ); ?>
+                                    <?php esc_html_e( 'Voeg automatisch een nieuw onderwerp toe (willekeurige categorie)', 'publion' ); ?>
                                 </label>
+                                <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:14px; align-items:center;">
+                                    <label for="publion_daily_topic_time">
+                                        <?php esc_html_e( 'Tijdstip:', 'publion' ); ?>
+                                        <input type="time" id="publion_daily_topic_time" name="daily_topic_time"
+                                            value="<?php echo esc_attr( $settings['daily_topic_time'] ?? '00:00' ); ?>" style="margin-left:6px;" />
+                                    </label>
+                                    <label for="publion_daily_topic_interval_days">
+                                        <?php esc_html_e( 'Elke', 'publion' ); ?>
+                                        <input type="number" id="publion_daily_topic_interval_days" name="daily_topic_interval_days" min="1"
+                                            value="<?php echo esc_attr( $settings['daily_topic_interval_days'] ?? 1 ); ?>" style="width:60px; margin:0 6px;" />
+                                        <?php esc_html_e( 'dagen', 'publion' ); ?>
+                                    </label>
+                                </div>
+                                <p class="description" style="margin-top:6px;">
+                                    <?php
+                                    $next_daily_ts = (int) wp_next_scheduled( 'publion_daily_topic_hook' );
+                                    if ( ! $next_daily_ts && ( $settings['auto_daily_topic'] ?? 'no' ) === 'yes' ) {
+                                        $next_daily_ts = publion_calculate_initial_daily_topic_timestamp( $settings );
+                                    }
+                                    $next_daily_label = $next_daily_ts ? wp_date( 'M d, Y H:i', $next_daily_ts ) : __( 'Niet gepland', 'publion' );
+                                    ?>
+                                    <?php esc_html_e( 'Volgende onderwerp generatie:', 'publion' ); ?>
+                                    <span id="publion-next-daily-topic"><?php echo esc_html( $next_daily_label ); ?></span>
+                                </p>
                             </td>
                         </tr>
 
@@ -335,7 +423,7 @@ class Publion_Admin {
                             <th scope="row"><?php esc_html_e( 'Voorkeurswebsite voor externe links', 'publion' ); ?></th>
                             <td>
                                 <input type="text" id="publion_preferred_external_domain" name="preferred_external_domain" style="width:320px;"
-                                       value="<?php echo esc_attr( $settings['preferred_external_domain'] ?? '' ); ?>" placeholder="<?php esc_attr_e( 'Bijv. martinkozijn.nl', 'publion' ); ?>" />
+                                       value="<?php echo esc_attr( $settings['preferred_external_domain'] ?? '' ); ?>" placeholder="<?php esc_attr_e( 'Bijv. refacthor.nl', 'publion' ); ?>" />
                                 <p class="description" style="margin-top:6px; max-width: 600px;">
                                     <?php esc_html_e( 'Deze website wordt altijd minimaal 1x gelinkt in elke post (prioriteit).', 'publion' ); ?>
                                 </p>

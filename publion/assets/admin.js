@@ -200,6 +200,7 @@ jQuery(document).ready(function ($) {
         $('#publion-post-settings-form').trigger('submit');
     });
 
+
     // AJAX save post settings
     $('#publion-post-settings-form').on('submit', function (e) {
         e.preventDefault();
@@ -213,13 +214,17 @@ jQuery(document).ready(function ($) {
 		    action: 'publion_save_post_settings',
 		    nonce: Publion.nonce,
 		    time_frame_days: $('#publion_time_frame_days').val(),
+		    post_creation_time: $('#publion_post_creation_time').val(),
 		    post_status: $('#publion_post_status').val(),
+		    default_post_author: $('#publion_default_post_author').val(),
 		    cta_enabled: $('#publion_cta_enabled').val(),
 		    cta_text: $('#publion_cta_text').val(),
 		    cta_link: $('#publion_cta_link').val(),
 		    notification_email: $('#publion_notification_email').val(),
 		    hide_title: $('#publion_hide_title').is(':checked') ? 'yes' : 'no',
 		    auto_daily_topic: $('#publion_auto_daily_topic').is(':checked') ? 'yes' : 'no',
+		    daily_topic_time: $('#publion_daily_topic_time').val(),
+		    daily_topic_interval_days: $('#publion_daily_topic_interval_days').val(),
 		    preferred_external_domain: $('#publion_preferred_external_domain').val(),
 		    preferred_external_urls: $('#publion_preferred_external_urls').val(),
 		    rank_math_integration: $('#publion_rank_math_integration').is(':checked') ? 'yes' : 'no'
@@ -228,6 +233,10 @@ jQuery(document).ready(function ($) {
         $.post(Publion.ajax_url, data, function (response) {
             if (response.success) {
                 $status.html('<span style="color:green;">✅ Opgeslagen!</span>');
+                if (response.data && response.data.next_daily_topic !== undefined) {
+                    const nextLabel = response.data.next_daily_topic || 'Niet gepland';
+                    $('#publion-next-daily-topic').text(nextLabel);
+                }
             } else {
                 $status.html('<span style="color:red;">❌ Opslaan mislukt.</span>');
             }
@@ -457,6 +466,159 @@ jQuery(document).ready(function ($) {
 	        }
 	    });
 	});
+
+    function getSelectedQueueIds() {
+        const ids = [];
+        $('#publion-queue-table tbody .publion-row-select:checked').each(function () {
+            const id = parseInt($(this).data('id'), 10);
+            if (id) ids.push(id);
+        });
+        return ids;
+    }
+
+    function setBulkStatus(html) {
+        $('#publion-bulk-status').html(html);
+    }
+
+    function processBulkGenerate(ids, index) {
+        if (!ids.length) {
+            setBulkStatus('<span style="color:red;">❌ Geen items geselecteerd.</span>');
+            return;
+        }
+
+        if (index >= ids.length) {
+            setBulkStatus('<span style="color:green;">✅ Klaar! Herladen...</span>');
+            localStorage.setItem('publion_active_tab', 'publion-queue');
+            location.reload();
+            return;
+        }
+
+        const id = ids[index];
+        setBulkStatus('<span class="spinner is-active" style="float:none;display:inline-block;"></span> ' + (index + 1) + '/' + ids.length);
+
+        $.post(Publion.ajax_url, {
+            action: 'publion_create_post_now',
+            nonce: Publion.nonce,
+            id: id
+        }, function (res) {
+            if (res && res.success) {
+                processBulkGenerate(ids, index + 1);
+            } else {
+                setBulkStatus('<span style="color:red;">❌ Mislukt bij item ' + (index + 1) + '.</span>');
+            }
+        }).fail(function () {
+            setBulkStatus('<span style="color:red;">❌ AJAX error bij item ' + (index + 1) + '.</span>');
+        });
+    }
+
+    function processBulkDelete(ids) {
+        if (!ids.length) {
+            setBulkStatus('<span style="color:red;">❌ Geen items geselecteerd.</span>');
+            return;
+        }
+
+        setBulkStatus('<span class="spinner is-active" style="float:none;display:inline-block;"></span>');
+        let completed = 0;
+        let failed = 0;
+
+        ids.forEach(function (id) {
+            $.post(Publion.ajax_url, {
+                action: 'publion_delete_topic',
+                nonce: Publion.nonce,
+                id: id
+            }, function (res) {
+                if (res && res.success) {
+                    $('#publion-queue-table tbody .publion-row-select[data-id="' + id + '"]').closest('tr').fadeOut(200, function () {
+                        $(this).remove();
+                    });
+                } else {
+                    failed++;
+                }
+            }).fail(function () {
+                failed++;
+            }).always(function () {
+                completed++;
+                if (completed >= ids.length) {
+                    if (failed) {
+                        setBulkStatus('<span style="color:red;">❌ ' + failed + ' mislukt.</span>');
+                    } else {
+                        setBulkStatus('<span style="color:green;">✅ Verwijderd.</span>');
+                    }
+                }
+            });
+        });
+    }
+
+    $(document).on('change', '#publion-select-all', function () {
+        const checked = $(this).is(':checked');
+        $('#publion-queue-table tbody .publion-row-select').prop('checked', checked);
+    });
+
+    $(document).on('change', '#publion-queue-table tbody .publion-row-select', function () {
+        const total = $('#publion-queue-table tbody .publion-row-select').length;
+        const checked = $('#publion-queue-table tbody .publion-row-select:checked').length;
+        $('#publion-select-all').prop('checked', total && total === checked);
+    });
+
+    $(document).on('click', '#publion-bulk-apply', function () {
+        const action = $('#publion-bulk-action').val();
+        const ids = getSelectedQueueIds();
+
+        if (!action) {
+            setBulkStatus('<span style="color:red;">❌ Kies een bulkactie.</span>');
+            return;
+        }
+
+        if (action === 'generate') {
+            if (!confirm('Weet je zeker dat je alle geselecteerde posts wilt genereren?')) return;
+            processBulkGenerate(ids, 0);
+        } else if (action === 'delete') {
+            if (!confirm('Weet je zeker dat je alle geselecteerde items wilt verwijderen?')) return;
+            processBulkDelete(ids);
+        }
+    });
+
+    // Update schedule for a queued post
+    $(document).on('click', '.publion-schedule-save', function () {
+        const $button = $(this);
+        const $cell = $button.closest('td');
+        const $row = $button.closest('tr');
+        const id = $button.data('id');
+        const $input = $cell.find('.publion-schedule-input');
+        const value = $input.val();
+        const $status = $cell.find('.publion-schedule-status');
+
+        if (!id || !value) {
+            $status.html('<span style="color:red;">❌ Ongeldige datum/tijd.</span>');
+            return;
+        }
+
+        $button.prop('disabled', true);
+        $status.html('<span class="spinner is-active" style="float:none;display:inline-block;"></span>');
+
+        $.post(Publion.ajax_url, {
+            action: 'publion_update_schedule',
+            nonce: Publion.nonce,
+            id: id,
+            scheduled_at: value
+        }, function (response) {
+            if (response.success) {
+                $status.html('<span style="color:green;">✅ Opgeslagen</span>');
+                if (response.data && response.data.scheduled_input) {
+                    $input.val(response.data.scheduled_input);
+                }
+                if (response.data && response.data.days_until !== undefined) {
+                    $row.find('.publion-days-until').text(response.data.days_until);
+                }
+            } else {
+                $status.html('<span style="color:red;">❌ Opslaan mislukt.</span>');
+            }
+        }).fail(function () {
+            $status.html('<span style="color:red;">❌ AJAX error.</span>');
+        }).always(function () {
+            $button.prop('disabled', false);
+        });
+    });
 	
 	// Remove orphaned topic from "Created Posts" when post is not found, then reload into Post Creation tab
 	$(document).on('click', '.publion-remove-notfound', function () {
