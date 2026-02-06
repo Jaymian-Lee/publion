@@ -93,6 +93,11 @@ class Publion_Admin {
         $warning_display  = empty( $openai_api_key ) ? 'display:inline-block;' : 'display:none;';
         $default_prompt   = "Je bent een expert in het schrijven van blogs en maakt hoogwaardige, SEO-geoptimaliseerde content voor [JOUW BEDRIJFSNAAM (INDIEN VAN TOEPASSING) EN WEBSITE-URL], [WAT JOUW BEDRIJF/WEBSITE BIEDT]. Het doel is [JOUW BEDRIJFS/WEBSITE-DOELEN]. Stem de toon af op het merk: [DE TOON DIE JE WILT UITSTRALEN - voorbeeld: professioneel maar benaderbaar, deskundig maar eenvoudig uit te leggen]. Elk onderwerp moet de missie van [JOUW BEDRIJFS/WEBSITE-NAAM] weerspiegelen om [BEDRIJVEN of MENSEN] te helpen met [HOE JE BEDRIJVEN of MENSEN HELPT].\n\n(Vervang deze prompt door je eigen tekst om je doelen beter te weerspiegelen.)";
         $openai_prompt    = get_option( 'publion_prompt', $default_prompt );
+        $topic_suggestions_prompt = get_option( 'publion_topic_suggestions_prompt', '' );
+        $default_post_prompt = function_exists( 'publion_get_default_post_prompt_template' )
+            ? publion_get_default_post_prompt_template()
+            : '';
+        $openai_post_prompt = get_option( 'publion_post_prompt', $default_post_prompt );
 
         // --- Handle manual topic form submission (with nonce verification) ---
         if (
@@ -425,7 +430,7 @@ class Publion_Admin {
                                 <input type="text" id="publion_preferred_external_domain" name="preferred_external_domain" style="width:320px;"
                                        value="<?php echo esc_attr( $settings['preferred_external_domain'] ?? '' ); ?>" placeholder="<?php esc_attr_e( 'Bijv. refacthor.nl', 'publion' ); ?>" />
                                 <p class="description" style="margin-top:6px; max-width: 600px;">
-                                    <?php esc_html_e( 'Deze website wordt altijd minimaal 1x gelinkt in elke post (prioriteit).', 'publion' ); ?>
+                                    <?php esc_html_e( 'Als er een externe bron nodig is, krijgt deze website prioriteit.', 'publion' ); ?>
                                 </p>
                             </td>
                         </tr>
@@ -435,8 +440,51 @@ class Publion_Admin {
                             <td>
                                 <textarea id="publion_preferred_external_urls" name="preferred_external_urls" rows="4" style="width:100%; max-width:600px;"><?php echo esc_textarea( $settings['preferred_external_urls'] ?? '' ); ?></textarea>
                                 <p class="description" style="margin-top:6px; max-width: 600px;">
-                                    <?php esc_html_e( 'Zet elke URL op een nieuwe regel. AI gebruikt deze pagina\'s als voorkeur.', 'publion' ); ?>
+                                    <?php esc_html_e( 'Zet elke URL op een nieuwe regel. Alleen gebruiken als er echt een externe bron nodig is.', 'publion' ); ?>
                                 </p>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'Pillar per categorie', 'publion' ); ?></th>
+                            <td>
+                                <?php
+                                $pillar_links = is_array( $settings['pillar_links'] ?? null ) ? $settings['pillar_links'] : [];
+                                $all_categories = get_categories( [ 'hide_empty' => false ] );
+                                if ( ! empty( $all_categories ) ) :
+                                ?>
+                                    <table class="widefat striped" style="max-width:700px;">
+                                        <thead>
+                                            <tr>
+                                                <th><?php esc_html_e( 'Categorie', 'publion' ); ?></th>
+                                                <th><?php esc_html_e( 'Pillar URL of Post ID', 'publion' ); ?></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ( $all_categories as $cat ) : ?>
+                                                <tr>
+                                                    <td><?php echo esc_html( $cat->name ); ?></td>
+                                                    <td>
+                                                        <input
+                                                            type="text"
+                                                            class="publion-pillar-link-input"
+                                                            data-category-id="<?php echo esc_attr( $cat->term_id ); ?>"
+                                                            name="pillar_links[<?php echo esc_attr( $cat->term_id ); ?>]"
+                                                            style="width:100%;"
+                                                            value="<?php echo esc_attr( $pillar_links[ $cat->term_id ] ?? '' ); ?>"
+                                                            placeholder="<?php esc_attr_e( 'https://... of 123', 'publion' ); ?>"
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                    <p class="description" style="margin-top:6px; max-width: 700px;">
+                                        <?php esc_html_e( 'Wordt gebruikt in de "Verder lezen" sectie. Laat leeg om alleen recente posts te tonen.', 'publion' ); ?>
+                                    </p>
+                                <?php else : ?>
+                                    <p class="description"><?php esc_html_e( 'Geen categorieen gevonden.', 'publion' ); ?></p>
+                                <?php endif; ?>
                             </td>
                         </tr>
 
@@ -446,6 +494,16 @@ class Publion_Admin {
                                 <label>
                                     <input type="checkbox" name="rank_math_integration" id="publion_rank_math_integration" value="yes" <?php checked( $settings['rank_math_integration'] ?? '', 'yes' ); ?> />
                                     <?php esc_html_e( 'Voeg automatisch focus keyword en meta description toe via Rank Math', 'publion' ); ?>
+                                </label>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'Last updated footer', 'publion' ); ?></th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="last_updated_enabled" id="publion_last_updated_enabled" value="yes" <?php checked( $settings['last_updated_enabled'] ?? '', 'yes' ); ?> />
+                                    <?php esc_html_e( 'Voeg "Laatst bijgewerkt" toe onderaan de content', 'publion' ); ?>
                                 </label>
                             </td>
                         </tr>
@@ -555,12 +613,12 @@ class Publion_Admin {
                 </div>
 
                 <h3 style="margin-bottom:4px; font-size:1.09em; margin-top:20px;">
-                    <?php esc_html_e( 'ChatGPT-voorprompt', 'publion' ); ?>
+                    <?php esc_html_e( 'Topic-voorprompt', 'publion' ); ?>
                     <?php if ( $openai_prompt === $default_prompt ) echo '(Standaard)'; ?>
                 </h3>
                 <p style="margin-top:0;">
                     <?php
-                    esc_html_e( 'Deze prompt helpt ChatGPT bij het genereren van onderwerp-ideeën en volledige postinhoud.', 'publion' );
+                    esc_html_e( 'Deze prompt helpt ChatGPT bij het genereren van onderwerp-ideeën.', 'publion' );
                     echo '<br>';
                     esc_html_e( 'Gebruik dit om het doel van je website of bedrijf te bepalen, plus tone-of-voice, doelgroep en merkpersoonlijkheid.', 'publion' );
                     echo '<br>';
@@ -580,6 +638,41 @@ class Publion_Admin {
                         <button type="submit" name="publion_reset_prompt" class="button"><?php esc_html_e( 'Terugzetten naar standaard', 'publion' ); ?></button>
                     </form>
                 <?php endif; ?>
+
+                <h3 style="margin-bottom:4px; font-size:1.09em; margin-top:24px;">
+                    <?php esc_html_e( 'Onderwerpvoorstellen prompt', 'publion' ); ?>
+                </h3>
+                <p style="margin-top:0;">
+                    <?php
+                    esc_html_e( 'Gebruik dit om structuur of voorkeuren voor AI-onderwerpvoorstellen te sturen.', 'publion' );
+                    echo '<br>';
+                    esc_html_e( 'Bijv: "Gebruik altijd formaat: Probleem + Oplossing" of "Zet lokale plaatsnaam in elk onderwerp".', 'publion' );
+                    ?>
+                </p>
+
+                <div style="width:600px; display:inline-block;">
+                    <textarea name="publion_topic_suggestions_prompt" id="publion_topic_suggestions_prompt" style="width:100%;height:160px;"><?php echo esc_textarea( stripslashes( $topic_suggestions_prompt ) ); ?></textarea>
+                    <button type="button" id="publion-save-topic-prompt" class="button" style="margin-top:8px;"><?php esc_html_e( 'Onderwerp prompt opslaan', 'publion' ); ?></button>
+                    <span id="publion-topic-prompt-status" class="publion-save-status" style="position:relative; top:8px;"></span>
+                </div>
+
+                <h3 style="margin-bottom:4px; font-size:1.09em; margin-top:24px;">
+                    <?php esc_html_e( 'Post Prompt Template', 'publion' ); ?>
+                    <?php if ( $openai_post_prompt === $default_post_prompt ) echo '(Standaard)'; ?>
+                </h3>
+                <p style="margin-top:0;">
+                    <?php
+                    esc_html_e( 'Deze template bepaalt de structuur en SEO-output van volledige posts.', 'publion' );
+                    echo '<br>';
+                    esc_html_e( 'Gebruik {{topic}} en {{category}} als placeholders. Het SEO-blok bovenaan is verplicht.', 'publion' );
+                    ?>
+                </p>
+
+                <div style="width:600px; display:inline-block;">
+                    <textarea name="publion_post_prompt" id="publion_post_prompt" style="width:100%;height:365px;"><?php echo esc_textarea( stripslashes( $openai_post_prompt ) ); ?></textarea>
+                    <button type="button" id="publion-save-post-prompt" class="button button-primary" style="margin-top:8px;"><?php esc_html_e( 'Post prompt opslaan', 'publion' ); ?></button>
+                    <span id="publion-post-prompt-status" class="publion-save-status" style="position:relative; top:8px;"></span>
+                </div>
             </div>
 
             <p style="margin-top: 40px; font-size: 12px; color: #666;">

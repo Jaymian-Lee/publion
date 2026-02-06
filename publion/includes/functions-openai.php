@@ -38,6 +38,74 @@ function publion_get_preferred_external_urls() {
     return $urls;
 }
 
+function publion_get_default_post_prompt_template() {
+    return "Je bent een ervaren content- en SEO-schrijver. Schrijf een behulpzame, scanbare blogpost in HTML-formaat.\n\n"
+        . "Onderwerp: \"{{topic}}\"\n"
+        . "Categorie: \"{{category}}\"\n\n"
+        . "Belangrijk:\n"
+        . "- Geef geen <!DOCTYPE html>, <head>, <body>, <header>, <footer> of <meta> tags.\n"
+        . "- Gebruik geen <h1>. Begin met <h2> en daarna <h3> waar logisch.\n"
+        . "- Start altijd met een exact parseerbaar SEO/SERP blok in een HTML comment:\n"
+        . "<!--\n"
+        . "SEO_TITLE: ...\n"
+        . "META_DESCRIPTION: ... (max 155 tekens)\n"
+        . "SLUG: ...\n"
+        . "PRIMARY_KEYWORD: ...\n"
+        . "LONGTAIL_KEYWORDS: ... | ... | ...\n"
+        . "INTENT: ...\n"
+        . "NOT_ABOUT: ...\n"
+        . "INTERNAL_LINKS:\n"
+        . "- ...\n"
+        . "- ...\n"
+        . "- ...\n"
+        . "-->\n"
+        . "Daarna volgt direct de HTML-content.\n\n"
+        . "Structuur:\n"
+        . "- Korte inleiding.\n"
+        . "- Meerdere secties met <h2> en <h3>.\n"
+        . "- Gebruik bullets waar passend.\n"
+        . "- Voeg 1 tabel toe met kolommen: Symptoom, Oorzaak, Actie.\n"
+        . "- Sluit af met een korte, praktische conclusie.\n\n"
+        . "Externe bronnen:\n"
+        . "- Maximaal 1 externe link, alleen als echt relevant.\n"
+        . "- Link in HTML met rel=\"noopener noreferrer\" en target=\"_blank\".\n"
+        . "{{preferred_note}}\n\n"
+        . "Geen Markdown en geen extra uitleg. Alleen het SEO-blok + HTML.";
+}
+
+function publion_get_post_prompt_template() {
+    $template = (string) get_option( 'publion_post_prompt', '' );
+    $template = trim( $template );
+    if ( '' === $template ) {
+        $template = publion_get_default_post_prompt_template();
+    }
+    return $template;
+}
+
+function publion_build_post_prompt( $topic, $category_name ) {
+    $template = publion_get_post_prompt_template();
+    $preferred_domain = publion_get_preferred_external_domain();
+    $preferred_urls = publion_get_preferred_external_urls();
+
+    $preferred_note = '';
+    if ( ! empty( $preferred_domain ) ) {
+        $preferred_note = "Als je (max 1) externe bron toevoegt, geef dan voorkeur aan \"" . $preferred_domain . "\".";
+        if ( ! empty( $preferred_urls ) ) {
+            $preferred_note .= " Gebruik bij voorkeur deze URL's:\n- " . implode( "\n- ", $preferred_urls );
+        }
+    }
+
+    $replacements = [
+        '{{topic}}' => $topic,
+        '{{category}}' => $category_name,
+        '{{site_name}}' => get_bloginfo( 'name' ),
+        '{{site_url}}' => home_url(),
+        '{{preferred_note}}' => $preferred_note,
+    ];
+
+    return strtr( $template, $replacements );
+}
+
 function publion_normalize_domain( $domain ) {
     $domain = trim( (string) $domain );
     if ( '' === $domain ) {
@@ -50,92 +118,164 @@ function publion_normalize_domain( $domain ) {
     return $host ? strtolower( $host ) : '';
 }
 
+function publion_parse_ai_output( $raw_output ) {
+    $raw_output = trim( (string) $raw_output );
+    $defaults = [
+        'seo_title' => '',
+        'meta_description' => '',
+        'slug' => '',
+        'primary_keyword' => '',
+        'longtails' => [],
+        'intent' => '',
+        'not_about' => '',
+        'internal_links' => [],
+    ];
+
+    $seo = $defaults;
+    $block = '';
+
+    if ( preg_match( '/<!--\\s*(.*?)\\s*-->/s', $raw_output, $match ) ) {
+        $block_text = $match[1];
+        if ( stripos( $block_text, 'SEO_TITLE:' ) !== false ) {
+            $block = $match[0];
+            $lines = preg_split( '/\\r\\n|\\n|\\r/', trim( $block_text ) );
+            $in_links = false;
+            foreach ( $lines as $line ) {
+                $line = trim( $line );
+                if ( '' === $line ) {
+                    continue;
+                }
+                if ( 0 === stripos( $line, 'INTERNAL_LINKS:' ) ) {
+                    $in_links = true;
+                    continue;
+                }
+                if ( $in_links && preg_match( '/^-\\s*(.+)$/', $line, $m ) ) {
+                    $seo['internal_links'][] = trim( $m[1] );
+                    continue;
+                }
+                if ( preg_match( '/^([A-Z_]+)\\s*:\\s*(.*)$/', $line, $m ) ) {
+                    $key = strtoupper( trim( $m[1] ) );
+                    $value = trim( $m[2] );
+                    switch ( $key ) {
+                        case 'SEO_TITLE':
+                            $seo['seo_title'] = $value;
+                            break;
+                        case 'META_DESCRIPTION':
+                            $seo['meta_description'] = $value;
+                            break;
+                        case 'SLUG':
+                            $seo['slug'] = sanitize_title( $value );
+                            break;
+                        case 'PRIMARY_KEYWORD':
+                            $seo['primary_keyword'] = $value;
+                            break;
+                        case 'LONGTAIL_KEYWORDS':
+                            $parts = preg_split( '/\\s*\\|\\s*/', $value );
+                            $parts = array_filter( array_map( 'trim', $parts ) );
+                            $seo['longtails'] = array_values( $parts );
+                            break;
+                        case 'INTENT':
+                            $seo['intent'] = $value;
+                            break;
+                        case 'NOT_ABOUT':
+                            $seo['not_about'] = $value;
+                            break;
+                    }
+                }
+            }
+        }
+    }
+
+    $html_body = $raw_output;
+    if ( $block ) {
+        $html_body = trim( str_replace( $block, '', $raw_output ) );
+    }
+
+    return [
+        'seo' => $seo,
+        'html_body' => $html_body,
+        'raw' => $raw_output,
+        'has_seo_block' => ( '' !== $block ),
+    ];
+}
+
+function publion_generate_meta_description( $html, $primary_keyword = '', $topic = '' ) {
+    $text = wp_strip_all_tags( (string) $html );
+    $text = preg_replace( '/\s+/', ' ', $text );
+    $text = trim( $text );
+    if ( '' === $text ) {
+        $text = trim( (string) $topic );
+    }
+
+    $desc = $text;
+    if ( mb_strlen( $desc ) > 155 ) {
+        $desc = mb_substr( $desc, 0, 155 );
+    }
+    $desc = trim( rtrim( $desc, ' .,-' ) );
+
+    $keyword = trim( (string) $primary_keyword );
+    if ( $keyword !== '' && stripos( $desc, $keyword ) === false ) {
+        $suffix = ' ' . $keyword;
+        if ( mb_strlen( $desc ) + mb_strlen( $suffix ) > 155 ) {
+            $desc = mb_substr( $desc, 0, 155 - mb_strlen( $suffix ) );
+            $desc = trim( rtrim( $desc, ' .,-' ) );
+        }
+        $desc .= $suffix;
+    }
+
+    return $desc;
+}
+
 function publion_generate_chatgpt_html($topic, $category_name) {
     $api_key = get_option('publion_api_key', false);
     if (!$api_key) {
         $api_key = maybe_unserialize(get_option('publion_api_key'));
     }
-
-    $model = publion_get_openai_model();
-    $target_word_count = 1400;
-    $max_iterations = 5;
-
-    $html_output = '';
-    $word_count = 0;
-    $iteration = 0;
-
-    $preferred_domain = publion_get_preferred_external_domain();
-    $preferred_urls = publion_get_preferred_external_urls();
-    $preferred_note = '';
-    if ( ! empty( $preferred_domain ) ) {
-        $preferred_note = "\n\nGebruik in de externe links minimaal 1 link naar \"" . $preferred_domain . "\". Deze heeft prioriteit.";
-        if ( ! empty( $preferred_urls ) ) {
-            $preferred_note .= " Gebruik bij voorkeur deze URL's:\n- " . implode( "\n- ", $preferred_urls );
-        }
-        $preferred_note .= "\nAls je andere externe links toevoegt, kies dan alleen relevante, niet-concurrerende, betrouwbare bronnen.";
+    if ( empty( $api_key ) ) {
+        return new WP_Error( 'publion_missing_api_key', 'OpenAI API-sleutel ontbreekt.' );
     }
 
-    $base_prompt = "Schrijf een lange, hoogwaardige, SEO-geoptimaliseerde blogpost in HTML-formaat over het onderwerp: \"$topic\" binnen de categorie \"$category_name\". Voeg geen paginamarkup toe zoals <!DOCTYPE html>, <head>, <body>, <header>, <footer> of <meta>. Maak de eerste kop in de post een <h2> en geen <h1>. Deze HTML wordt geplaatst in de content van een pagina die dit al bevat.
-
-De post moet minimaal 1500 woorden bevatten (geen tekens) en een passende HTML-structuur gebruiken met <p>, <h2>, <h3>, etc.
-
-Vat niets samen en sla geen onderdelen over. Ga diep in op subonderwerpen, geef voorbeelden en behandel alle aspecten. Voeg een inleiding, meerdere gedetailleerde secties en een conclusie toe.
-
-Verwerk 4-5 kernzinnen als dofollow-links naar hoogwaardige, niet-concurrerende informatieve websites (gebruik <a href=\\\"...\\\" target=\\\"_blank\\\" rel=\\\"dofollow\\\">ankertekst</a>), maar vermeld niet dat het links zijn. Zorg dat deze links verspreid door de content voorkomen. Dit is erg belangrijk!
-$preferred_note
-
-Geef alleen de HTML-content terug. Geen uitleg, notities of markdown.";
+    $model = publion_get_openai_model();
+    $base_prompt = publion_build_post_prompt( $topic, $category_name );
 
     $messages = [
-        ['role' => 'system', 'content' => 'Je bent een behulpzame AI-blogschrijver. Geef alleen HTML terug.'],
+        ['role' => 'system', 'content' => 'Je bent een behulpzame AI-blogschrijver. Geef alleen het SEO-blok en daarna HTML terug.'],
         ['role' => 'user', 'content' => $base_prompt]
     ];
 
-    while ($word_count < $target_word_count && $iteration < $max_iterations) {
-        $response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
-            'headers' => [
-                'Content-Type'  => 'application/json',
-                'Authorization' => 'Bearer ' . $api_key,
-            ],
-            'body' => json_encode([
-                'model'       => $model,
-                'messages'    => $messages,
-                'temperature' => 0.7,
-                'max_tokens'  => 2048
-            ]),
-            'timeout' => 60
-        ]);
-
-        $body = json_decode(wp_remote_retrieve_body($response), true);
-        $new_html = $body['choices'][0]['message']['content'] ?? '';
-
-        if (!$new_html) break;
-
-        $html_output .= $new_html;
-        $word_count = str_word_count(wp_strip_all_tags($html_output));
-        $iteration++;
-
-        $messages[] = ['role' => 'assistant', 'content' => $new_html];
-        $messages[] = ['role' => 'user', 'content' => 'Ga verder met de rest van het artikel in hetzelfde HTML-formaat, precies waar je was gebleven. Herhaal geen content.'];
+    $response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
+        'headers' => [
+            'Content-Type'  => 'application/json',
+            'Authorization' => 'Bearer ' . $api_key,
+        ],
+        'body' => json_encode([
+            'model'       => $model,
+            'messages'    => $messages,
+            'temperature' => 0.7,
+            'max_tokens'  => 2400
+        ]),
+        'timeout' => 60
+    ]);
+    if ( is_wp_error( $response ) ) {
+        return $response;
     }
+
+    $body = json_decode(wp_remote_retrieve_body($response), true);
+    $raw_output = $body['choices'][0]['message']['content'] ?? '';
+
+    if ( ! $raw_output ) {
+        return new WP_Error( 'publion_empty_output', 'AI output is leeg.' );
+    }
+
+    $parsed = publion_parse_ai_output( $raw_output );
+    $html_output = $parsed['html_body'];
 
     // Clean & validate
     $html_output = publion_clean_html_output($html_output);
     $html_output = publion_validate_links_in_html($html_output);
     $html_output = publion_enhance_external_links($html_output);
-    $html_output = publion_ensure_preferred_domain_link( $html_output, $preferred_domain, $topic );
 	$html_output = preg_replace('/<h1>(.*?)<\/h1>/i', '<h2>$1</h2>', $html_output, 1);
 	$html_output = str_ireplace(['<header>', '</header>'], '', $html_output);
-	$keywords = publion_extract_noun_keywords($html_output, $api_key, $model);
-	$html_output = publion_auto_internal_links($html_output, $keywords);
-
-    // Append CTA
-    $settings = get_option('publion_post_settings', []);
-    if (($settings['cta_enabled'] ?? 'no') === 'yes' && !empty($settings['cta_text']) && !empty($settings['cta_link'])) {
-        $html_output .= "<div style='clear:both; padding-top:20px; margin-top:30px; border-top:1px solid #ccc;'>
-            <p>Hulp nodig bij <strong>{$topic}</strong>?<br><strong><em><a class=\"ai-blog-cta\" href='" . esc_url($settings['cta_link']) . "'>{$settings['cta_text']}</a></em></strong></p>
-        </div>";
-    }
 
     // Rename Conclusion heading
     $html_output = preg_replace_callback(
@@ -148,7 +288,12 @@ Geef alleen de HTML-content terug. Geen uitleg, notities of markdown.";
     
     $html_output = preg_replace('/<h([1-2])>(.*?)<\/h\1>/i', '<h$1 class="publion-title">$2</h$1>', $html_output, 1);
 
-    return $html_output;
+    return [
+        'html' => $html_output,
+        'seo' => $parsed['seo'],
+        'raw' => $raw_output,
+        'has_seo_block' => $parsed['has_seo_block'],
+    ];
 }
 
 function publion_auto_internal_links($html, $keywords) {
@@ -222,6 +367,271 @@ function publion_auto_internal_links($html, $keywords) {
     return $final_html;
 }
 
+function publion_get_pillar_links_map() {
+    $settings = get_option( 'publion_post_settings', [] );
+    $map = $settings['pillar_links'] ?? [];
+    return is_array( $map ) ? $map : [];
+}
+
+function publion_resolve_pillar_url( $value ) {
+    $value = trim( (string) $value );
+    if ( '' === $value ) {
+        return '';
+    }
+    if ( ctype_digit( $value ) ) {
+        $url = get_permalink( (int) $value );
+        return $url ? $url : '';
+    }
+    return esc_url_raw( $value );
+}
+
+function publion_find_post_by_title_like( $needle, $category_id, $exclude_ids = [] ) {
+    $needle = trim( (string) $needle );
+    if ( '' === $needle ) {
+        return 0;
+    }
+    $q = new WP_Query( [
+        'post_type'      => 'post',
+        'post_status'    => 'publish',
+        'posts_per_page' => 1,
+        'cat'            => (int) $category_id,
+        's'              => $needle,
+        'fields'         => 'ids',
+        'post__not_in'   => array_map( 'intval', (array) $exclude_ids ),
+        'no_found_rows'  => true,
+    ] );
+
+    $id = 0;
+    if ( $q->have_posts() ) {
+        $id = (int) $q->posts[0];
+    }
+    wp_reset_postdata();
+    return $id;
+}
+
+function publion_get_recent_posts_in_category( $category_id, $limit = 2, $exclude_ids = [] ) {
+    $q = new WP_Query( [
+        'post_type'      => 'post',
+        'post_status'    => 'publish',
+        'posts_per_page' => (int) $limit,
+        'cat'            => (int) $category_id,
+        'fields'         => 'ids',
+        'post__not_in'   => array_map( 'intval', (array) $exclude_ids ),
+        'orderby'        => 'date',
+        'order'          => 'DESC',
+        'no_found_rows'  => true,
+    ] );
+
+    $ids = $q->have_posts() ? array_map( 'intval', $q->posts ) : [];
+    wp_reset_postdata();
+    return $ids;
+}
+
+function publion_append_further_reading_section( $html, $category_id, $internal_suggestions = [] ) {
+    $category = get_term( (int) $category_id, 'category' );
+    $category_name = ( $category && ! is_wp_error( $category ) ) ? (string) $category->name : '';
+
+    $links = [];
+    $exclude_ids = [];
+
+    $pillar_map = publion_get_pillar_links_map();
+    $pillar_value = $pillar_map[ $category_id ] ?? '';
+    $pillar_url = publion_resolve_pillar_url( $pillar_value );
+    if ( $pillar_url && ! publion_is_external_url( $pillar_url ) ) {
+        $pillar_label = $category_name ? 'Pillar pagina: ' . $category_name : 'Pillar pagina';
+        if ( ctype_digit( (string) $pillar_value ) ) {
+            $maybe_title = get_the_title( (int) $pillar_value );
+            if ( $maybe_title ) {
+                $pillar_label = $maybe_title;
+                $exclude_ids[] = (int) $pillar_value;
+            }
+        }
+        $links[] = [
+            'url' => $pillar_url,
+            'label' => $pillar_label,
+        ];
+    }
+
+    $internal_suggestions = array_values( array_filter( array_map( 'trim', (array) $internal_suggestions ) ) );
+    foreach ( $internal_suggestions as $suggestion ) {
+        if ( count( $links ) >= 3 ) {
+            break;
+        }
+        $id = publion_find_post_by_title_like( $suggestion, $category_id, $exclude_ids );
+        if ( $id ) {
+            $exclude_ids[] = $id;
+            $links[] = [
+                'url' => get_permalink( $id ),
+                'label' => get_the_title( $id ),
+            ];
+        }
+    }
+
+    if ( count( $links ) < 3 ) {
+        $need = 3 - count( $links );
+        $recent = publion_get_recent_posts_in_category( $category_id, $need, $exclude_ids );
+        foreach ( $recent as $id ) {
+            if ( count( $links ) >= 3 ) {
+                break;
+            }
+            $links[] = [
+                'url' => get_permalink( $id ),
+                'label' => get_the_title( $id ),
+            ];
+        }
+    }
+
+    if ( count( $links ) < 2 ) {
+        return $html;
+    }
+
+    $section = '<h2>Verder lezen</h2><ul>';
+    foreach ( $links as $link ) {
+        $section .= '<li><a href="' . esc_url( $link['url'] ) . '">' . esc_html( $link['label'] ) . '</a></li>';
+    }
+    $section .= '</ul>';
+
+    return rtrim( $html ) . "\n" . $section;
+}
+
+function publion_append_cta_footer( $html, $topic, $settings = [] ) {
+    $settings = is_array( $settings ) ? $settings : [];
+    if ( ( $settings['cta_enabled'] ?? 'no' ) !== 'yes' ) {
+        return $html;
+    }
+    $cta_text = trim( (string) ( $settings['cta_text'] ?? '' ) );
+    $cta_link = trim( (string) ( $settings['cta_link'] ?? '' ) );
+    if ( '' === $cta_text || '' === $cta_link ) {
+        return $html;
+    }
+
+    $html .= "<div style='clear:both; padding-top:20px; margin-top:30px; border-top:1px solid #ccc;'>
+        <p>Hulp nodig bij <strong>" . esc_html( $topic ) . "</strong>?<br><strong><em><a class=\"ai-blog-cta\" href='" . esc_url( $cta_link ) . "'>" . esc_html( $cta_text ) . "</a></em></strong></p>
+    </div>";
+
+    return $html;
+}
+
+function publion_append_last_updated_footer( $html, $settings = [] ) {
+    $settings = is_array( $settings ) ? $settings : [];
+    if ( ( $settings['last_updated_enabled'] ?? 'no' ) !== 'yes' ) {
+        return $html;
+    }
+
+    $ts = current_time( 'timestamp' );
+    $date = wp_date( get_option( 'date_format' ), $ts );
+    $html .= '<p class="publion-last-updated">Laatst bijgewerkt: ' . esc_html( $date ) . '</p>';
+
+    return $html;
+}
+
+function publion_similarity_stopwords() {
+    return [
+        'de','het','een','en','of','voor','met','op','in','van','naar','bij','over','als','dat','die','deze','dit',
+        'zijn','is','was','waren','worden','je','jij','we','wij','jullie','u','uw','maar','ook','meer','meest','minder',
+        'veel','weinig','door','tot','uit','om','aan','via',
+        'the','a','an','and','or','of','in','on','for','with','to','from','by','at','about','this','that','these','those',
+        'is','are','was','were','be','being','been','how','what','why','when','where'
+    ];
+}
+
+function publion_light_stem_token( $token ) {
+    $token = preg_replace( '/(heden|heid|lijke|lijk|ingen|ing|eren|en|er|es|s|tjes|tje)$/u', '', $token );
+    return $token;
+}
+
+function publion_normalize_title_for_similarity( $title ) {
+    $title = wp_strip_all_tags( (string) $title );
+    $title = wp_specialchars_decode( $title, ENT_QUOTES );
+    $title = mb_strtolower( $title );
+    $title = preg_replace( '/[^\\p{L}\\p{N}\\s]+/u', ' ', $title );
+    $tokens = preg_split( '/\\s+/', $title );
+    $stopwords = publion_similarity_stopwords();
+    $out = [];
+    foreach ( $tokens as $token ) {
+        $token = trim( $token );
+        if ( '' === $token ) {
+            continue;
+        }
+        if ( mb_strlen( $token ) <= 2 ) {
+            continue;
+        }
+        if ( in_array( $token, $stopwords, true ) ) {
+            continue;
+        }
+        $token = publion_light_stem_token( $token );
+        if ( '' !== $token ) {
+            $out[] = $token;
+        }
+    }
+    return trim( implode( ' ', $out ) );
+}
+
+function publion_similarity_ratio( $a, $b ) {
+    $a = trim( (string) $a );
+    $b = trim( (string) $b );
+    if ( '' === $a || '' === $b ) {
+        return 0;
+    }
+    similar_text( $a, $b, $pct );
+    return $pct / 100;
+}
+
+function publion_get_titles_for_similarity( $category_id ) {
+    $titles = [];
+
+    $q = new WP_Query( [
+        'post_type'      => 'post',
+        'post_status'    => 'any',
+        'posts_per_page' => 50,
+        'cat'            => (int) $category_id,
+        'fields'         => 'ids',
+        'no_found_rows'  => true,
+    ] );
+
+    if ( $q->have_posts() ) {
+        foreach ( $q->posts as $pid ) {
+            $titles[] = get_the_title( $pid );
+        }
+    }
+    wp_reset_postdata();
+
+    global $wpdb;
+    if ( empty( $wpdb->publion_queue ) ) {
+        $wpdb->publion_queue = $wpdb->prefix . 'publion_queue';
+    }
+    $queue_titles = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $wpdb->prepare(
+            "SELECT topic FROM {$wpdb->publion_queue} WHERE category_id = %d",
+            (int) $category_id
+        )
+    );
+    if ( ! empty( $queue_titles ) ) {
+        $titles = array_merge( $titles, $queue_titles );
+    }
+
+    return array_unique( array_filter( array_map( 'trim', $titles ) ) );
+}
+
+function publion_is_similar_topic_in_category( $candidate, $category_id, $threshold = 0.82 ) {
+    $candidate_norm = publion_normalize_title_for_similarity( $candidate );
+    if ( '' === $candidate_norm ) {
+        return false;
+    }
+
+    $titles = publion_get_titles_for_similarity( $category_id );
+    foreach ( $titles as $title ) {
+        $norm = publion_normalize_title_for_similarity( $title );
+        if ( '' === $norm ) {
+            continue;
+        }
+        if ( publion_similarity_ratio( $candidate_norm, $norm ) >= $threshold ) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function publion_extract_noun_keywords($text, $api_key, $model = '') {
     $prompt = "Extraheer 10 van de belangrijkste zelfstandige naamwoorden of zelfstandige naamwoordgroepen uit de volgende blogpostcontent. Geef ze terug als een platte JSON-array met strings. Gebruik geen werkwoorden of bijvoeglijke naamwoorden.
 
@@ -279,14 +689,6 @@ function publion_validate_links_in_html($html) {
 
         // Skip invalid or non-http(s) links
         if (!preg_match('/^https?:\/\//i', $url)) continue;
-
-        // Keep preferred domain links even if HEAD fails.
-        $preferred_domain = publion_get_preferred_external_domain();
-        $preferred_host = publion_normalize_domain( $preferred_domain );
-        $link_host = wp_parse_url( $url, PHP_URL_HOST );
-        if ( $preferred_host && $link_host && strtolower( $link_host ) === $preferred_host ) {
-            continue;
-        }
 
         $response = wp_remote_head($url, ['timeout' => 5]);
         $code = wp_remote_retrieve_response_code($response);
@@ -386,7 +788,7 @@ function publion_ensure_preferred_domain_link( $html, $preferred_domain, $topic 
 
     $url = ( preg_match( '/^https?:\\/\\//i', $preferred_domain ) ) ? $preferred_domain : 'https://' . $preferred_domain;
     $anchor = esc_html( $topic ? $topic : $host );
-    $link_html = '<a href="' . esc_url( $url ) . '" target="_blank" rel="dofollow noopener noreferrer">' . $anchor . '</a>';
+    $link_html = '<a href="' . esc_url( $url ) . '" target="_blank" rel="noopener noreferrer">' . $anchor . '</a>';
 
     if ( preg_match( '/<p[^>]*>.*?<\\/p>/is', $html, $m ) ) {
         $new_p = preg_replace( '/<\\/p>$/', ' ' . $link_html . '</p>', $m[0] );
@@ -502,6 +904,7 @@ function publion_enhance_external_links( $html ) {
             if ( preg_match( '/\\srel=[\"\\\']([^\"\\\']*)[\"\\\']/i', $tag, $rel_match ) ) {
                 $rels = preg_split( '/\\s+/', $rel_match[1] );
                 $rels = array_filter( array_map( 'strtolower', $rels ) );
+                $rels = array_diff( $rels, [ 'dofollow' ] );
                 foreach ( [ 'noopener', 'noreferrer' ] as $rel ) {
                     if ( ! in_array( $rel, $rels, true ) ) {
                         $rels[] = $rel;

@@ -113,6 +113,7 @@ class Publion_Cron {
 
 		$default_prompt = "Je bent een expert in het schrijven van blogs en maakt hoogwaardige, SEO-geoptimaliseerde content voor [JOUW BEDRIJFSNAAM (INDIEN VAN TOEPASSING) EN WEBSITE-URL], [WAT JOUW BEDRIJF/WEBSITE BIEDT]. Het doel is [JOUW BEDRIJFS/WEBSITE-DOELEN]. Stem de toon af op het merk: [DE TOON DIE JE WILT UITSTRALEN - voorbeeld: professioneel maar benaderbaar, deskundig maar eenvoudig uit te leggen]. Elk onderwerp moet de missie van [JOUW BEDRIJFS/WEBSITE-NAAM] weerspiegelen om [BEDRIJVEN of MENSEN] te helpen met [HOE JE BEDRIJVEN of MENSEN HELPT]. (Vervang deze prompt door je eigen tekst om je doelen beter te weerspiegelen.)";
 		$pre_prompt     = get_option( 'publion_prompt', $default_prompt );
+		$topic_prompt   = trim( (string) get_option( 'publion_topic_suggestions_prompt', '' ) );
 
 		global $wpdb;
 		if ( empty( $wpdb->publion_queue ) ) {
@@ -123,6 +124,9 @@ class Publion_Cron {
 			$category_name = $category->name;
 
 			$prompt  = $pre_prompt . "\n\nOp basis van de categorie \"" . $category_name . "\", stel 5 unieke blogonderwerpen voor.";
+			if ( '' !== $topic_prompt ) {
+				$prompt .= "\n\nExtra instructies voor onderwerpstructuur:\n" . $topic_prompt;
+			}
 			$prompt .= "\n\nFormaat: geef exact 5 onderwerpen, elk op een eigen regel. Geen inleiding, geen bullets, geen nummers, geen Markdown, geen extra uitleg.";
 
 			$response = wp_remote_post(
@@ -186,6 +190,9 @@ class Publion_Cron {
 					)
 				);
 				if ( $exists_in_queue ) {
+					continue;
+				}
+				if ( publion_is_similar_topic_in_category( $line, (int) $category->term_id ) ) {
 					continue;
 				}
 
@@ -268,10 +275,12 @@ class Publion_Cron {
 		}
 
 		// Generate HTML content.
-		$post_html = publion_generate_chatgpt_html( $topic->topic, $topic->category_label );
-		if ( is_wp_error( $post_html ) || ! $post_html ) {
+		$post_result = publion_generate_chatgpt_html( $topic->topic, $topic->category_label );
+		if ( is_wp_error( $post_result ) || empty( $post_result['html'] ) ) {
 			return;
 		}
+		$post_html = $post_result['html'];
+		$seo_data  = $post_result['seo'] ?? [];
 
 		// Image setup — generate 6 context-aware AI images based on nearby text.
 		$category      = get_term( $topic->category_id, 'category' );
@@ -306,15 +315,31 @@ class Publion_Cron {
 		// Insert images into content (first 5).
 		$post_html = publion_insert_images_into_content( $post_html, array_slice( $final_image_urls, 0, 5 ) );
 
+		// Append internal links section, last updated footer, and CTA (in that order).
+		$internal_links = $seo_data['internal_links'] ?? [];
+		$post_html = publion_append_further_reading_section( $post_html, (int) $topic->category_id, $internal_links );
+		$post_html = publion_append_last_updated_footer( $post_html, $settings );
+		$post_html = publion_append_cta_footer( $post_html, $topic->topic, $settings );
+
+		$seo_title = trim( (string) ( $seo_data['seo_title'] ?? '' ) );
+		$meta_description = trim( (string) ( $seo_data['meta_description'] ?? '' ) );
+		$primary_keyword = trim( (string) ( $seo_data['primary_keyword'] ?? '' ) );
+		$slug = trim( (string) ( $seo_data['slug'] ?? '' ) );
+		if ( '' === $slug ) {
+			$slug = sanitize_title( $seo_title ?: $topic->topic );
+		}
+		$slug = wp_unique_post_slug( $slug, 0, $post_status, 'post', 0 );
+
 
 		// Create post.
 		$post_id = wp_insert_post( array(
-			'post_title'    => $topic->topic,
+			'post_title'    => $seo_title ?: $topic->topic,
 			'post_content'  => $post_html,
 			'post_status'   => $post_status,
 			'post_category' => array( $topic->category_id ),
 			'post_type'     => 'post',
 			'post_author'   => $author_id,
+			'post_name'     => $slug,
 		) );
 		
 		if ( ! is_wp_error( $post_id ) && $post_id ) {
@@ -323,13 +348,16 @@ class Publion_Cron {
 			update_post_meta( (int) $post_id, '_publion_queue_id', (int) $topic->id );
 
 			if ( $rank_math_enabled ) {
-				update_post_meta( (int) $post_id, 'rank_math_focus_keyword', $topic->topic );
-				update_post_meta( (int) $post_id, 'rank_math_title', $topic->topic );
-				$excerpt = wp_strip_all_tags( $post_html );
-				$excerpt = preg_replace( '/\s+/', ' ', $excerpt );
-				$excerpt = trim( $excerpt );
-				$excerpt = mb_substr( $excerpt, 0, 160 );
-				update_post_meta( (int) $post_id, 'rank_math_description', $excerpt );
+				$excerpt = publion_generate_meta_description( $post_html, $primary_keyword, $topic->topic );
+				update_post_meta( (int) $post_id, 'rank_math_focus_keyword', $primary_keyword ?: $topic->topic );
+				update_post_meta( (int) $post_id, 'rank_math_title', $seo_title ?: $topic->topic );
+				$final_desc = $meta_description ?: $excerpt;
+				update_post_meta( (int) $post_id, 'rank_math_description', $final_desc );
+
+				$longtails = $seo_data['longtails'] ?? [];
+				if ( ! empty( $longtails ) ) {
+					update_post_meta( (int) $post_id, 'rank_math_additional_keywords', implode( ', ', $longtails ) );
+				}
 			}
 		}
 		

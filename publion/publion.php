@@ -175,6 +175,8 @@ function publion_uninstall_cleanup() {
 	delete_option( 'publion_api_key' );
 	delete_option( 'publion_post_settings' );
 	delete_option( 'publion_prompt' );
+	delete_option( 'publion_topic_suggestions_prompt' );
+	delete_option( 'publion_post_prompt' );
 	delete_option( 'publion_openai_model' );
 	delete_option( 'publion_last_image_error' );
 	delete_option( 'publion_last_post_created_at' );

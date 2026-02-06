@@ -210,6 +210,14 @@ jQuery(document).ready(function ($) {
 
         $status.html('<span class="spinner is-active" style="float:none;display:inline-block;"></span>');
 
+		const pillarLinks = {};
+		$('.publion-pillar-link-input').each(function () {
+			const id = $(this).data('category-id');
+			if (id !== undefined) {
+				pillarLinks[id] = $(this).val();
+			}
+		});
+
 		const data = {
 		    action: 'publion_save_post_settings',
 		    nonce: Publion.nonce,
@@ -227,7 +235,9 @@ jQuery(document).ready(function ($) {
 		    daily_topic_interval_days: $('#publion_daily_topic_interval_days').val(),
 		    preferred_external_domain: $('#publion_preferred_external_domain').val(),
 		    preferred_external_urls: $('#publion_preferred_external_urls').val(),
-		    rank_math_integration: $('#publion_rank_math_integration').is(':checked') ? 'yes' : 'no'
+		    rank_math_integration: $('#publion_rank_math_integration').is(':checked') ? 'yes' : 'no',
+		    last_updated_enabled: $('#publion_last_updated_enabled').is(':checked') ? 'yes' : 'no',
+		    pillar_links: pillarLinks
 		};
 
         $.post(Publion.ajax_url, data, function (response) {
@@ -316,6 +326,50 @@ jQuery(document).ready(function ($) {
 	        action: 'publion_save_prompt',
 	        nonce: Publion.nonce,
 	        prompt: $('#publion_prompt').val()
+	    }, function (response) {
+	        if (response.success) {
+	            $status.html('<span style="color:green; margin-left:9px">✅ Opgeslagen!</span>');
+	        } else {
+	            $status.html('<span style="color:red;">❌ Opslaan mislukt.</span>');
+	        }
+	    }).fail(function () {
+	        $status.html('<span style="color:red;">❌ AJAX error.</span>');
+	    });
+	});
+
+	// Save Topic Suggestions Prompt via AJAX
+	$('#publion-save-topic-prompt').on('click', function (e) {
+	    e.preventDefault();
+
+	    const $status = $('#publion-topic-prompt-status');
+	    $status.html('<span class="spinner is-active" style="float:none;display:inline-block;"></span>');
+
+	    $.post(Publion.ajax_url, {
+	        action: 'publion_save_topic_prompt',
+	        nonce: Publion.nonce,
+	        prompt: $('#publion_topic_suggestions_prompt').val()
+	    }, function (response) {
+	        if (response.success) {
+	            $status.html('<span style="color:green; margin-left:9px">✅ Opgeslagen!</span>');
+	        } else {
+	            $status.html('<span style="color:red;">❌ Opslaan mislukt.</span>');
+	        }
+	    }).fail(function () {
+	        $status.html('<span style="color:red;">❌ AJAX error.</span>');
+	    });
+	});
+
+	// Save Post Prompt Template via AJAX
+	$('#publion-save-post-prompt').on('click', function (e) {
+	    e.preventDefault();
+
+	    const $status = $('#publion-post-prompt-status');
+	    $status.html('<span class="spinner is-active" style="float:none;display:inline-block;"></span>');
+
+	    $.post(Publion.ajax_url, {
+	        action: 'publion_save_post_prompt',
+	        nonce: Publion.nonce,
+	        prompt: $('#publion_post_prompt').val()
 	    }, function (response) {
 	        if (response.success) {
 	            $status.html('<span style="color:green; margin-left:9px">✅ Opgeslagen!</span>');
