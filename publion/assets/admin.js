@@ -14,6 +14,56 @@ jQuery(document).ready(function ($) {
 
 	    localStorage.removeItem('publion_active_tab');
 	}
+
+	function showNotice(type, message) {
+		const $notice = $('#publion-global-notice');
+		if (!$notice.length) return;
+		$notice.removeClass('is-success is-warning is-error').addClass('is-' + type).empty();
+		$notice.append($('<strong>', { text: type === 'error' ? 'Actie nodig' : type === 'warning' ? 'Let op' : 'Gelukt' }));
+		$notice.append($('<span>', { text: message }));
+		$notice.stop(true, true).slideDown(150);
+		if (type === 'success') setTimeout(function () { $notice.fadeOut(250); }, 4500);
+	}
+
+	function responseMessage(response, fallback) {
+		if (response && response.data) {
+			if (typeof response.data === 'string') return response.data;
+			if (response.data.message) return response.data.message;
+		}
+		return fallback;
+	}
+
+	function openPublionTab(target) {
+		if (!target || !$('#' + target).length) return;
+		if (target === 'publion-queue') {
+			localStorage.setItem('publion_active_tab', target);
+			location.reload();
+			return;
+		}
+		localStorage.setItem('publion_active_tab', target);
+		$('.nav-tab').removeClass('nav-tab-active');
+		$('.nav-tab[data-tab="' + target + '"]').addClass('nav-tab-active');
+		$('.publion-tab-content').hide();
+		$('#' + target).fadeIn(150);
+	}
+
+	let qualityModalTrigger = null;
+	function closeQualityModal() {
+		const $modal = $('#publion-quality-modal');
+		if (!$modal.length || $modal.prop('hidden')) return;
+		$modal.prop('hidden', true);
+		$('body').removeClass('publion-modal-open');
+		if (qualityModalTrigger) qualityModalTrigger.focus();
+	}
+
+	function openQualityModal(trigger) {
+		const $modal = $('#publion-quality-modal');
+		if (!$modal.length) return;
+		qualityModalTrigger = trigger || document.activeElement;
+		$modal.prop('hidden', false);
+		$('body').addClass('publion-modal-open');
+		$modal.find('.publion-modal-dialog').trigger('focus');
+	}
 	
     // Toggle OpenAI Instructions accordion
     $('.publion-openai-instructions-header').on('click', function () {
@@ -24,20 +74,39 @@ jQuery(document).ready(function ($) {
 	// Tab switch logic (with refresh for Post Creation Queue tab)
 	$('.nav-tab').on('click', function (e) {
 	    e.preventDefault();
-	    const target = $(this).data('tab');
+	    openPublionTab($(this).data('tab'));
+	});
 
-	    if (target === 'publion-queue') {
-	        localStorage.setItem('publion_active_tab', target);
-	        location.reload();
-	        return;
-	    }
+	$(document).on('click', '[data-publion-tab]', function () {
+		openPublionTab($(this).data('publion-tab'));
+	});
 
-	    localStorage.setItem('publion_active_tab', target);
-	    $('.nav-tab').removeClass('nav-tab-active');
-	    $(this).addClass('nav-tab-active');
+	$('#publion-open-quality-modal').on('click', function () {
+		openQualityModal(this);
+	});
 
-	    $('.publion-tab-content').hide();
-	    $('#' + target).show();
+	$(document).on('click', '[data-publion-modal-close]', closeQualityModal);
+	$(document).on('click', '#publion-quality-modal [data-publion-tab]', closeQualityModal);
+	$(document).on('keydown', function (event) {
+		const $modal = $('#publion-quality-modal');
+		if (!$modal.length || $modal.prop('hidden')) return;
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			closeQualityModal();
+			return;
+		}
+		if (event.key !== 'Tab') return;
+		const $focusable = $modal.find('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])').filter(':visible');
+		if (!$focusable.length) return;
+		const first = $focusable.first()[0];
+		const last = $focusable.last()[0];
+		if (event.shiftKey && document.activeElement === first) {
+			event.preventDefault();
+			last.focus();
+		} else if (!event.shiftKey && document.activeElement === last) {
+			event.preventDefault();
+			first.focus();
+		}
 	});
 
     // Accordion toggles for Post Creation
@@ -49,9 +118,39 @@ jQuery(document).ready(function ($) {
     });
 
 	// Refresh Suggestions button
+	function renderSuggestions(suggestions) {
+		const $list = $('#publion-suggestions').empty();
+		suggestions.forEach(function (suggestion) {
+			const title = suggestion.title || suggestion;
+			const brief = {
+				focus_keyword: suggestion.focus_keyword || title,
+				search_intent: suggestion.search_intent || 'informatief',
+				angle: suggestion.angle || '',
+				faq_questions: Array.isArray(suggestion.faq_questions) ? suggestion.faq_questions : []
+			};
+			const $li = $('<li>', { class: 'publion-suggestion' }).data('topic', title).data('seo-brief', brief);
+			const $button = $('<button>', { type: 'button', class: 'button button-primary add-topic', text: 'Toevoegen' });
+			const $content = $('<div>', { class: 'publion-suggestion-content' });
+			$content.append($('<strong>', { text: title }));
+			const $meta = $('<div>', { class: 'publion-seo-meta' });
+			$meta.append($('<span>', { class: 'publion-seo-tag', text: 'Focus: ' + brief.focus_keyword }));
+			$meta.append($('<span>', { class: 'publion-seo-tag', text: 'Intentie: ' + brief.search_intent }));
+			if (brief.angle) $content.append($('<p>', { class: 'publion-suggestion-angle', text: brief.angle }));
+			$content.append($meta);
+			if (brief.faq_questions.length) {
+				$content.append($('<p>', { class: 'publion-faq-preview', text: 'FAQ: ' + brief.faq_questions.join(' · ') }));
+			}
+			$li.append($button, $content);
+			$list.append($li);
+		});
+	}
+
 	$('#publion-refresh').on('click', function () {
 	    const category = $('#publion-category').val();
-	    if (!category) return alert('Selecteer een categorie.');
+	    if (!category) {
+	        showNotice('warning', 'Selecteer eerst een categorie om relevante onderwerpvoorstellen te maken.');
+	        return;
+	    }
 
 	    $('#publion-loading').css('display', 'flex');
 	    $('#publion-suggestions').empty();
@@ -64,23 +163,24 @@ jQuery(document).ready(function ($) {
 	        $('#publion-loading').hide();
 
 	        if (response.success) {
-	            const suggestions = response.data;
 	            $('#publion-suggestions-heading').show();
-	            suggestions.forEach(topic => {
-	                $('#publion-suggestions').append(
-	                    `<li><button class="button add-topic" data-topic="${encodeURIComponent(topic)}" style="margin-right:10px;">Toevoegen</button>${topic}</li>`
-	                );
-	            });
+	            renderSuggestions(response.data || []);
 	        } else {
-	            alert('Vernieuwen van voorstellen mislukt.');
+	            showNotice('error', responseMessage(response, 'Vernieuwen van voorstellen mislukt. Controleer je API-sleutel en probeer opnieuw.'));
 	        }
+	    }).fail(function () {
+	        $('#publion-loading').hide();
+	        showNotice('error', 'De verbinding met WordPress of OpenAI is onderbroken. Controleer je internetverbinding en probeer opnieuw.');
 	    });
 	});
 
 	// Suggest Topics button
 	$('#publion-suggest').on('click', function () {
 	    const category = $('#publion-category').val();
-	    if (!category) return alert('Selecteer een categorie.');
+	    if (!category) {
+	        showNotice('warning', 'Selecteer eerst een categorie om relevante onderwerpvoorstellen te maken.');
+	        return;
+	    }
 
 	    $('#publion-loading').css('display', 'flex');
 	    $('#publion-suggestions').empty();
@@ -100,15 +200,15 @@ jQuery(document).ready(function ($) {
 	        $('#publion-loading').hide();
 
 	        if (response.success) {
-	            const suggestions = response.data;
-	            suggestions.forEach(topic => {
-	                $('#publion-suggestions').append(
-	                    `<li><button class="button add-topic" data-topic="${encodeURIComponent(topic)}" style="margin-right:10px;">Toevoegen</button>${topic}</li>`
-	                );
-	            });
+	            renderSuggestions(response.data || []);
 	        } else {
-	            alert('Kon geen onderwerpvoorstellen ophalen. Controleer of je de OpenAI API-sleutel hebt ingevuld in het tabblad OpenAI/ChatGPT instellingen.');
+	            $('#publion-suggest').prop('disabled', false);
+	            showNotice('error', responseMessage(response, 'Kon geen onderwerpvoorstellen ophalen. Controleer je API-sleutel en model in AI-instellingen.'));
 	        }
+	    }).fail(function () {
+	        $('#publion-loading').hide();
+	        $('#publion-suggest').prop('disabled', false);
+	        showNotice('error', 'De aanvraag kon niet worden verstuurd. Controleer de verbinding en probeer opnieuw.');
 	    });
 	});
 
@@ -128,16 +228,20 @@ jQuery(document).ready(function ($) {
 	        const category = $(this).find('td[data-category]').data('category');
 	        const categoryLabel = $(this).find('td[data-category]').data('category-label');
 	        const topic = $(this).find('td[data-topic]').data('topic') || $(this).find('td[data-topic]').text();
+	        const seoBrief = $(this).data('seo-brief') || {};
 
 	        postQueue.push({
 	            category,
 	            categoryLabel,
-	            topic
+	            topic,
+	            focusKeyword: seoBrief.focus_keyword || topic,
+	            seoBrief: seoBrief
 	        });
 	    });
 
 	    if (postQueue.length === 0) {
-	        return alert('Geen onderwerpen in de wachtrij om op te slaan.');
+	        showNotice('warning', 'Kies eerst minstens één onderwerp voordat je de wachtrij opslaat.');
+	        return;
 	    }
 
 	    const $saveButton = $(this);
@@ -159,6 +263,7 @@ jQuery(document).ready(function ($) {
 	    }, function (response) {
 	        if (response.success) {
 	            $status.html('<span style="color:green;">✅ Toegevoegd aan de wachtrij voor postcreatie!</span>');
+	            showNotice('success', 'De geselecteerde onderwerpen staan nu in de wachtrij.');
 	            $('#publion-ai-queue tbody').empty();
 
 	            // Pause to show success message, then hide the section
@@ -179,11 +284,12 @@ jQuery(document).ready(function ($) {
 
     // Default to Settings tab if API key is missing
     if (!Publion.has_api_key) {
-        $('[data-tab="publion-generate"]').removeClass('nav-tab-active');
+        $('.nav-tab').removeClass('nav-tab-active');
         $('.publion-tab-content').hide();
 
         $('[data-tab="publion-settings"]').addClass('nav-tab-active');
         $('#publion-settings').show();
+        showNotice('warning', 'Voeg een OpenAI API-sleutel toe om met onderwerpen, artikelen en afbeeldingen te werken.');
     }
 
     // Toggle CTA fields on dropdown change
@@ -194,6 +300,13 @@ jQuery(document).ready(function ($) {
             $('#publion_cta_fields, .publion_cta_link_row').hide();
         }
     });
+
+	function toggleRefinedStyleControls() {
+		$('.publion-refined-style-control').toggle($('#publion_article_style_mode').val() === 'refined');
+	}
+
+	$('#publion_article_style_mode').on('change', toggleRefinedStyleControls);
+	toggleRefinedStyleControls();
 
     // Auto-save Rank Math toggle to prevent accidental loss on refresh.
     $('#publion_rank_math_integration').on('change', function () {
@@ -227,7 +340,15 @@ jQuery(document).ready(function ($) {
 		    daily_topic_interval_days: $('#publion_daily_topic_interval_days').val(),
 		    preferred_external_domain: $('#publion_preferred_external_domain').val(),
 		    preferred_external_urls: $('#publion_preferred_external_urls').val(),
-		    rank_math_integration: $('#publion_rank_math_integration').is(':checked') ? 'yes' : 'no'
+		    rank_math_integration: $('#publion_rank_math_integration').is(':checked') ? 'yes' : 'no',
+		    structured_data: $('#publion_structured_data').is(':checked') ? 'yes' : 'no',
+		    image_border_radius: $('#publion_image_border_radius').val(),
+		    article_style_mode: $('#publion_article_style_mode').val(),
+		    content_accent_color: $('#publion_content_accent_color').val(),
+		    content_max_width: $('#publion_content_max_width').val(),
+		    custom_article_css: $('#publion_custom_article_css').val(),
+		    search_console_url: $('#publion_search_console_url').val(),
+		    ga4_url: $('#publion_ga4_url').val()
 		};
 
         $.post(Publion.ajax_url, data, function (response) {
@@ -668,28 +789,27 @@ function updateQueueVisibility() {
 	$(document).on('click', '.add-topic', function () {
 	    const $button = $(this);
 	    const $li = $button.closest('li');
-	    const rawTopic = decodeURIComponent($button.data('topic'));
+	    const rawTopic = $li.data('topic') || $button.data('topic');
+	    const seoBrief = $li.data('seo-brief') || {};
 	    const category = $('#publion-category').val();
 	    const categoryLabel = $('#publion-category option:selected').text();
 
 	    // Guard against double-clicks or duplicate rows.
 	    if ($button.prop('disabled')) return;
-	    if ($('#publion-ai-queue tbody tr[data-topic="' + rawTopic + '"][data-category="' + category + '"]').length) {
+	    if ($('#publion-ai-queue tbody tr').filter(function () { return $(this).data('topic') === rawTopic && String($(this).data('category')) === String(category); }).length) {
 	        $li.hide();
 	        return;
 	    }
 
 	    $button.prop('disabled', true);
 
-	    const newRow = `
-	        <tr data-topic="${rawTopic}" data-category="${category}">
-	            <td><button class="button remove-topic" data-restore-topic="${encodeURIComponent(rawTopic)}">Verwijderen</button></td>
-	            <td data-category="${category}" data-category-label="${categoryLabel}">${categoryLabel}</td>
-	            <td data-topic="${rawTopic}">${rawTopic}</td>
-	        </tr>
-	    `;
-
-	    $('#publion-ai-queue tbody').append(newRow);
+	    const $row = $('<tr>').data('topic', rawTopic).data('category', category).data('seo-brief', seoBrief);
+	    $row.append($('<td>').append($('<button>', { type: 'button', class: 'button remove-topic', text: 'Verwijderen' }).data('restore-topic', rawTopic)));
+	    $row.append($('<td>').data('category', category).data('category-label', categoryLabel).text(categoryLabel));
+	    $row.append($('<td>').data('topic', rawTopic).text(rawTopic));
+	    const briefText = 'Focus: ' + (seoBrief.focus_keyword || rawTopic) + ' · ' + (seoBrief.search_intent || 'informatief');
+	    $row.append($('<td>', { class: 'publion-queue-brief', text: briefText }));
+	    $('#publion-ai-queue tbody').append($row);
 
 	    // Hide the original suggestion
 	    $li.hide();
@@ -702,14 +822,14 @@ function updateQueueVisibility() {
 	// Trigger after removing a topic
 	$(document).on('click', '.remove-topic', function () {
 	    const $button = $(this);
-	    const rawTopic = decodeURIComponent($button.data('restore-topic') || '');
+	    const rawTopic = $button.data('restore-topic') || '';
 	    
 	    // Unhide matching suggestion
 	    if (rawTopic) {
 	        $('#publion-suggestions li').each(function () {
 	            const $li = $(this);
 	            const $addBtn = $li.find('.add-topic');
-	            if (decodeURIComponent($addBtn.data('topic')) === rawTopic) {
+	            if ($li.data('topic') === rawTopic) {
 	                $addBtn.prop('disabled', false);
 	                $li.show();
 	            }

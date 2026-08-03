@@ -268,7 +268,10 @@ class Publion_Cron {
 		}
 
 		// Generate HTML content.
-		$post_html = publion_generate_chatgpt_html( $topic->topic, $topic->category_label );
+		$seo_brief = ! empty( $topic->seo_brief ) ? json_decode( $topic->seo_brief, true ) : array();
+		$seo_brief = is_array( $seo_brief ) ? $seo_brief : array();
+		$seo_brief['focus_keyword'] = sanitize_text_field( $topic->focus_keyword ?? $topic->topic );
+		$post_html = publion_generate_chatgpt_html( $topic->topic, $topic->category_label, $seo_brief );
 		if ( is_wp_error( $post_html ) || ! $post_html ) {
 			return;
 		}
@@ -321,9 +324,10 @@ class Publion_Cron {
 			// Link post -> queue row for reliable lookups later.
 			// Using update_post_meta makes this safe to run more than once.
 			update_post_meta( (int) $post_id, '_publion_queue_id', (int) $topic->id );
+			publion_store_article_seo_data( $post_id, $post_html, $seo_brief['focus_keyword'] );
 
 			if ( $rank_math_enabled ) {
-				update_post_meta( (int) $post_id, 'rank_math_focus_keyword', $topic->topic );
+				update_post_meta( (int) $post_id, 'rank_math_focus_keyword', $seo_brief['focus_keyword'] );
 				update_post_meta( (int) $post_id, 'rank_math_title', $topic->topic );
 				$excerpt = wp_strip_all_tags( $post_html );
 				$excerpt = preg_replace( '/\s+/', ' ', $excerpt );

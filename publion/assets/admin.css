@@ -62,3 +62,173 @@
     max-width: 190px;
 }
 
+/* Product workspace */
+.publion-app-shell {
+    --publion-ink: #172033;
+    --publion-muted: #64748b;
+    --publion-line: #dce3ec;
+    --publion-accent: #635bff;
+    --publion-accent-dark: #4f46e5;
+    max-width: 1240px;
+    color: var(--publion-ink);
+}
+
+.publion-app-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin: 28px 0 22px;
+    padding: 28px 30px;
+    color: #fff;
+    background: #172033;
+    border-radius: 12px;
+    box-shadow: 0 18px 38px rgba(23, 32, 51, .16);
+}
+
+.publion-app-header h1 {
+    margin: 2px 0 6px;
+    color: #fff;
+    font-size: 32px;
+    letter-spacing: -.04em;
+    line-height: 1;
+}
+
+.publion-app-header p:not(.publion-eyebrow) { margin: 0; color: #cbd5e1; font-size: 14px; }
+.publion-eyebrow { margin: 0 0 7px; color: var(--publion-accent); font-size: 11px; font-weight: 800; letter-spacing: .12em; }
+.publion-app-header .publion-eyebrow { color: #a5b4fc; }
+.publion-header-status { display: inline-flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; color: #e2e8f0; font-size: 12px; white-space: nowrap; }
+.publion-status-dot { width: 7px; height: 7px; background: #4ade80; border-radius: 50%; box-shadow: 0 0 0 3px rgba(74,222,128,.12); }
+
+.publion-app-shell .nav-tab-wrapper { margin: 0 0 26px; padding: 0; border: 0; }
+.publion-app-shell .nav-tab { margin: 0 4px 0 0; padding: 10px 14px; color: var(--publion-muted); background: transparent; border: 0; border-bottom: 2px solid transparent; font-weight: 600; }
+.publion-app-shell .nav-tab:hover, .publion-app-shell .nav-tab-active { color: var(--publion-accent-dark); background: transparent; border-bottom-color: var(--publion-accent); }
+.publion-tab-content { animation: publion-fade-in .22s ease-out; }
+@keyframes publion-fade-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+.publion-section-intro { max-width: 720px; margin: 0 0 18px; }
+.publion-section-intro h2 { margin: 0 0 8px; font-size: 22px; line-height: 1.25; letter-spacing: -.02em; }
+.publion-section-intro > p:last-child { margin: 0; color: var(--publion-muted); font-size: 14px; }
+.publion-app-shell select, .publion-app-shell input[type="text"], .publion-app-shell input[type="url"], .publion-app-shell input[type="email"], .publion-app-shell input[type="number"], .publion-app-shell input[type="time"], .publion-app-shell textarea { border-color: #cbd5e1; border-radius: 8px; box-shadow: none; }
+.publion-app-shell input:focus, .publion-app-shell select:focus, .publion-app-shell textarea:focus { border-color: var(--publion-accent); box-shadow: 0 0 0 1px var(--publion-accent); }
+.publion-app-shell .button-primary { background: var(--publion-accent); border-color: var(--publion-accent); border-radius: 8px; text-shadow: none; }
+.publion-app-shell .button-primary:hover, .publion-app-shell .button-primary:focus { background: var(--publion-accent-dark); border-color: var(--publion-accent-dark); }
+.publion-app-shell .button { border-radius: 8px; }
+
+#publion-suggestions { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 12px; margin: 14px 0 26px; }
+#publion-suggestions .publion-suggestion { display: flex; align-items: flex-start; gap: 11px; margin: 0; padding: 16px; background: #fff; border: 1px solid var(--publion-line); border-radius: 10px; box-sizing: border-box; }
+.publion-suggestion-content { min-width: 0; }
+.publion-suggestion-content strong { display: block; line-height: 1.35; }
+.publion-suggestion-angle, .publion-faq-preview { margin: 7px 0 0; color: var(--publion-muted); font-size: 12px; line-height: 1.45; }
+.publion-faq-preview { color: #475569; }
+.publion-seo-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+.publion-seo-tag { padding: 3px 7px; color: #4338ca; background: #eef2ff; border-radius: 999px; font-size: 11px; font-weight: 600; }
+
+#publion-selected-topics, .publion-accordion-body, #publion-post-settings form, #publion-settings > div { padding: 18px; background: #fff; border: 1px solid var(--publion-line); border-radius: 10px; }
+#publion-ai-queue, #publion-queue-table, #publion-created-table { border: 1px solid var(--publion-line); border-radius: 8px; overflow: hidden; }
+.publion-app-shell .widefat thead th { color: #475569; background: #f8fafc; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.publion-app-shell .widefat td { vertical-align: middle; }
+.publion-queue-brief { color: var(--publion-muted); font-size: 12px; }
+.publion-app-shell .publion-accordion-heading { display: flex; justify-content: space-between; align-items: center; margin: 26px 0 0; padding: 13px 0; border-bottom: 1px solid var(--publion-line); font-size: 16px; }
+.publion-app-shell .form-table th { color: var(--publion-ink); }
+.publion-app-shell .description { color: var(--publion-muted); }
+#publion-post-settings-form textarea#publion_custom_article_css { min-height: 140px; color: #1e293b; background: #f8fafc; border-color: #cbd5e1; line-height: 1.55; }
+#publion-post-settings-form input[type="color"] { width: 44px; height: 34px; padding: 3px; vertical-align: middle; }
+.publion-refined-style-control th, .publion-refined-style-control td { background: #fafaff; }
+
+@media (max-width: 640px) {
+    .publion-app-header { padding: 22px; flex-direction: column; }
+    .publion-header-status { align-self: flex-start; }
+    .publion-app-shell .nav-tab { display: inline-block; margin-bottom: 4px; }
+    #publion-suggestions { grid-template-columns: 1fr; }
+    #publion-manual-form input[name="manual_topic"] { min-width: 0 !important; width: 100%; }
+}
+
+/* Dashboard and guidance */
+.publion-global-notice { display: none; margin: 0 0 18px; padding: 12px 14px; border-left: 3px solid; border-radius: 8px; }
+.publion-global-notice strong { display: block; margin-bottom: 2px; }
+.publion-global-notice span { font-size: 13px; }
+.publion-global-notice.is-success { color: #166534; background: #f0fdf4; border-color: #22c55e; }
+.publion-global-notice.is-warning { color: #92400e; background: #fffbeb; border-color: #f59e0b; }
+.publion-global-notice.is-error { color: #991b1b; background: #fef2f2; border-color: #ef4444; }
+
+.publion-dashboard-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 22px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--publion-line); }
+.publion-dashboard-top h2 { max-width: 620px; margin: 0 0 7px; font-size: 26px; letter-spacing: -.03em; }
+.publion-dashboard-top > div > p:last-child { max-width: 620px; margin: 0; color: var(--publion-muted); }
+.publion-dashboard-actions, .publion-performance-links, .publion-resource-bar { display: flex; flex-wrap: wrap; gap: 8px; }
+.publion-callout { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 18px; padding: 13px 15px; border: 1px solid; border-radius: 10px; }
+.publion-callout strong, .publion-callout span { display: block; }
+.publion-callout span { margin-top: 3px; font-size: 13px; }
+.publion-callout-warning { color: #854d0e; background: #fffbeb; border-color: #fde68a; }
+.publion-callout-error { color: #991b1b; background: #fef2f2; border-color: #fecaca; }
+.publion-callout-success { color: #166534; background: #f0fdf4; border-color: #bbf7d0; }
+
+.publion-metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--publion-line); border-bottom: 1px solid var(--publion-line); }
+.publion-metric-grid section { min-width: 0; padding: 18px 20px 18px 0; }
+.publion-metric-grid section + section { padding-left: 20px; border-left: 1px solid var(--publion-line); }
+.publion-metric-grid span, .publion-metric-grid small { display: block; color: var(--publion-muted); font-size: 12px; }
+.publion-metric-grid strong { display: block; margin: 6px 0 3px; font-size: 29px; letter-spacing: -.04em; line-height: 1; }
+.publion-dashboard-layout, .publion-help-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(285px, .9fr); gap: 18px; margin-top: 22px; }
+.publion-dashboard-panel { padding: 21px; background: #fff; border: 1px solid var(--publion-line); border-radius: 10px; }
+.publion-dashboard-panel h3 { margin: 0; font-size: 17px; letter-spacing: -.01em; }
+.publion-panel-heading { display: flex; justify-content: space-between; margin-bottom: 10px; }
+.publion-workflow-list, .publion-guide-list { margin: 0; padding: 0; list-style: none; }
+.publion-workflow-list li { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 16px 0; border-top: 1px solid #edf0f5; }
+.publion-workflow-list li:first-child { border-top: 0; }
+.publion-workflow-list li > span { display: grid; width: 24px; height: 24px; place-items: center; color: #4338ca; background: #eef2ff; border-radius: 50%; font-size: 11px; font-weight: 800; }
+.publion-workflow-list strong { display: block; font-size: 13px; }
+.publion-workflow-list p { margin: 3px 0 0; color: var(--publion-muted); font-size: 12px; line-height: 1.45; }
+.button-link { padding: 0; color: var(--publion-accent-dark); background: none; border: 0; font-size: 12px; font-weight: 600; cursor: pointer; }
+.button-link:hover { text-decoration: underline; }
+.publion-performance-panel { background: #fbfcff; }
+.publion-performance-panel > p:not(.publion-eyebrow):not(.publion-panel-note) { margin: 10px 0 17px; color: var(--publion-muted); font-size: 13px; line-height: 1.55; }
+.publion-panel-note { margin: 14px 0 0; color: var(--publion-muted); font-size: 11px; line-height: 1.45; }
+.publion-guide-list { counter-reset: guide; }
+.publion-guide-list li { position: relative; padding: 0 0 16px 26px; color: #475569; font-size: 13px; line-height: 1.55; }
+.publion-guide-list li::before { content: counter(guide); counter-increment: guide; position: absolute; top: 1px; left: 0; color: var(--publion-accent-dark); font-weight: 800; }
+.publion-guide-list strong { color: var(--publion-ink); }
+.publion-troubleshooting-list { margin: 0; }
+.publion-troubleshooting-list div { padding: 13px 0; border-top: 1px solid #edf0f5; }
+.publion-troubleshooting-list div:first-child { border-top: 0; }
+.publion-troubleshooting-list dt { color: var(--publion-ink); font-size: 13px; font-weight: 700; }
+.publion-troubleshooting-list dd { margin: 4px 0 0; color: var(--publion-muted); font-size: 12px; line-height: 1.5; }
+.publion-resource-bar { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--publion-line); }
+
+@media (max-width: 782px) {
+    .publion-dashboard-top, .publion-callout { align-items: flex-start; flex-direction: column; }
+    .publion-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .publion-metric-grid section:nth-child(3) { border-left: 0; border-top: 1px solid var(--publion-line); }
+    .publion-metric-grid section:nth-child(4) { border-top: 1px solid var(--publion-line); }
+    .publion-dashboard-layout, .publion-help-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+    .publion-metric-grid { grid-template-columns: 1fr; }
+    .publion-metric-grid section, .publion-metric-grid section + section { padding: 15px 0; border-left: 0; border-top: 1px solid var(--publion-line); }
+    .publion-metric-grid section:first-child { border-top: 0; }
+    .publion-workflow-list li { grid-template-columns: 24px minmax(0, 1fr); }
+    .publion-workflow-list .button-link { grid-column: 2; justify-self: start; }
+}
+
+/* Accessible quality-check modal */
+body.publion-modal-open { overflow: hidden; }
+.publion-modal[hidden] { display: none; }
+.publion-modal { position: fixed; z-index: 100000; inset: 0; display: grid; place-items: center; padding: 20px; }
+.publion-modal-backdrop { position: absolute; inset: 0; background: rgba(15, 23, 42, .58); backdrop-filter: blur(2px); }
+.publion-modal-dialog { position: relative; width: min(860px, 100%); max-height: min(720px, calc(100vh - 40px)); overflow: auto; padding: 25px; color: var(--publion-ink); background: #fff; border: 1px solid rgba(255, 255, 255, .22); border-radius: 12px; box-shadow: 0 24px 70px rgba(15, 23, 42, .35); outline: none; }
+.publion-modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--publion-line); }
+.publion-modal-header h2 { margin: 0; font-size: 22px; letter-spacing: -.025em; }
+.publion-modal-close { min-width: 34px; min-height: 34px; font-size: 22px; line-height: 1; }
+.publion-modal-intro { max-width: 650px; margin: 15px 0 18px; color: var(--publion-muted); line-height: 1.5; }
+.publion-quality-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.publion-quality-grid section { padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; }
+.publion-quality-grid h3 { margin: 0 0 9px; font-size: 14px; }
+.publion-quality-grid ul { margin: 0; padding-left: 18px; color: #475569; font-size: 12px; line-height: 1.5; }
+.publion-quality-grid li + li { margin-top: 7px; }
+.publion-modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--publion-line); }
+
+@media (max-width: 700px) {
+    .publion-modal-dialog { padding: 20px; }
+    .publion-quality-grid { grid-template-columns: 1fr; }
+}
+

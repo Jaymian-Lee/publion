@@ -50,7 +50,7 @@ function publion_normalize_domain( $domain ) {
     return $host ? strtolower( $host ) : '';
 }
 
-function publion_generate_chatgpt_html($topic, $category_name) {
+function publion_generate_chatgpt_html( $topic, $category_name, $seo_brief = array() ) {
     $api_key = get_option('publion_api_key', false);
     if (!$api_key) {
         $api_key = maybe_unserialize(get_option('publion_api_key'));
@@ -75,19 +75,35 @@ function publion_generate_chatgpt_html($topic, $category_name) {
         $preferred_note .= "\nAls je andere externe links toevoegt, kies dan alleen relevante, niet-concurrerende, betrouwbare bronnen.";
     }
 
-    $base_prompt = "Schrijf een lange, hoogwaardige, SEO-geoptimaliseerde blogpost in HTML-formaat over het onderwerp: \"$topic\" binnen de categorie \"$category_name\". Voeg geen paginamarkup toe zoals <!DOCTYPE html>, <head>, <body>, <header>, <footer> of <meta>. Maak de eerste kop in de post een <h2> en geen <h1>. Deze HTML wordt geplaatst in de content van een pagina die dit al bevat.
+    $focus_keyword  = sanitize_text_field( $seo_brief['focus_keyword'] ?? $topic );
+    $search_intent  = sanitize_text_field( $seo_brief['search_intent'] ?? 'informatief' );
+    $angle          = sanitize_text_field( $seo_brief['angle'] ?? '' );
+    $faq_questions  = ! empty( $seo_brief['faq_questions'] ) && is_array( $seo_brief['faq_questions'] ) ? $seo_brief['faq_questions'] : array();
+    $faq_instruction = '';
+    if ( ! empty( $faq_questions ) ) {
+        $faq_instruction = "\nGebruik aan het eind een <h2>Veelgestelde vragen</h2> met deze vragen als <h3>-koppen en een direct, feitelijk antwoord per vraag:\n- " . implode( "\n- ", array_map( 'sanitize_text_field', $faq_questions ) );
+    }
 
-De post moet minimaal 1500 woorden bevatten (geen tekens) en een passende HTML-structuur gebruiken met <p>, <h2>, <h3>, etc.
+    $base_prompt = "Schrijf een origineel, behulpzaam en inhoudelijk sterk artikel in HTML over \"$topic\" binnen de categorie \"$category_name\". De primaire zoekterm is \"$focus_keyword\" en de zoekintentie is \"$search_intent\".";
+    if ( $angle ) {
+        $base_prompt .= " De gekozen invalshoek is: \"$angle\".";
+    }
+    $base_prompt .= "
 
-Vat niets samen en sla geen onderdelen over. Ga diep in op subonderwerpen, geef voorbeelden en behandel alle aspecten. Voeg een inleiding, meerdere gedetailleerde secties en een conclusie toe.
+Schrijf voor mensen eerst en maak het antwoord ook goed citeerbaar door AI-zoekmachines: begin met een helder, direct antwoord, werk met beschrijvende <h2> en <h3>-koppen, korte alinea's, concrete voorbeelden en waar passend een lijst of stappenplan. Beantwoord de volledige zoekvraag en benoem beperkingen of context wanneer nodig. Verzin nooit feiten, cijfers, ervaringen, citaten of bronnen.
 
-Verwerk 4-5 kernzinnen als dofollow-links naar hoogwaardige, niet-concurrerende informatieve websites (gebruik <a href=\\\"...\\\" target=\\\"_blank\\\" rel=\\\"dofollow\\\">ankertekst</a>), maar vermeld niet dat het links zijn. Zorg dat deze links verspreid door de content voorkomen. Dit is erg belangrijk!
-$preferred_note
+Maak de inhoud bruikbaar voor klassieke zoekmachines, antwoordmachines en generatieve zoekinterfaces: definieer belangrijke begrippen direct, houd feitelijke beweringen specifiek en controleerbaar, gebruik relevante entiteiten bij naam en plaats antwoorden vlak bij de vraag waarop ze reageren. Voeg geen tekst toe die alleen voor een algoritme is geschreven en doe geen ongefundeerde claims over resultaten, prijzen, kortingen of prestaties.
 
-Geef alleen de HTML-content terug. Geen uitleg, notities of markdown.";
+Wanneer de zoekintentie commercieel of transactioneel is, help de lezer eerlijk vergelijken met duidelijke selectiecriteria, beperkingen en een rustige volgende stap. Schrijf geen advertentietekst, verzin geen aanbiedingen en gebruik geen druk- of clickbaittaal.
+
+Gebruik minimaal 1.500 woorden, maar vermijd opvultekst en herhaling. Voeg geen paginamarkup toe zoals <!DOCTYPE html>, <head>, <body>, <header>, <footer>, <script> of <meta>. Maak de eerste kop een <h2>, geen <h1>. Gebruik uitsluitend semantische content-HTML: <p>, <h2>, <h3>, <ul>, <ol>, <strong>, <table> waar dat inhoudelijk helpt.
+
+Neem alleen links op naar relevante, betrouwbare en verifieerbare bronnen. Gebruik voor externe links target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\". Plaats geen links die je niet met zekerheid passend kunt maken.$preferred_note$faq_instruction
+
+Geef uitsluitend valide HTML-content terug, zonder uitleg, notities of Markdown.";
 
     $messages = [
-        ['role' => 'system', 'content' => 'Je bent een behulpzame AI-blogschrijver. Geef alleen HTML terug.'],
+        ['role' => 'system', 'content' => 'Je bent een deskundige Nederlandse contentschrijver. Je bent strikt feitelijk, vermijdt SEO-spam en geeft uitsluitend valide HTML terug.'],
         ['role' => 'user', 'content' => $base_prompt]
     ];
 
@@ -116,7 +132,7 @@ Geef alleen de HTML-content terug. Geen uitleg, notities of markdown.";
         $iteration++;
 
         $messages[] = ['role' => 'assistant', 'content' => $new_html];
-        $messages[] = ['role' => 'user', 'content' => 'Ga verder met de rest van het artikel in hetzelfde HTML-formaat, precies waar je was gebleven. Herhaal geen content.'];
+        $messages[] = ['role' => 'user', 'content' => 'Ga verder met de rest van het artikel in hetzelfde HTML-formaat, precies waar je was gebleven. Herhaal geen content en behoud de feitelijke, behulpzame schrijfstijl.'];
     }
 
     // Clean & validate
@@ -149,6 +165,36 @@ Geef alleen de HTML-content terug. Geen uitleg, notities of markdown.";
     $html_output = preg_replace('/<h([1-2])>(.*?)<\/h\1>/i', '<h$1 class="publion-title">$2</h$1>', $html_output, 1);
 
     return $html_output;
+}
+
+/**
+ * Extracts FAQ pairs from a generated article for optional JSON-LD output.
+ * The schema is kept outside post content so WordPress sanitizers cannot strip it.
+ */
+function publion_extract_faq_pairs( $html ) {
+    $faqs = array();
+    if ( ! preg_match( '/<h2[^>]*>\s*(Veelgestelde vragen|FAQ)\s*<\/h2>(.*)$/is', $html, $section ) ) {
+        return $faqs;
+    }
+
+    if ( preg_match_all( '/<h3[^>]*>(.*?)<\/h3>\s*<p[^>]*>(.*?)<\/p>/is', $section[2], $pairs, PREG_SET_ORDER ) ) {
+        foreach ( $pairs as $pair ) {
+            $question = trim( wp_strip_all_tags( $pair[1] ) );
+            $answer   = trim( wp_strip_all_tags( $pair[2] ) );
+            if ( $question && $answer ) {
+                $faqs[] = array( 'question' => $question, 'answer' => $answer );
+            }
+            if ( count( $faqs ) >= 5 ) {
+                break;
+            }
+        }
+    }
+    return $faqs;
+}
+
+function publion_store_article_seo_data( $post_id, $post_html, $focus_keyword = '' ) {
+    update_post_meta( $post_id, '_publion_focus_keyword', sanitize_text_field( $focus_keyword ) );
+    update_post_meta( $post_id, '_publion_faq_pairs', publion_extract_faq_pairs( $post_html ) );
 }
 
 function publion_auto_internal_links($html, $keywords) {
@@ -361,12 +407,22 @@ function publion_upload_image($url, $context = '') {
         'post_name'  => $slug,
     ]);
 
-    update_post_meta($id, '_wp_attachment_image_alt', ucwords(str_replace('-', ' ', $slug)));
+    update_post_meta($id, '_wp_attachment_image_alt', publion_build_descriptive_image_alt( $context ));
 
     return [
         'attachment_id' => $id,
         'url' => wp_get_attachment_url($id)
     ];
+}
+
+function publion_build_descriptive_image_alt( $context = '' ) {
+    $context = html_entity_decode( wp_strip_all_tags( (string) $context ), ENT_QUOTES, 'UTF-8' );
+    $context = preg_replace( '/\s+/', ' ', trim( $context ) );
+    if ( '' === $context ) {
+        return 'Illustratie bij het artikel';
+    }
+    $context = mb_substr( $context, 0, 110 );
+    return 'Illustratie bij: ' . $context;
 }
 
 function publion_ensure_preferred_domain_link( $html, $preferred_domain, $topic ) {
@@ -642,7 +698,7 @@ function publion_upload_image_base64( $base64, $context = '', $format = 'jpeg' )
         ]
     );
 
-    update_post_meta( $id, '_wp_attachment_image_alt', ucwords( str_replace( '-', ' ', $slug ) ) );
+    update_post_meta( $id, '_wp_attachment_image_alt', publion_build_descriptive_image_alt( $context ) );
 
     return [
         'attachment_id' => $id,
@@ -723,16 +779,17 @@ function publion_insert_images_into_content($html, $image_urls) {
     foreach ($desired_positions as $i => $target) {
         $closest = null;
         $min_diff = PHP_INT_MAX;
-        $alt_text = 'Blogafbeelding';
+        $alt_text = '';
 
         foreach ($all_offsets as $offset) {
             $diff = abs($offset[1] - $target);
             if ($diff < $min_diff) {
                 $min_diff = $diff;
                 $closest = $offset[1];
-                // Strip HTML and limit to 10 words
+                // Keep the alt text concise, contextual and useful for screen readers.
                 $alt_text = wp_strip_all_tags($offset[0]);
-                $alt_text = implode(' ', array_slice(explode(' ', $alt_text), 0, 10));
+                $alt_text = preg_replace('/\s+/', ' ', trim($alt_text));
+                $alt_text = implode(' ', array_slice(explode(' ', $alt_text), 0, 14));
             }
         }
 
@@ -744,7 +801,8 @@ function publion_insert_images_into_content($html, $image_urls) {
             $style = 'float:left; width:45%; padding:20px 20px 20px 0;';
         }
 
-        $inserts[$closest ?? $target] = '<img src="' . esc_url($image_urls[$i]) . '" alt="' . esc_attr($alt_text) . '" style="' . $style . '" />';
+        $alt_text = publion_build_descriptive_image_alt( $alt_text );
+        $inserts[$closest ?? $target] = '<img class="publion-generated-image" src="' . esc_url($image_urls[$i]) . '" alt="' . esc_attr($alt_text) . '" loading="lazy" decoding="async" style="' . $style . '" />';
     }
 
     // Sort descending so offsets don’t shift

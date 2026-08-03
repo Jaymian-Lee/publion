@@ -3,7 +3,7 @@
 Plugin Name: Publion
 Plugin URI: https://jaymian-lee.com/publion
 Description: Genereer en verfijn blogposts met AI. Kies een categorie, krijg onderwerp-ideeën, zet SEO-geoptimaliseerde posts met afbeeldingen in de wachtrij en plan het aanmaken in WordPress.
-Version: 1.2.8
+Version: 1.6.0
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'PUBLION_VERSION', '1.2.8' );
+define( 'PUBLION_VERSION', '1.6.0' );
 define( 'PUBLION_PATH', plugin_dir_path( __FILE__ ) );
 define( 'PUBLION_URL', plugin_dir_url( __FILE__ ) );
 
@@ -54,6 +54,8 @@ function publion_create_queue_table() {
 	$sql = "CREATE TABLE $table_name (
 		id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 		topic TEXT NOT NULL,
+		focus_keyword VARCHAR(255) DEFAULT '',
+		seo_brief LONGTEXT DEFAULT NULL,
 		category_id BIGINT NOT NULL,
 		category_label VARCHAR(255) NOT NULL,
 		status VARCHAR(50) DEFAULT 'pending',
@@ -111,6 +113,8 @@ function publion_maybe_update_queue_table() {
 	$sql = "CREATE TABLE $table_name (
 		id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 		topic TEXT NOT NULL,
+		focus_keyword VARCHAR(255) DEFAULT '',
+		seo_brief LONGTEXT DEFAULT NULL,
 		category_id BIGINT NOT NULL,
 		category_label VARCHAR(255) NOT NULL,
 		status VARCHAR(50) DEFAULT 'pending',

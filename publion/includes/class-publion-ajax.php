@@ -512,6 +512,47 @@ function publion_get_post_id_for_queue_entry( $entry ) {
 }
 
 /* ===== Get Topic Suggestions ===== */
+function publion_normalize_seo_suggestions( $text ) {
+	$text = trim( (string) $text );
+	$text = preg_replace( '/^```(?:json)?\s*|\s*```$/i', '', $text );
+	$decoded = json_decode( $text, true );
+	$suggestions = array();
+
+	if ( is_array( $decoded ) ) {
+		foreach ( $decoded as $item ) {
+			if ( ! is_array( $item ) || empty( $item['title'] ) ) {
+				continue;
+			}
+			$questions = isset( $item['faq_questions'] ) && is_array( $item['faq_questions'] ) ? $item['faq_questions'] : array();
+			$questions = array_slice( array_filter( array_map( 'sanitize_text_field', $questions ) ), 0, 4 );
+			$suggestions[] = array(
+				'title'         => sanitize_text_field( $item['title'] ),
+				'focus_keyword' => sanitize_text_field( $item['focus_keyword'] ?? $item['title'] ),
+				'search_intent' => sanitize_text_field( $item['search_intent'] ?? 'informatief' ),
+				'angle'         => sanitize_text_field( $item['angle'] ?? '' ),
+				'faq_questions' => $questions,
+			);
+			if ( count( $suggestions ) >= 5 ) {
+				break;
+			}
+		}
+	}
+
+	if ( empty( $suggestions ) ) {
+		foreach ( preg_split( '/\r\n|\n|\r/', $text ) as $line ) {
+			$line = trim( preg_replace( '/^\s*(?:[-*]+|\d+[\.\)])\s*/', '', $line ) );
+			if ( '' !== $line ) {
+				$suggestions[] = array( 'title' => sanitize_text_field( $line ), 'focus_keyword' => sanitize_text_field( $line ), 'search_intent' => 'informatief', 'angle' => '', 'faq_questions' => array() );
+			}
+			if ( count( $suggestions ) >= 5 ) {
+				break;
+			}
+		}
+	}
+
+	return $suggestions;
+}
+
 add_action( 'wp_ajax_publion_get_topics', 'publion_get_topics_callback' );
 function publion_get_topics_callback() {
 	check_ajax_referer( 'publion_nonce', 'nonce' );
@@ -553,10 +594,9 @@ function publion_get_topics_callback() {
 		$avoid_section = "\n\nVermijd herhaling of suggesties die te veel lijken op deze eerder gebruikte onderwerpen:\n" . $list;
 	}
 
-	$full_prompt  = $pre_prompt . "\n\nOp basis van de categorie \"" . $category . "\", stel 5 hoogwaardige blogonderwerpen voor die relevant, boeiend en nuttig zijn." . $avoid_section;
-	$full_prompt .= "\n\nGenereer alleen onderwerpen die duidelijk gerelateerd zijn aan de gekozen categorie. Vermijd ongerelateerde gebieden zoals design, development of andere branches. Focus op onderwerpen die interessant zijn voor een publiek dat zoekt naar content over \"" . $category . "\".";
-	$full_prompt .= "\n\nZorg dat elk onderwerp direct gekoppeld is aan \"" . $category . "\" en vermijd brede of zijdelingse onderwerpen.";
-	$full_prompt .= "\n\nFormaat: geef exact 5 onderwerpen, elk op een eigen regel. Geen inleiding, geen bullets, geen nummers, geen Markdown, geen extra uitleg. Alleen de onderwerpregel zelf.";
+	$full_prompt  = $pre_prompt . "\n\nOntwikkel 5 onderscheidende, behulpzame artikelkansen voor de categorie \"" . $category . "\"." . $avoid_section;
+	$full_prompt .= "\nKies onderwerpen met een duidelijke zoekvraag, niet alleen brede thema's. Vermijd keyword stuffing, vage titels, ongefundeerde claims en onderwerpen die niet echt bij de categorie passen. Denk vanuit organisch zoeken én citeerbaarheid in AI-antwoorden.";
+	$full_prompt .= "\n\nGeef exact één geldige JSON-array terug, zonder Markdown of toelichting. Elk object heeft uitsluitend: title (concrete titel), focus_keyword (één natuurlijke primaire zoekterm), search_intent (informatief, commercieel, transactioneel of navigerend), angle (de unieke praktische invalshoek) en faq_questions (array met 3 concrete vragen die lezers stellen).";
 
 	$model = publion_get_openai_model();
 	$response = wp_remote_post(
@@ -591,6 +631,9 @@ function publion_get_topics_callback() {
 	if ( ! $text ) {
 		wp_send_json_error( 'Geen antwoord van ChatGPT.' );
 	}
+
+	wp_send_json_success( publion_normalize_seo_suggestions( $text ) );
+	return;
 
 	$lines = preg_split( '/\r\n|\n|\r/', trim( $text ) );
 	$topics = [];
@@ -656,6 +699,8 @@ function publion_save_queue() {
 		$topic_raw          = str_replace( '\"', '', $topic_raw );
 		$category_id_raw    = isset( $item_raw['category'] ) ? $item_raw['category'] : 0;
 		$category_label_raw = isset( $item_raw['categoryLabel'] ) ? (string) $item_raw['categoryLabel'] : '';
+		$focus_keyword_raw  = isset( $item_raw['focusKeyword'] ) ? (string) $item_raw['focusKeyword'] : '';
+		$seo_brief_raw      = isset( $item_raw['seoBrief'] ) && is_array( $item_raw['seoBrief'] ) ? $item_raw['seoBrief'] : array();
 
 		$topic_clean = sanitize_text_field( $topic_raw );
 		$category_id = intval( $category_id_raw );
@@ -667,6 +712,12 @@ function publion_save_queue() {
 
 		$queue[] = [
 			'topic'          => $topic_clean,
+			'focus_keyword'  => sanitize_text_field( $focus_keyword_raw ?: $topic_clean ),
+			'seo_brief'      => wp_json_encode( array(
+				'search_intent' => sanitize_text_field( $seo_brief_raw['search_intent'] ?? 'informatief' ),
+				'angle'         => sanitize_text_field( $seo_brief_raw['angle'] ?? '' ),
+				'faq_questions' => array_slice( array_filter( array_map( 'sanitize_text_field', (array) ( $seo_brief_raw['faq_questions'] ?? array() ) ) ), 0, 4 ),
+			) ),
 			'category_id'    => $category_id,
 			'category_label' => sanitize_text_field( $category_label_raw ),
 		];
@@ -688,6 +739,8 @@ function publion_save_queue() {
 			$wpdb->publion_queue,
 			[
 				'topic'          => $item['topic'],
+				'focus_keyword'  => $item['focus_keyword'],
+				'seo_brief'      => $item['seo_brief'],
 				'category_id'    => $item['category_id'],
 				'category_label' => $item['category_label'],
 				'status'         => 'pending',
@@ -736,6 +789,20 @@ function publion_save_post_settings_callback() {
 		? intval( wp_unslash( $_POST['daily_topic_interval_days'] ) )
 		: (int) ( $existing_settings['daily_topic_interval_days'] ?? 1 );
 	$rank_math_integration = ( isset( $_POST['rank_math_integration'] ) && 'yes' === $_POST['rank_math_integration'] ) ? 'yes' : 'no';
+	$structured_data       = ( isset( $_POST['structured_data'] ) && 'yes' === $_POST['structured_data'] ) ? 'yes' : 'no';
+	$image_border_radius  = isset( $_POST['image_border_radius'] ) ? absint( wp_unslash( $_POST['image_border_radius'] ) ) : 8;
+	$article_style_mode   = sanitize_key( wp_unslash( $_POST['article_style_mode'] ?? 'inherit' ) );
+	$article_style_mode   = in_array( $article_style_mode, array( 'inherit', 'refined' ), true ) ? $article_style_mode : 'inherit';
+	$content_accent_color = sanitize_hex_color( wp_unslash( $_POST['content_accent_color'] ?? '' ) );
+	$content_accent_color = $content_accent_color ? $content_accent_color : '#4f46e5';
+	$content_max_width    = isset( $_POST['content_max_width'] ) ? absint( wp_unslash( $_POST['content_max_width'] ) ) : 760;
+	$content_max_width    = max( 560, min( 1200, $content_max_width ) );
+	$custom_article_css_raw = wp_unslash( $_POST['custom_article_css'] ?? '' );
+	$custom_article_css   = current_user_can( 'unfiltered_html' )
+		? Publion_Admin::sanitize_custom_article_css( $custom_article_css_raw )
+		: (string) ( $existing_settings['custom_article_css'] ?? '' );
+	$search_console_url   = esc_url_raw( wp_unslash( $_POST['search_console_url'] ?? '' ) );
+	$ga4_url              = esc_url_raw( wp_unslash( $_POST['ga4_url'] ?? '' ) );
 	$preferred_external_domain = sanitize_text_field( wp_unslash( $_POST['preferred_external_domain'] ?? '' ) );
 	$preferred_external_urls   = wp_kses_post( wp_unslash( $_POST['preferred_external_urls'] ?? '' ) );
 
@@ -760,6 +827,14 @@ function publion_save_post_settings_callback() {
 		'daily_topic_time'   => $daily_topic_time,
 		'daily_topic_interval_days' => max( 1, (int) $daily_topic_interval_days ),
 		'rank_math_integration' => $rank_math_integration,
+		'structured_data'       => $structured_data,
+		'image_border_radius'   => min( 48, $image_border_radius ),
+		'article_style_mode'    => $article_style_mode,
+		'content_accent_color' => $content_accent_color,
+		'content_max_width'    => $content_max_width,
+		'custom_article_css'   => $custom_article_css,
+		'search_console_url'    => $search_console_url,
+		'ga4_url'               => $ga4_url,
 		'preferred_external_domain' => $preferred_external_domain,
 		'preferred_external_urls'   => $preferred_external_urls,
 	];
@@ -1132,7 +1207,10 @@ function publion_create_post_now() {
 	$cta_text = sanitize_text_field( $settings['cta_text'] ?? '' );
 	$cta_link = esc_url_raw( $settings['cta_link'] ?? '' );
 
-	$post_html = publion_generate_chatgpt_html( $topic->topic, $topic->category_label );
+	$seo_brief = ! empty( $topic->seo_brief ) ? json_decode( $topic->seo_brief, true ) : array();
+	$seo_brief = is_array( $seo_brief ) ? $seo_brief : array();
+	$seo_brief['focus_keyword'] = sanitize_text_field( $topic->focus_keyword ?? $topic->topic );
+	$post_html = publion_generate_chatgpt_html( $topic->topic, $topic->category_label, $seo_brief );
 	if ( is_wp_error( $post_html ) || ! $post_html ) {
 		wp_send_json_error( 'Genereren van content mislukt.' );
 	}
@@ -1190,10 +1268,11 @@ function publion_create_post_now() {
 
 	// Link the post back to the queue row for reliable lookups later.
 	add_post_meta( $post_id, '_publion_queue_id', (int) $topic_id, true );
+	publion_store_article_seo_data( $post_id, $post_html, $seo_brief['focus_keyword'] );
 
 	$rank_math_enabled = ( ( $settings['rank_math_integration'] ?? 'no' ) === 'yes' );
 	if ( $rank_math_enabled ) {
-		update_post_meta( (int) $post_id, 'rank_math_focus_keyword', $topic->topic );
+		update_post_meta( (int) $post_id, 'rank_math_focus_keyword', $seo_brief['focus_keyword'] );
 		update_post_meta( (int) $post_id, 'rank_math_title', $topic->topic );
 		$excerpt = wp_strip_all_tags( $post_html );
 		$excerpt = preg_replace( '/\s+/', ' ', $excerpt );
