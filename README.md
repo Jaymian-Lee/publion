@@ -4,7 +4,7 @@
 
 Publion helpt redacties, marketeers en ondernemers om van een categorie naar een gecontroleerd artikelconcept te werken. De plugin maakt niet alleen tekst: hij bouwt eerst een contentbrief met zoekintentie, focus-keyword, invalshoek en FAQ-vragen. Daarna kun je onderwerpen plannen, artikelen als concept maken, afbeeldingen laten genereren en de resultaten volgen in je eigen analyticsomgeving.
 
-De huidige release is **1.9.0**. Download het installatiepakket: [publion-1.9.0.zip](publion-1.9.0.zip).
+De huidige release is **1.9.9**. Download het WordPress-importpakket: [publion-wordpress-1.9.9.zip](publion-wordpress-1.9.9.zip). Het pakket bevat precies één hoofdmap: `publion/`. Dat is de vereiste WordPress-structuur en voorkomt dat WordPress een tweede, losstaande pluginmap maakt.
 
 ## In één oogopslag
 
@@ -17,7 +17,7 @@ De huidige release is **1.9.0**. Download het installatiepakket: [publion-1.9.0.
 | Wachtrij en planning | Beheert handmatige en automatische onderwerpen, inclusief planning en bulkacties. |
 | Kwaliteitsbasis | Stuurt op directe antwoorden, duidelijke koppen, relevante links, alt-tekst en interne links. |
 | Publicatiecheck | Opent een toegankelijke SEO/SEA/GEO-checklist vóór publicatie of campagnegebruik. |
-| Structured data | Kan dynamische `BlogPosting`- en `FAQPage`-gegevens publiceren. |
+| Structured data | Kan dynamische `BlogPosting`- en `FAQPage`-gegevens publiceren, maar wijkt voor een actieve SEO-suite om dubbele schema's te voorkomen. |
 | Dashboard | Toont operationele status, volgende acties, fouten en links naar performancebronnen. |
 | Analytics | Opent de eigen Google Search Console- en GA4-rapporten vanuit het dashboard. |
 
@@ -61,11 +61,17 @@ Volgende contentbrief aanscherpen
 
 Google Search Console en Google Analytics zijn optioneel. Je kunt er zonder API-koppeling vanuit Publion naartoe linken.
 
+## Taal en lokalisatie
+
+Publion volgt automatisch de actieve WordPress-taal. Voor beheerders geldt de persoonlijke taalvoorkeur van WordPress; daardoor kunnen redacteuren op dezelfde website de interface ieder in hun eigen taal gebruiken. De plugin bevat een Engelse basiscatalogus en valt bij een nog niet vertaalde niet-Nederlandse taal terug op Engels. Een specifieke vertaling kan als standaard WordPress-taalbestand worden toegevoegd in `wp-content/languages/plugins/publion-{locale}.mo`; die heeft voorrang.
+
+Nieuwe AI-onderwerpvoorstellen en artikelen volgen juist de **sitetaal**. Zo kan een Engelstalige beheerder veilig op een Nederlandse website werken zonder per ongeluk Engelstalige content te publiceren.
+
 ## Installatie
 
 ### Installeren via WordPress
 
-1. Download [publion-1.9.0.zip](publion-1.9.0.zip).
+1. Download [publion-wordpress-1.9.9.zip](publion-wordpress-1.9.9.zip).
 2. Ga in WordPress naar **Plugins → Nieuwe plugin → Plugin uploaden**.
 3. Upload het zipbestand, installeer en activeer de plugin.
 4. Open **Berichten → Publion**.
@@ -125,7 +131,7 @@ Ga naar **Instellingen voor postcreatie** en kies:
 | Automatisch onderwerp | Voegt op vaste momenten een nieuwe contentkans toe. |
 | Externe voorkeurswebsite | Geeft de AI een prioriteitsdomein voor relevante externe links. |
 | Rank Math | Slaat focus-keyword, titel en metabeschrijving op wanneer Rank Math dit gebruikt. |
-| Structured data | Publiceert optioneel `BlogPosting`- en `FAQPage`-gegevens voor Publion-posts. |
+| Structured data | Publiceert optioneel `BlogPosting`- en `FAQPage`-gegevens voor Publion-posts, tenzij Rank Math, Yoast of All in One SEO al articleschema beheert. |
 | Thema-integratie | Volgt standaard de bestaande themastijl; biedt optioneel een verfijnde leesstijl en gescoped Custom CSS. |
 | Afbeeldingafronding | Standaard **8px**, instelbaar van 0 tot 48px voor Publion-afbeeldingen. |
 | Artikelstijl | Laat het thema de vormgeving bepalen of kies een verfijnde Publion-leesstijl. |
@@ -184,7 +190,7 @@ Het dashboard toont bewust geen geschatte rankings, clicks of AI-verkeer. Die zo
 2. **Maak en review concepten.**
 3. **Meet resultaten en verbeter bestaande inhoud.**
 
-Meer detail staat in de [dashboardhandleiding](publion/DASHBOARD-HANDLEIDING.md).
+De volledige dashboardhandleiding staat als normale tekst in **Berichten > Publion > Handleiding & diagnose**. Dezelfde workflow is ook beschikbaar als [PDF-handleiding](publion/publion-documentation.pdf).
 
 ## Contentplanning en SEO-brief
 
@@ -243,7 +249,7 @@ Publion optimaliseert voor begrijpelijke, nuttige inhoud in plaats van keyword s
 - relevante interne links en veilige externe links;
 - FAQ-vragen die inhoudelijk in de pagina worden beantwoord.
 
-Als **Gestructureerde artikeldata** aan staat, genereert Publion op de frontend dynamische JSON-LD op basis van de definitieve post, auteur, datum, thumbnail en FAQ-inhoud. De data staat buiten de postcontent, zodat WordPress de JSON-LD niet tijdens opschonen verwijdert.
+Als **Gestructureerde artikeldata** aan staat, genereert Publion op de frontend dynamische JSON-LD op basis van de definitieve post, auteur, datum, thumbnail en FAQ-inhoud. De data staat buiten de postcontent, zodat WordPress de JSON-LD niet tijdens opschonen verwijdert. Is Rank Math, Yoast of All in One SEO actief, dan geeft Publion de artikeldata aan die plugin uit: zo ontstaat er per artikel maar één schema-eigenaar.
 
 Structured data helpt zoekmachines de pagina te begrijpen; het is geen belofte op een rich result of hogere positie.
 
@@ -261,7 +267,9 @@ De kwaliteitsmodal is volledig met toetsenbord te bedienen: openen met Enter of 
 
 ### Afbeeldingen en alt-tekst
 
-Publion gebruikt gewone HTML-`img`-elementen, lazy loading en beschrijvende alt-tekst op basis van de relevante artikelpassage. De tekst is kort, contextueel en niet gevuld met zoekwoorden. Beoordeel bij review altijd of de tekst werkelijk beschrijft wat er op de gegenereerde afbeelding te zien is en pas hem in de WordPress-mediabibliotheek aan als dat niet zo is.
+Nieuwe Publion-artikelen gebruiken semantische `figure`-blokken met lazy loading en beschrijvende alt-tekst op basis van de relevante artikelpassage. De inhoud wisselt bewust brede 16:9-afbeeldingen af met compacte 1:1-afbeeldingen. Dat geeft een rustiger leesritme zonder de tekst met oude float-layouts te onderbreken. De afbeeldingradius is standaard 8px, is instelbaar van 0 tot 48px en krijgt voorrang op reguliere themaregels.
+
+De alt-tekst is kort, contextueel en niet gevuld met zoekwoorden. Beoordeel bij review altijd of de tekst werkelijk beschrijft wat er op de gegenereerde afbeelding te zien is en pas hem in de WordPress-mediabibliotheek aan als dat niet zo is. Bestaande artikelen behouden hun inhoud, maar krijgen na de update wel de stevigere radiusregel; maak een artikel opnieuw aan of vervang de bestaande afbeeldingen om de nieuwe 16:9/1:1-structuur te gebruiken.
 
 Google combineert alt-tekst met de inhoud rond een afbeelding om het onderwerp te begrijpen en benadrukt dat keyword stuffing de gebruikerservaring schaadt. [Google Image SEO](https://developers.google.com/search/docs/appearance/google-images)
 
@@ -293,7 +301,7 @@ Voor een betrouwbaardere planning:
 
 ## Fouten en diagnose
 
-Publion toont relevante problemen in het dashboard en bij de actie waar ze optreden.
+Publion toont relevante problemen in het dashboard en precies bij de actie waar ze optreden. Een actuele foutmelding bevat altijd de mislukte stap, een veilige oorzaak, een concrete vervolgstap en een foutreferentie zoals `PUBLION-OPENAI-MODEL`. Gebruik de voorgestelde knop om direct naar de juiste instellingen of diagnose te gaan. De referentie is veilig om met ondersteuning te delen; deel nooit een API-sleutel of ruwe providerrespons.
 
 | Melding | Mogelijke oorzaak | Eerste actie |
 | --- | --- | --- |
@@ -327,9 +335,8 @@ publion/
 ├── assets/
 │   ├── admin.css                        # Adminstyling
 │   └── admin.js                         # Interacties en AJAX-feedback
-├── DASHBOARD-HANDLEIDING.md             # Praktische gebruikershandleiding
 ├── readme.txt                           # WordPress.org-stijl plugininformatie
-└── publion-documentation.pdf            # Bestaande pluginhandleiding
+└── publion-documentation.pdf            # Volledige pluginhandleiding
 ```
 
 ## Ontwikkelen en testen

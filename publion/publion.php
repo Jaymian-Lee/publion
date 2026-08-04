@@ -1,26 +1,67 @@
 <?php
 /*
 Plugin Name: Publion
-Plugin URI: https://jaymian-lee.com/publion
+Plugin URI: https://jaymian-lee.nl/publion
 Description: Genereer en verfijn blogposts met AI. Kies een categorie, krijg onderwerp-ideeën, zet SEO-geoptimaliseerde posts met afbeeldingen in de wachtrij en plan het aanmaken in WordPress.
-Version: 1.9.0
+Version: 1.9.9
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
 Author: Jaymian-Lee
-Author URI: https://jaymian-lee.com
+Author URI: https://jaymian-lee.nl
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Text Domain: publion
+Domain Path: /languages
 */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'PUBLION_VERSION', '1.9.0' );
+define( 'PUBLION_VERSION', '1.9.9' );
 define( 'PUBLION_PATH', plugin_dir_path( __FILE__ ) );
 define( 'PUBLION_URL', plugin_dir_url( __FILE__ ) );
+
+/**
+ * Load the translation that matches the current WordPress locale.
+ *
+ * WordPress uses the individual administrator's language where available, so
+ * two editors can safely use Publion in different languages on the same site.
+ * A site-wide language pack in wp-content/languages/plugins takes precedence.
+ * When a non-Dutch locale has no dedicated Publion translation yet, the bundled
+ * English catalogue is used instead of falling back to a partly Dutch screen.
+ */
+function publion_load_textdomain() {
+	$domain        = 'publion';
+	$locale        = determine_locale();
+	$language_root = defined( 'WP_LANG_DIR' ) ? WP_LANG_DIR . '/plugins/' : '';
+
+	load_plugin_textdomain( $domain, false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
+
+	$global_mofile = $language_root ? $language_root . $domain . '-' . $locale . '.mo' : '';
+	$plugin_mofile = PUBLION_PATH . 'languages/' . $domain . '-' . $locale . '.mo';
+
+	if ( $global_mofile && is_readable( $global_mofile ) ) {
+		load_textdomain( $domain, $global_mofile );
+		return;
+	}
+
+	if ( is_readable( $plugin_mofile ) ) {
+		load_textdomain( $domain, $plugin_mofile );
+		return;
+	}
+
+	// Dutch is the source language. Every other unsupported locale gets a
+	// complete English base interface until a dedicated language pack is added.
+	if ( 0 !== strpos( strtolower( $locale ), 'nl' ) ) {
+		$english_mofile = PUBLION_PATH . 'languages/' . $domain . '-en_US.mo';
+		if ( is_readable( $english_mofile ) ) {
+			load_textdomain( $domain, $english_mofile );
+		}
+	}
+}
+add_action( 'plugins_loaded', 'publion_load_textdomain', 1 );
 
 // Register custom cron schedule (every 15 minutes).
 add_filter(
@@ -140,7 +181,7 @@ add_action(
 	function () {
 		if ( get_option( 'publion_show_deactivation_warning' ) ) {
 			echo '<div class="notice notice-warning is-dismissible">
-				<p><strong>Publion:</strong> Deactiveren of verwijderen van deze plugin verwijdert ALLE opgeslagen gegevens permanent! Weet je het zeker?</p>
+				<p><strong>Publion:</strong> ' . esc_html__( 'Deactiveren of verwijderen van deze plugin verwijdert alle opgeslagen gegevens permanent. Weet je het zeker?', 'publion' ) . '</p>
 			</div>';
 			delete_option( 'publion_show_deactivation_warning' );
 		}
@@ -192,11 +233,11 @@ add_filter(
 	function ( $links ) {
 		// Dashboard link.
 		$dashboard_url  = admin_url( 'admin.php?page=publion' );
-		$dashboard_link = '<a href="' . esc_url( $dashboard_url ) . '">Overzicht</a>';
+		$dashboard_link = '<a href="' . esc_url( $dashboard_url ) . '">' . esc_html__( 'Overzicht', 'publion' ) . '</a>';
 
 		// Documentation link (PDF in plugin root).
 		$doc_url  = plugin_dir_url( __FILE__ ) . 'publion-documentation.pdf';
-		$doc_link = '<a href="' . esc_url( $doc_url ) . '" target="_blank" rel="noopener noreferrer">Documentatie</a>';
+		$doc_link = '<a href="' . esc_url( $doc_url ) . '" target="_blank" rel="noopener noreferrer">' . esc_html__( 'Documentatie', 'publion' ) . '</a>';
 
 		// Unshift in reverse so final order is: Dashboard, Documentation, ...
 		array_unshift( $links, $doc_link );

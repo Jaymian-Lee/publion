@@ -130,6 +130,26 @@
 .publion-app-shell .widefat thead th { color: #475569; background: #f8fafc; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
 .publion-app-shell .widefat td { vertical-align: middle; }
 .publion-queue-brief { color: var(--publion-muted); font-size: 12px; }
+.publion-queue-actions { min-width: 196px; }
+.publion-queue-actions .publion-create-now { margin: 5px 2px 2px; }
+.publion-queue-actions .publion-create-spinner { float: none; margin-left: 4px; vertical-align: middle; }
+.publion-create-progress { width: min(188px, calc(100% - 8px)); margin: 5px auto 6px; padding: 8px; color: #334155; background: #f8fafc; border: 1px solid #dbe4f0; border-radius: 8px; box-sizing: border-box; text-align: left; white-space: normal; }
+.publion-create-progress[hidden] { display: none; }
+.publion-create-progress-label { display: flex; justify-content: space-between; align-items: baseline; gap: 7px; font-size: 11px; line-height: 1.25; }
+.publion-create-progress-stage { overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.publion-create-progress-percent { color: #4338ca; font-size: 11px; }
+.publion-create-progress-track { height: 5px; margin: 6px 0; overflow: hidden; background: #e2e8f0; border-radius: 999px; }
+.publion-create-progress-bar { display: block; width: 0; height: 100%; background: #635bff; border-radius: inherit; transition: width .28s ease; }
+.publion-create-progress-detail { display: -webkit-box; overflow: hidden; color: #64748b; font-size: 10px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.publion-create-progress-guidance { margin: 7px 0 0; font-size: 10px; line-height: 1.4; }
+.publion-create-progress-reference { display: block; margin-top: 5px; color: #64748b; font-size: 9px; }
+.publion-create-progress-action { margin-top: 8px !important; font-size: 11px !important; }
+.publion-create-progress.is-completed { color: #166534; background: #f0fdf4; border-color: #bbf7d0; }
+.publion-create-progress.is-completed .publion-create-progress-percent { color: #166534; }
+.publion-create-progress.is-completed .publion-create-progress-bar { background: #22c55e; }
+.publion-create-progress.is-failed { color: #991b1b; background: #fef2f2; border-color: #fecaca; }
+.publion-create-progress.is-failed .publion-create-progress-percent { color: #991b1b; }
+.publion-create-progress.is-failed .publion-create-progress-bar { background: #ef4444; }
 .publion-app-shell .publion-accordion-heading { display: flex; justify-content: space-between; align-items: center; margin: 26px 0 0; padding: 13px 0; border-bottom: 1px solid var(--publion-line); font-size: 16px; }
 .publion-app-shell .form-table th { color: var(--publion-ink); }
 .publion-app-shell .description { color: var(--publion-muted); }
@@ -156,9 +176,21 @@
 .publion-global-notice { display: none; margin: 0 0 18px; padding: 12px 14px; border-left: 3px solid; border-radius: 8px; }
 .publion-global-notice strong { display: block; margin-bottom: 2px; }
 .publion-global-notice span { font-size: 13px; }
+.publion-global-notice .publion-error-action { display: inline-block; margin: 9px 8px 0 0; }
+.publion-global-notice small { display: block; margin-top: 8px; opacity: .85; }
 .publion-global-notice.is-success { color: #166534; background: #f0fdf4; border-color: #22c55e; }
 .publion-global-notice.is-warning { color: #92400e; background: #fffbeb; border-color: #f59e0b; }
 .publion-global-notice.is-error { color: #991b1b; background: #fef2f2; border-color: #ef4444; }
+.publion-operation-error { margin-top: 10px; padding: 11px 12px; color: #991b1b; background: #fff7f7; border: 1px solid #fecaca; border-radius: 8px; text-align: left; }
+.publion-operation-error strong { display: block; font-size: 13px; }
+.publion-operation-error p { margin: 5px 0; font-size: 12px; line-height: 1.45; }
+.publion-operation-error-next { color: #7f1d1d; font-weight: 600; }
+.publion-operation-error small { display: block; margin-top: 7px; color: #7f1d1d; font-size: 10px; }
+.publion-operation-error .button { margin-top: 9px; }
+.publion-bulk-summary { display: grid; gap: 8px; min-width: min(100%, 520px); margin-top: 10px; padding: 12px; color: #1e293b; background: #f8fafc; border: 1px solid #dbe4f0; border-radius: 8px; }
+.publion-bulk-summary.is-error { color: #991b1b; background: #fff7f7; border-color: #fecaca; }
+.publion-bulk-summary ul { max-height: 180px; margin: 0; padding-left: 18px; overflow: auto; }
+.publion-bulk-summary li { margin: 4px 0; font-size: 12px; line-height: 1.4; }
 
 .publion-dashboard-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 22px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--publion-line); }
 .publion-dashboard-top h2 { max-width: 620px; margin: 0 0 7px; font-size: 26px; letter-spacing: -.03em; }
@@ -201,6 +233,22 @@
 .publion-troubleshooting-list dt { color: var(--publion-ink); font-size: 13px; font-weight: 700; }
 .publion-troubleshooting-list dd { margin: 4px 0 0; color: var(--publion-muted); font-size: 12px; line-height: 1.5; }
 .publion-resource-bar { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--publion-line); }
+.publion-guide-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0; }
+.publion-guide-nav a { display: inline-flex; align-items: center; min-height: 32px; padding: 0 11px; color: var(--publion-accent-dark); background: #f5f6ff; border: 1px solid #dfe2ff; border-radius: 999px; font-size: 12px; font-weight: 700; text-decoration: none; }
+.publion-guide-nav a:hover, .publion-guide-nav a:focus { color: #fff; background: var(--publion-accent-dark); border-color: var(--publion-accent-dark); box-shadow: 0 0 0 2px #dfe2ff; outline: 0; }
+.publion-guide-section { margin-top: 18px; scroll-margin-top: 28px; }
+.publion-guide-section > .publion-eyebrow { margin-bottom: 5px; }
+.publion-guide-section > h3 { margin-bottom: 14px; }
+.publion-guide-section > p { max-width: 780px; color: var(--publion-muted); font-size: 13px; line-height: 1.6; }
+.publion-guide-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; }
+.publion-guide-columns > div { padding: 14px 0; border-top: 1px solid #edf0f5; }
+.publion-guide-columns strong { color: var(--publion-ink); font-size: 13px; }
+.publion-guide-columns p { margin: 5px 0 0; color: var(--publion-muted); font-size: 12px; line-height: 1.55; }
+.publion-guide-checklist { margin: 13px 0 0; padding: 0; list-style: none; }
+.publion-guide-checklist li { position: relative; padding: 8px 0 8px 22px; color: var(--publion-muted); font-size: 13px; line-height: 1.5; border-top: 1px solid #edf0f5; }
+.publion-guide-checklist li::before { content: '✓'; position: absolute; left: 1px; color: #15803d; font-weight: 800; }
+.publion-troubleshooting-list-wide { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 20px; }
+.publion-troubleshooting-list-wide div { min-width: 0; }
 
 @media (max-width: 782px) {
     .publion-dashboard-top, .publion-callout { align-items: flex-start; flex-direction: column; }
@@ -208,6 +256,7 @@
     .publion-metric-grid section:nth-child(3) { border-left: 0; border-top: 1px solid var(--publion-line); }
     .publion-metric-grid section:nth-child(4) { border-top: 1px solid var(--publion-line); }
     .publion-dashboard-layout, .publion-help-grid { grid-template-columns: 1fr; }
+    .publion-guide-columns, .publion-troubleshooting-list-wide { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 480px) {

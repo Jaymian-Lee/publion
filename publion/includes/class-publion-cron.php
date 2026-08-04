@@ -295,11 +295,15 @@ class Publion_Cron {
 		$prompts = publion_generate_contextual_image_prompts( $post_html, $topic->topic, $category_name );
 		$image_ids        = array();
 		$final_image_urls = array();
+		$image_layouts    = array();
 
 		foreach ( $prompts as $item ) {
 			$prompt_text = $item['prompt'] ?? '';
 			$context     = $item['context'] ?? $topic->topic;
-			$image_result = publion_generate_and_upload_images( $prompt_text, 1, $context, $api_key );
+			$image_layout = ( isset( $item['layout'] ) && 'square' === $item['layout'] ) ? 'square' : 'landscape';
+			$image_size   = ( isset( $item['size'] ) && in_array( $item['size'], array( '1024x1024', '1536x1024', '1024x1536', '1536x864' ), true ) ) ? $item['size'] : '1024x1024';
+			$image_result = publion_generate_and_upload_images( $prompt_text, 1, $context, $api_key, $image_size );
+			$image_layouts[] = $image_layout;
 			if ( ! empty( $image_result['urls'][0] ) && ! empty( $image_result['ids'][0] ) ) {
 				$final_image_urls[] = $image_result['urls'][0];
 				$image_ids[]        = (int) $image_result['ids'][0];
@@ -312,10 +316,11 @@ class Publion_Cron {
 		while ( count( $final_image_urls ) < 6 ) {
 			$final_image_urls[] = $placeholder;
 			$image_ids[]        = 0;
+			$image_layouts[]    = 'landscape';
 		}
 
 		// Insert images into content (first 5).
-		$post_html = publion_insert_images_into_content( $post_html, array_slice( $final_image_urls, 0, 5 ) );
+		$post_html = publion_insert_images_into_content( $post_html, array_slice( $final_image_urls, 0, 5 ), array_slice( $image_layouts, 0, 5 ) );
 
 
 		// Create post.
@@ -337,11 +342,7 @@ class Publion_Cron {
 			if ( $rank_math_enabled ) {
 				update_post_meta( (int) $post_id, 'rank_math_focus_keyword', $seo_brief['focus_keyword'] );
 				update_post_meta( (int) $post_id, 'rank_math_title', $topic->topic );
-				$excerpt = wp_strip_all_tags( $post_html );
-				$excerpt = preg_replace( '/\s+/', ' ', $excerpt );
-				$excerpt = trim( $excerpt );
-				$excerpt = mb_substr( $excerpt, 0, 160 );
-				update_post_meta( (int) $post_id, 'rank_math_description', $excerpt );
+				update_post_meta( (int) $post_id, 'rank_math_description', publion_build_meta_description( $post_html ) );
 			}
 		}
 		

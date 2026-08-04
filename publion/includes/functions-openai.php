@@ -293,6 +293,35 @@ function publion_normalize_domain( $domain ) {
     return $host ? strtolower( $host ) : '';
 }
 
+/**
+ * Return a human-readable output language from the WordPress site locale.
+ *
+ * Content deliberately follows the site language, not an individual editor's
+ * profile language: an English-speaking administrator should not accidentally
+ * publish English content on a Dutch public website.
+ */
+function publion_get_site_content_language() {
+	$locale   = (string) get_locale();
+	$language = strtolower( strtok( $locale, '_' ) );
+	$languages = array(
+		'nl' => 'Nederlands',
+		'en' => 'English',
+		'de' => 'Deutsch',
+		'fr' => 'Français',
+		'es' => 'Español',
+		'it' => 'Italiano',
+		'pt' => 'Português',
+		'pl' => 'Polski',
+		'da' => 'Dansk',
+		'sv' => 'Svenska',
+		'no' => 'Norsk',
+		'fi' => 'Suomi',
+	);
+
+	$output_language = $languages[ $language ] ?? $locale;
+	return (string) apply_filters( 'publion_content_language', $output_language, $locale );
+}
+
 function publion_generate_chatgpt_html( $topic, $category_name, $seo_brief = array() ) {
     $api_key = get_option('publion_api_key', false);
     if (!$api_key) {
@@ -300,8 +329,11 @@ function publion_generate_chatgpt_html( $topic, $category_name, $seo_brief = arr
     }
 
     $model = publion_get_openai_model();
-    $target_word_count = 1400;
-    $max_iterations = 5;
+	$content_language = publion_get_site_content_language();
+    // A complete response is more reliable than joining continuations: the latter can
+    // leave lists and headings open and produces repeated phrases in published HTML.
+    $target_word_count = 1200;
+    $max_iterations = 1;
 
     $html_output = '';
     $word_count = 0;
@@ -330,7 +362,7 @@ function publion_generate_chatgpt_html( $topic, $category_name, $seo_brief = arr
     $content_map = publion_get_existing_content_map();
     $originality_instruction = "\n\nORIGINALITEITSCONTROLE: Lees eerst de volledige onderstaande contentkaart van " . (int) $content_map['count'] . " bestaande WordPress-berichten. Dit artikel moet een aantoonbaar nieuwe zoekvraag, invalshoek en koppenstructuur toevoegen. Kopieer, parafraseer of herstructureer geen bestaand bericht. Vermijd een titel die sterk lijkt op een bestaande titel en herhaal geen lange zinnen, FAQ's of stappenplannen uit de kaart.\n\n=== ACTUELE CONTENTKAART ===\n" . $content_map['context'] . "\n=== EINDE CONTENTKAART ===";
 
-    $base_prompt = "Schrijf een origineel, behulpzaam en inhoudelijk sterk artikel in HTML over \"$topic\" binnen de categorie \"$category_name\". De primaire zoekterm is \"$focus_keyword\" en de zoekintentie is \"$search_intent\".";
+	$base_prompt = "Schrijf een origineel, behulpzaam en inhoudelijk sterk artikel in HTML over \"$topic\" binnen de categorie \"$category_name\". De primaire zoekterm is \"$focus_keyword\" en de zoekintentie is \"$search_intent\". Schrijf de volledige zichtbare artikelinhoud, inclusief titelkoppen, FAQ en alt-teksten, uitsluitend in $content_language.";
     if ( $angle ) {
         $base_prompt .= " De gekozen invalshoek is: \"$angle\".";
     }
@@ -342,14 +374,14 @@ Maak de inhoud bruikbaar voor klassieke zoekmachines, antwoordmachines en genera
 
 Wanneer de zoekintentie commercieel of transactioneel is, help de lezer eerlijk vergelijken met duidelijke selectiecriteria, beperkingen en een rustige volgende stap. Schrijf geen advertentietekst, verzin geen aanbiedingen en gebruik geen druk- of clickbaittaal.
 
-Gebruik minimaal 1.500 woorden, maar vermijd opvultekst en herhaling. Voeg geen paginamarkup toe zoals <!DOCTYPE html>, <head>, <body>, <header>, <footer>, <script> of <meta>. Maak de eerste kop een <h2>, geen <h1>. Gebruik uitsluitend semantische content-HTML: <p>, <h2>, <h3>, <ul>, <ol>, <strong>, <table> waar dat inhoudelijk helpt.
+Schrijf circa 1.200 tot 1.600 woorden, maar vermijd opvultekst en herhaling. Voeg geen paginamarkup toe zoals <!DOCTYPE html>, <head>, <body>, <header>, <footer>, <script> of <meta>. Maak de eerste kop een <h2>, geen <h1>. Gebruik uitsluitend semantische content-HTML: <p>, <h2>, <h3>, <ul>, <ol>, <strong>, <table> waar dat inhoudelijk helpt. Sluit elke HTML-tag. Plaats een kop, alinea, tabel of nieuw onderwerp nooit binnen een <ul> of <ol>; daarin staan uitsluitend <li>-elementen. Herhaal een kop, openingszin, woordgroep of FAQ-vraag niet.
 
 Neem alleen links op naar relevante, betrouwbare en verifieerbare bronnen. Gebruik voor externe links target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\". Plaats geen links die je niet met zekerheid passend kunt maken.$preferred_note$faq_instruction$originality_instruction
 
 Geef uitsluitend valide HTML-content terug, zonder uitleg, notities of Markdown.";
 
     $messages = [
-        ['role' => 'system', 'content' => 'Je bent een deskundige Nederlandse contentschrijver. Je bent strikt feitelijk, vermijdt SEO-spam en geeft uitsluitend valide HTML terug.'],
+        ['role' => 'system', 'content' => 'Je bent een deskundige contentschrijver. Je bent strikt feitelijk, vermijdt SEO-spam en geeft uitsluitend valide HTML terug. De taal van de zichtbare inhoud volgt altijd de WordPress-sitetaal: ' . $content_language . '.'],
         ['role' => 'user', 'content' => $base_prompt]
     ];
 
@@ -359,7 +391,7 @@ Geef uitsluitend valide HTML-content terug, zonder uitleg, notities of Markdown.
                 'Content-Type'  => 'application/json',
                 'Authorization' => 'Bearer ' . $api_key,
             ],
-            'body' => wp_json_encode( publion_build_openai_chat_body( $model, $messages, 2048 ) ),
+            'body' => wp_json_encode( publion_build_openai_chat_body( $model, $messages, 4096 ) ),
             'timeout' => 60
         ]);
 
@@ -382,12 +414,11 @@ Geef uitsluitend valide HTML-content terug, zonder uitleg, notities of Markdown.
         $word_count = str_word_count(wp_strip_all_tags($html_output));
         $iteration++;
 
-        $messages[] = ['role' => 'assistant', 'content' => $new_html];
-        $messages[] = ['role' => 'user', 'content' => 'Ga verder met de rest van het artikel in hetzelfde HTML-formaat, precies waar je was gebleven. Herhaal geen content en behoud de feitelijke, behulpzame schrijfstijl.'];
     }
 
     // Clean & validate
     $html_output = publion_clean_html_output($html_output);
+    $html_output = publion_normalize_article_html( $html_output );
     $html_output = publion_validate_links_in_html($html_output);
     $html_output = publion_enhance_external_links($html_output);
     $html_output = publion_ensure_preferred_domain_link( $html_output, $preferred_domain, $topic );
@@ -640,6 +671,64 @@ function publion_clean_html_output($html) {
     return trim($html);
 }
 
+/**
+ * Applies a final, conservative cleanup after generation. WordPress will still
+ * sanitize on save, but balancing here keeps the editor and frontend markup
+ * predictable before images and links are added.
+ */
+function publion_normalize_article_html( $html ) {
+    $html = wp_kses_post( (string) $html );
+    $html = force_balance_tags( $html );
+    $html = preg_replace( '/<p>\s*(<(?:h[2-4]|ul|ol|table|figure)\b[^>]*>)/i', '$1', $html );
+    $html = preg_replace( '/(<\/(?:h[2-4]|ul|ol|table|figure)>)\s*<\/p>/i', '$1', $html );
+    $html = preg_replace( '/<p>\s*<\/p>/i', '', $html );
+
+    return trim( $html );
+}
+
+/**
+ * Shortens text on a word boundary, avoiding cut-off words in snippets and alt text.
+ */
+function publion_trim_text_at_word_boundary( $text, $max_length = 155 ) {
+    $text       = preg_replace( '/\s+/', ' ', trim( wp_strip_all_tags( (string) $text ) ) );
+    $max_length = max( 20, (int) $max_length );
+
+    if ( mb_strlen( $text ) <= $max_length ) {
+        return $text;
+    }
+
+    $trimmed = mb_substr( $text, 0, $max_length + 1 );
+    $trimmed = preg_replace( '/\s+\S*$/u', '', $trimmed );
+    return rtrim( $trimmed, " \t\n\r\0\x0B,;:-" );
+}
+
+/**
+ * Produces a readable search snippet without truncating a word or sentence.
+ */
+function publion_build_meta_description( $html, $max_length = 155 ) {
+    $text       = preg_replace( '/\s+/', ' ', trim( wp_strip_all_tags( (string) $html ) ) );
+    $max_length = max( 120, min( 160, (int) $max_length ) );
+
+    if ( mb_strlen( $text ) <= $max_length ) {
+        return $text;
+    }
+
+    $sentences = preg_split( '/(?<=[.!?])\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY );
+    $result    = '';
+    foreach ( $sentences as $sentence ) {
+        $candidate = trim( $result . ' ' . $sentence );
+        if ( mb_strlen( $candidate ) > $max_length ) {
+            break;
+        }
+        $result = $candidate;
+        if ( mb_strlen( $result ) >= 110 ) {
+            break;
+        }
+    }
+
+    return mb_strlen( $result ) >= 90 ? $result : publion_trim_text_at_word_boundary( $text, $max_length );
+}
+
 function publion_upload_image($url, $context = '') {
     require_once ABSPATH . 'wp-admin/includes/file.php';
     require_once ABSPATH . 'wp-admin/includes/media.php';
@@ -685,7 +774,7 @@ function publion_build_descriptive_image_alt( $context = '' ) {
     if ( '' === $context ) {
         return 'Illustratie bij het artikel';
     }
-    $context = mb_substr( $context, 0, 110 );
+    $context = publion_trim_text_at_word_boundary( $context, 92 );
     return 'Illustratie bij: ' . $context;
 }
 
@@ -731,6 +820,19 @@ function publion_get_openai_image_model() {
     $selected = publion_normalize_openai_model_id( get_option( 'publion_openai_image_model', $default ) );
 
     return apply_filters( 'publion/openai_image_model', $selected ? $selected : $default );
+}
+
+/**
+ * GPT Image 2 accepts arbitrary divisible-by-16 sizes, so use a true 16:9
+ * asset when it is selected. Earlier GPT Image models retain their documented
+ * standard landscape size and are cropped by the presentation layer if needed.
+ */
+function publion_get_image_size_for_layout( $layout ) {
+    if ( 'square' === $layout ) {
+        return '1024x1024';
+    }
+
+    return 0 === strpos( publion_get_openai_image_model(), 'gpt-image-2' ) ? '1536x864' : '1536x1024';
 }
 
 function publion_build_image_prompt( $topic, $category_name = '' ) {
@@ -781,24 +883,33 @@ function publion_generate_contextual_image_prompts( $html, $topic, $category_nam
 
     $items = [];
     foreach ( $blocks as $i => $block_text ) {
+        $layout = ( 0 === $i % 2 ) ? 'landscape' : 'square';
+        $size   = publion_get_image_size_for_layout( $layout );
         $context = mb_substr( $block_text, 0, 180 );
         $prompt = 'Maak een realistische, hoogwaardige foto-achtige afbeelding die past bij dit tekstfragment: "' . $context . '". ';
         $prompt .= 'Onderwerp: "' . $topic . '". ';
         if ( $category_name !== '' ) {
             $prompt .= 'Categorie: "' . $category_name . '". ';
         }
-        $prompt .= 'Contextueel en relevant, geen tekst, watermerk of logo. Maak de compositie duidelijk anders dan andere afbeeldingen in dit artikel.';
+        $prompt .= 'Contextueel en relevant, geen tekst, watermerk of logo. Maak de compositie duidelijk anders dan andere afbeeldingen in dit artikel. ';
+        $prompt .= ( 'landscape' === $layout )
+            ? 'Gebruik een brede horizontale compositie met ruimte aan de zijkanten; het beeld wordt in een 16:9 artikelvlak getoond.'
+            : 'Gebruik een sterke vierkante compositie met het hoofdonderwerp centraal; het beeld wordt in een 1:1 artikelvlak getoond.';
         $items[] = [
             'prompt'  => $prompt,
             'context' => $context,
+            'layout'  => $layout,
+            'size'    => $size,
         ];
     }
 
     // Featured image prompt (6e)
-    $featured = publion_build_image_prompt( $topic, $category_name ) . ' Maak de compositie duidelijk anders dan de andere afbeeldingen.';
+    $featured = publion_build_image_prompt( $topic, $category_name ) . ' Maak de compositie duidelijk anders dan de andere afbeeldingen. Gebruik een brede horizontale compositie die geschikt is als uitgelichte afbeelding.';
     $items[] = [
         'prompt'  => $featured,
         'context' => $topic,
+        'layout'  => 'landscape',
+        'size'    => publion_get_image_size_for_layout( 'landscape' ),
     ];
 
     return array_slice( $items, 0, 6 );
@@ -852,10 +963,15 @@ function publion_enhance_external_links( $html ) {
     );
 }
 
-function publion_generate_image_base64s( $prompt, $api_key, $count = 1 ) {
+function publion_generate_image_base64s( $prompt, $api_key, $count = 1, $size = '1024x1024' ) {
     $prompt = trim( (string) $prompt );
     $api_key = trim( (string) $api_key );
     $count = max( 1, (int) $count );
+    $allowed_sizes = array( '1024x1024', '1536x1024', '1024x1536' );
+    if ( 0 === strpos( publion_get_openai_image_model(), 'gpt-image-2' ) ) {
+        $allowed_sizes[] = '1536x864';
+    }
+    $size = in_array( $size, $allowed_sizes, true ) ? $size : '1024x1024';
 
     if ( '' === $prompt || '' === $api_key ) {
         return [];
@@ -874,7 +990,7 @@ function publion_generate_image_base64s( $prompt, $api_key, $count = 1 ) {
                     'model'         => $image_model,
                     'prompt'        => $prompt,
                     'n'             => $count,
-                    'size'          => '1024x1024',
+                    'size'          => $size,
                     'quality'       => 'medium',
                     'output_format' => 'jpeg',
                 ]
@@ -979,13 +1095,13 @@ function publion_upload_image_base64( $base64, $context = '', $format = 'jpeg' )
     ];
 }
 
-function publion_generate_and_upload_images( $prompt, $count, $context, $api_key ) {
-    $images = publion_generate_image_base64s( $prompt, $api_key, $count );
+function publion_generate_and_upload_images( $prompt, $count, $context, $api_key, $size = '1024x1024' ) {
+    $images = publion_generate_image_base64s( $prompt, $api_key, $count, $size );
     if ( empty( $images ) ) {
         // Fallback: try single-image requests if bulk failed.
         $fallback = [];
         for ( $i = 0; $i < $count; $i++ ) {
-            $single = publion_generate_image_base64s( $prompt, $api_key, 1 );
+            $single = publion_generate_image_base64s( $prompt, $api_key, 1, $size );
             if ( ! empty( $single ) ) {
                 $fallback[] = $single[0];
             }
@@ -1032,7 +1148,7 @@ function publion_process_and_upload_images($remote_image_urls) {
     return $processed;
 }
 
-function publion_insert_images_into_content($html, $image_urls) {
+function publion_insert_images_into_content($html, $image_urls, $layouts = array()) {
     if (!is_array($image_urls) || count($image_urls) < 5 || empty($html)) return $html;
 
     // Match to headings (h2–h4)
@@ -1066,22 +1182,23 @@ function publion_insert_images_into_content($html, $image_urls) {
             }
         }
 
-        $style = ($i % 2 === 0)
-            ? 'float:left; width:45%; padding:20px 20px 20px 0;'
-            : 'float:right; width:45%; padding:20px 0 20px 20px;';
-
-        if ($i === 4) {
-            $style = 'float:left; width:45%; padding:20px 20px 20px 0;';
-        }
-
+        $layout = isset( $layouts[ $i ] ) && 'square' === $layouts[ $i ] ? 'square' : 'landscape';
         $alt_text = publion_build_descriptive_image_alt( $alt_text );
-        $inserts[$closest ?? $target] = '<img class="publion-generated-image" src="' . esc_url($image_urls[$i]) . '" alt="' . esc_attr($alt_text) . '" loading="lazy" decoding="async" style="' . $style . '" />';
+        $inserts[] = array(
+            'offset' => $closest ?? $target,
+            'html'   => '<figure class="publion-article-media publion-article-media--' . $layout . '"><img class="publion-generated-image" src="' . esc_url($image_urls[$i]) . '" alt="' . esc_attr($alt_text) . '" loading="lazy" decoding="async" /></figure>',
+        );
     }
 
     // Sort descending so offsets don’t shift
-    krsort($inserts);
-    foreach ($inserts as $offset => $tag) {
-        $html = substr_replace($html, $tag, $offset, 0);
+    usort(
+        $inserts,
+        static function ( $a, $b ) {
+            return $b['offset'] <=> $a['offset'];
+        }
+    );
+    foreach ($inserts as $insert) {
+        $html = substr_replace($html, $insert['html'], $insert['offset'], 0);
     }
 
     return $html;

@@ -1,0 +1,595 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Publion 1.9.8\\n"
+"Report-Msgid-Bugs-To: https://jaymian-lee.nl/publion\\n"
+"POT-Creation-Date: 2026-08-04 00:00+0000\\n"
+"PO-Revision-Date: 2026-08-04 00:00+0000\\n"
+"Last-Translator: Publion\\n"
+"Language-Team: English\\n"
+"Language: en_US\\n"
+"MIME-Version: 1.0\\n"
+"Content-Type: text/plain; charset=UTF-8\\n"
+"Content-Transfer-Encoding: 8bit\\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\\n"
+
+# Dashboard and navigation
+msgid "Overzicht"
+msgstr "Overview"
+
+msgid "Documentatie"
+msgstr "Documentation"
+
+msgid "Deactiveren of verwijderen van deze plugin verwijdert alle opgeslagen gegevens permanent. Weet je het zeker?"
+msgstr "Deactivating or deleting this plugin permanently removes all saved data. Are you sure?"
+
+msgid "Content plannen"
+msgstr "Plan content"
+
+msgid "Postcreatie"
+msgstr "Post creation"
+
+msgid "Instellingen voor postcreatie"
+msgstr "Post creation settings"
+
+msgid "OpenAI/ChatGPT instellingen"
+msgstr "OpenAI/ChatGPT settings"
+
+msgid "Handleiding & diagnose"
+msgstr "Guide & diagnostics"
+
+msgid "Van zoekintentie naar heldere, vindbare artikelen."
+msgstr "From search intent to clear, discoverable articles."
+
+msgid "AI verbonden"
+msgstr "AI connected"
+
+msgid "API-sleutel nodig"
+msgstr "API key required"
+
+msgid "Je contentwerk, helder geordend."
+msgstr "Your content work, clearly organised."
+
+msgid "Begin bij de volgende actie, maak inhoudelijke concepten en meet het effect in je eigen analyticsomgeving."
+msgstr "Start with the next action, create substantive drafts and measure the effect in your own analytics environment."
+
+msgid "Plan artikelen"
+msgstr "Plan articles"
+
+msgid "Open wachtrij"
+msgstr "Open queue"
+
+msgid "SEO / SEA / GEO-check"
+msgstr "SEO / SEA / GEO check"
+
+msgid "AI is nog niet verbonden."
+msgstr "AI is not connected yet."
+
+msgid "Voeg eerst een OpenAI API-sleutel toe; zonder sleutel kan Publion geen onderwerpen, artikelen of afbeeldingen maken."
+msgstr "Add an OpenAI API key first; without one, Publion cannot create topics, articles or images."
+
+msgid "API-sleutel instellen"
+msgstr "Set up API key"
+
+msgid "De laatste AI-opdracht had een probleem."
+msgstr "The latest AI request had a problem."
+
+msgid "Controleer AI-instellingen"
+msgstr "Check AI settings"
+
+msgid "Alles is klaar voor de volgende contentcyclus."
+msgstr "Everything is ready for the next content cycle."
+
+msgid "Genereer een plan of review je concepten voordat je publiceert."
+msgstr "Generate a plan or review your drafts before publishing."
+
+msgid "In wachtrij"
+msgstr "In queue"
+
+msgid "Concepten te reviewen"
+msgstr "Drafts to review"
+
+msgid "Aangemaakt (30 dagen)"
+msgstr "Created (30 days)"
+
+msgid "SEO-structuur"
+msgstr "SEO structure"
+
+msgid "Aan"
+msgstr "On"
+
+msgid "Uit"
+msgstr "Off"
+
+msgid "VOLGENDE STAPPEN"
+msgstr "NEXT STEPS"
+
+msgid "Werk in deze volgorde"
+msgstr "Work in this order"
+
+msgid "Plan onderwerpen met zoekintentie"
+msgstr "Plan topics by search intent"
+
+msgid "Maak en review concepten"
+msgstr "Create and review drafts"
+
+msgid "Meet wat echt werkt"
+msgstr "Measure what actually works"
+
+msgid "Plannen"
+msgstr "Plan"
+
+msgid "Reviewen"
+msgstr "Review"
+
+msgid "Lees uitleg"
+msgstr "Read the guide"
+
+msgid "Analytics blijft de bron van waarheid"
+msgstr "Analytics remains the source of truth"
+
+msgid "Open Search Console"
+msgstr "Open Search Console"
+
+msgid "Open Google Analytics"
+msgstr "Open Google Analytics"
+
+msgid "PUBLICATIECHECK"
+msgstr "PUBLISHING CHECK"
+
+msgid "SEO, SEA en GEO in één review"
+msgstr "SEO, SEA and GEO in one review"
+
+msgid "Begrepen"
+msgstr "Got it"
+
+msgid "Open handleiding"
+msgstr "Open guide"
+
+# Topic planning and queue
+msgid "Kies een categorie. Publion bouwt vervolgens een SEO-brief per artikel."
+msgstr "Choose a category. Publion then builds an SEO brief for each article."
+
+msgid "Elke suggestie bevat een dynamisch focus-keyword, zoekintentie, invalshoek en FAQ-vragen."
+msgstr "Every suggestion contains a dynamic focus keyword, search intent, angle and FAQ questions."
+
+msgid "Selecteer een categorie"
+msgstr "Select a category"
+
+msgid "Onderwerpen voorstellen"
+msgstr "Suggest topics"
+
+msgid "Voorstellen vernieuwen"
+msgstr "Refresh suggestions"
+
+msgid "AI-onderwerpvoorstellen"
+msgstr "AI topic suggestions"
+
+msgid "Onderwerpvoorstellen laden..."
+msgstr "Loading topic suggestions…"
+
+msgid "Geselecteerde onderwerpen voor de wachtrij"
+msgstr "Selected topics for the queue"
+
+msgid "Actie"
+msgstr "Action"
+
+msgid "Categorie"
+msgstr "Category"
+
+msgid "Onderwerp"
+msgstr "Topic"
+
+msgid "SEO-brief"
+msgstr "SEO brief"
+
+msgid "Toevoegen aan wachtrij voor postcreatie"
+msgstr "Add to post creation queue"
+
+msgid "Voeg handmatig een onderwerp toe:"
+msgstr "Add a topic manually:"
+
+msgid "Onderwerp invoeren..."
+msgstr "Enter a topic…"
+
+msgid "Toevoegen"
+msgstr "Add"
+
+msgid "Wachtrij voor postcreatie"
+msgstr "Post creation queue"
+
+msgid "Alles selecteren"
+msgstr "Select all"
+
+msgid "Bulkactie kiezen"
+msgstr "Choose bulk action"
+
+msgid "Genereren"
+msgstr "Generate"
+
+msgid "Verwijderen"
+msgstr "Delete"
+
+msgid "Toepassen"
+msgstr "Apply"
+
+msgid "Nu maken"
+msgstr "Create now"
+
+msgid "Meer laden..."
+msgstr "Load more…"
+
+# Settings and models
+msgid "Instellingen opslaan"
+msgstr "Save settings"
+
+msgid "OpenAI API-sleutel"
+msgstr "OpenAI API key"
+
+msgid "API-sleutel aanmaken"
+msgstr "Create API key"
+
+msgid "Sleutel opslaan"
+msgstr "Save key"
+
+msgid "OpenAI-model"
+msgstr "OpenAI model"
+
+msgid "Eigen OpenAI model-ID…"
+msgstr "Custom OpenAI model ID…"
+
+msgid "Exacte model-ID"
+msgstr "Exact model ID"
+
+msgid "Model opslaan"
+msgstr "Save model"
+
+msgid "OpenAI-afbeeldingsmodel"
+msgstr "OpenAI image model"
+
+msgid "Eigen afbeeldingsmodel-ID…"
+msgstr "Custom image model ID…"
+
+msgid "Exacte afbeeldingsmodel-ID"
+msgstr "Exact image model ID"
+
+msgid "Afbeeldingsmodel opslaan"
+msgstr "Save image model"
+
+msgid "ChatGPT-voorprompt"
+msgstr "ChatGPT pre-prompt"
+
+msgid "Prompt opslaan"
+msgstr "Save prompt"
+
+msgid "Terugzetten naar standaard"
+msgstr "Reset to default"
+
+msgid "Afbeeldingen in posts worden gegenereerd door OpenAI (%s)."
+msgstr "Images in posts are generated by OpenAI (%s)."
+
+msgid "Beeldopmaak"
+msgstr "Image styling"
+
+msgid "Artikelstijl"
+msgstr "Article style"
+
+msgid "Thema volgen (aanbevolen)"
+msgstr "Follow theme (recommended)"
+
+msgid "Verfijnde Publion-leesstijl"
+msgstr "Refined Publion reading style"
+
+msgid "Accentkleur voor links"
+msgstr "Link accent colour"
+
+msgid "Maximale leesbreedte"
+msgstr "Maximum reading width"
+
+msgid "Eigen CSS voor Publion-artikelen"
+msgstr "Custom CSS for Publion articles"
+
+msgid "Google Search Console-rapport"
+msgstr "Google Search Console report"
+
+msgid "Google Analytics-rapport"
+msgstr "Google Analytics report"
+
+msgid "Call-to-action in footer toevoegen?"
+msgstr "Add a call to action in the footer?"
+
+msgid "Call-to-action tekst"
+msgstr "Call-to-action text"
+
+msgid "Call-to-action link (URL)"
+msgstr "Call-to-action link (URL)"
+
+msgid "E-mailadres voor meldingen"
+msgstr "Notification email address"
+
+# JavaScript feedback
+msgid "Actie nodig"
+msgstr "Action required"
+
+msgid "Let op"
+msgstr "Attention"
+
+msgid "Gelukt"
+msgstr "Done"
+
+msgid "Geen volledig gevalideerde onderwerpvoorstellen ontvangen. Er is niets opgeslagen. Vernieuw de voorstellen; blijft dit gebeuren, kies een ondersteund model of controleer de voorprompt."
+msgstr "No fully validated topic suggestions were received. Nothing was saved. Refresh the suggestions; if this continues, choose a supported model or check the pre-prompt."
+
+msgid "Focus"
+msgstr "Focus"
+
+msgid "Intentie"
+msgstr "Intent"
+
+msgid "informatief"
+msgstr "informational"
+
+msgid "Selecteer eerst een categorie om relevante onderwerpvoorstellen te maken."
+msgstr "Select a category first to generate relevant topic suggestions."
+
+msgid "Vernieuwen van voorstellen mislukt. Controleer je API-sleutel en probeer opnieuw."
+msgstr "Refreshing suggestions failed. Check your API key and try again."
+
+msgid "De verbinding met WordPress of OpenAI is onderbroken. Controleer je internetverbinding en probeer opnieuw."
+msgstr "The connection to WordPress or OpenAI was interrupted. Check your internet connection and try again."
+
+msgid "Kon geen onderwerpvoorstellen ophalen. Controleer je API-sleutel en model in AI-instellingen."
+msgstr "Could not retrieve topic suggestions. Check your API key and model in AI settings."
+
+msgid "De aanvraag kon niet worden verstuurd. Controleer de verbinding en probeer opnieuw."
+msgstr "The request could not be sent. Check the connection and try again."
+
+msgid "Kies eerst minstens één onderwerp voordat je de wachtrij opslaat."
+msgstr "Select at least one topic before saving the queue."
+
+msgid "De geselecteerde onderwerpen staan nu in de wachtrij."
+msgstr "The selected topics are now in the queue."
+
+msgid "Opslaan mislukt."
+msgstr "Saving failed."
+
+msgid "AJAX-fout."
+msgstr "AJAX error."
+
+msgid "Voeg een OpenAI API-sleutel toe om met onderwerpen, artikelen en afbeeldingen te werken."
+msgstr "Add an OpenAI API key to work with topics, articles and images."
+
+msgid "Opgeslagen!"
+msgstr "Saved!"
+
+msgid "Niet gepland"
+msgstr "Not scheduled"
+
+msgid "Laat dit veld leeg om de huidige sleutel te behouden."
+msgstr "Leave this field empty to keep the current key."
+
+msgid "Model opgeslagen."
+msgstr "Model saved."
+
+msgid "Afbeeldingsmodel opgeslagen."
+msgstr "Image model saved."
+
+msgid "Opslaan mislukt door een netwerkfout."
+msgstr "Saving failed because of a network error."
+
+msgid "Items laden mislukt."
+msgstr "Loading items failed."
+
+msgid "Bezig"
+msgstr "Working"
+
+msgid "De server verwerkt deze stap."
+msgstr "The server is processing this step."
+
+msgid "procent"
+msgstr "percent"
+
+msgid "Wil je nu een blogpost maken voor dit onderwerp? De status hieronder volgt de echte stappen op de server."
+msgstr "Do you want to create a blog post for this topic now? The status below follows the actual server steps."
+
+msgid "Aanvraag verstuurd"
+msgstr "Request sent"
+
+msgid "Aanvraag gestart"
+msgstr "Request started"
+
+msgid "Publion wacht op de eerste serverbevestiging."
+msgstr "Publion is waiting for the first server confirmation."
+
+msgid "Klaar"
+msgstr "Complete"
+
+msgid "Het artikelconcept is aangemaakt en staat klaar voor controle."
+msgstr "The article draft has been created and is ready for review."
+
+msgid "Post succesvol aangemaakt. De wachtrij wordt bijgewerkt."
+msgstr "Post created successfully. The queue is being updated."
+
+msgid "Post aanmaken mislukt. Controleer de getoonde voortgang en probeer opnieuw."
+msgstr "Creating the post failed. Check the displayed progress and try again."
+
+msgid "Maken mislukt"
+msgstr "Creation failed"
+
+msgid "De verbinding met WordPress viel weg. Controleer de actuele status na het verversen voordat je opnieuw start."
+msgstr "The connection to WordPress was lost. Refresh and check the current status before starting again."
+
+msgid "Verbinding onderbroken"
+msgstr "Connection interrupted"
+
+msgid "Weet je zeker dat je dit onderwerp uit de wachtrij wilt verwijderen?"
+msgstr "Are you sure you want to remove this topic from the queue?"
+
+msgid "Verwijderen…"
+msgstr "Deleting…"
+
+msgid "Onderwerp verwijderen mislukt."
+msgstr "Removing the topic failed."
+
+msgid "Geen items geselecteerd."
+msgstr "No items selected."
+
+msgid "Klaar! Herladen…"
+msgstr "Complete! Reloading…"
+
+msgid "Mislukt bij item %d."
+msgstr "Failed at item %d."
+
+msgid "AJAX-fout bij item %d."
+msgstr "AJAX error at item %d."
+
+msgid "%d mislukt."
+msgstr "%d failed."
+
+msgid "Verwijderd."
+msgstr "Deleted."
+
+msgid "Kies een bulkactie."
+msgstr "Choose a bulk action."
+
+msgid "Weet je zeker dat je alle geselecteerde posts wilt genereren?"
+msgstr "Are you sure you want to generate all selected posts?"
+
+msgid "Weet je zeker dat je alle geselecteerde items wilt verwijderen?"
+msgstr "Are you sure you want to delete all selected items?"
+
+msgid "Ongeldige datum/tijd."
+msgstr "Invalid date/time."
+
+msgid "Opgeslagen"
+msgstr "Saved"
+
+msgid "Onderwerp verwijderen uit Publion?"
+msgstr "Remove topic from Publion?"
+
+msgid "AJAX-fout bij verwijderen van onderwerp."
+msgstr "AJAX error while removing the topic."
+
+msgid "Er ging iets mis. De post is mogelijk toch aangemaakt. Vernieuw de pagina om de actuele status te controleren."
+msgstr "Something went wrong. The post may still have been created. Refresh the page to check the current status."
+
+# Live creation progress
+msgid "Voorbereiden"
+msgstr "Preparing"
+
+msgid "Onderwerp, instellingen en SEO-brief worden gecontroleerd."
+msgstr "The topic, settings and SEO brief are being checked."
+
+msgid "Onderzoek"
+msgstr "Research"
+
+msgid "De bestaande contentkaart en zoekintentie worden meegenomen."
+msgstr "The existing content map and search intent are included."
+
+msgid "Tekst nakijken"
+msgstr "Reviewing text"
+
+msgid "Artikeltekst is gegenereerd en wordt voorbereid voor afbeeldingen."
+msgstr "The article text has been generated and is being prepared for images."
+
+msgid "Afbeeldingen voorbereiden"
+msgstr "Preparing images"
+
+msgid "%d beeldopdrachten worden samengesteld."
+msgstr "%d image requests are being prepared."
+
+msgid "Afbeelding genereren"
+msgstr "Generating image"
+
+msgid "Afbeelding %1$d van %2$d wordt gegenereerd en geüpload."
+msgstr "Image %1$d of %2$d is being generated and uploaded."
+
+msgid "Artikel samenstellen"
+msgstr "Assembling article"
+
+msgid "Afbeeldingen en alt-teksten worden in het concept verwerkt."
+msgstr "Images and alt text are being added to the draft."
+
+msgid "Concept opslaan"
+msgstr "Saving draft"
+
+msgid "Het artikelconcept wordt in WordPress aangemaakt."
+msgstr "The article draft is being created in WordPress."
+
+msgid "SEO en metadata"
+msgstr "SEO and metadata"
+
+msgid "Focus-keyword, structured data en artikelkoppeling worden opgeslagen."
+msgstr "The focus keyword, structured data and article link are being saved."
+
+msgid "Afronden"
+msgstr "Finishing"
+
+msgid "Uitgelichte afbeelding, status en wachtrij worden bijgewerkt."
+msgstr "Featured image, status and queue are being updated."
+
+# Actionable error handling
+msgid "Deze actie kon niet worden voltooid."
+msgstr "This action could not be completed."
+
+msgid "Open diagnose"
+msgstr "Open diagnostics"
+
+msgid "De OpenAI API-sleutel ontbreekt."
+msgstr "The OpenAI API key is missing."
+
+msgid "Open AI-instellingen"
+msgstr "Open AI settings"
+
+msgid "OpenAI heeft de aanvraag niet geautoriseerd."
+msgstr "OpenAI did not authorise the request."
+
+msgid "Het gekozen OpenAI-model is niet beschikbaar."
+msgstr "The selected OpenAI model is not available."
+
+msgid "Controleer model"
+msgstr "Check model"
+
+msgid "OpenAI heeft deze aanvraag tijdelijk beperkt."
+msgstr "OpenAI has temporarily limited this request."
+
+msgid "De verbinding met een externe dienst is onderbroken."
+msgstr "The connection to an external service was interrupted."
+
+msgid "De artikelgeneratie is gestopt."
+msgstr "Article generation stopped."
+
+msgid "De ingevoerde gegevens zijn niet volledig of ongeldig."
+msgstr "The submitted data is incomplete or invalid."
+
+msgid "Dit wachtrij-item bestaat niet meer."
+msgstr "This queue item no longer exists."
+
+msgid "WordPress kon de wijziging niet opslaan."
+msgstr "WordPress could not save the change."
+
+msgid "Referentie"
+msgstr "Reference"
+
+msgid "Controleer de getoonde informatie en probeer daarna opnieuw."
+msgstr "Check the displayed information and try again."
+
+msgid "Ververs wachtrij"
+msgstr "Refresh queue"
+
+msgid "Bulkactie succesvol afgerond."
+msgstr "Bulk action completed successfully."
+
+msgid "Bulkactie afgerond: %d item(s) hebben aandacht nodig."
+msgstr "Bulk action completed: %d item(s) need attention."
+
+msgid "%d van %d verwerkt."
+msgstr "%d of %d processed."
+
+msgid "%d geslaagd."
+msgstr "%d successful."
+
+msgid "Item %d wordt verwerkt."
+msgstr "Processing item %d."
+
+msgid "Geselecteerde items worden verwijderd."
+msgstr "Selected items are being deleted."

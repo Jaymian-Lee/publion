@@ -1,11 +1,11 @@
 === Publion ===
 Contributors: jaymian-lee
-Donate link: https://jaymian-lee.com
+Donate link: https://jaymian-lee.nl
 Tags: ai content, chatgpt, blog automatisering, post generatie, blogpost ai
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.9.0
+Stable tag: 1.9.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -25,7 +25,7 @@ Publion is je persoonlijke content-assistent voor WordPress. Deze plugin is bedo
 * Optioneel een CTA-blok aan het einde van elke post toevoegen.
 * Schrijven voor mensen, Google en AI-zoekmachines: directe antwoorden, semantische kopstructuur, feitelijke bronverwijzingen, interne links en relevante alt-tekst.
 * Een toegankelijke SEO/SEA/GEO-checklist in het dashboard voor review vóór publicatie of campagnegebruik.
-* Optionele dynamische BlogPosting- en FAQ-structured data voor nieuwe Publion-artikelen.
+* Optionele dynamische BlogPosting- en FAQ-structured data voor nieuwe Publion-artikelen, zonder dubbele articleschema's naast bekende SEO-plugins.
 * De afbeeldingsafronding van alle Publion-afbeeldingen instellen; standaard 8px.
 * Thema-vriendelijke artikelweergave: volg de bestaande themastijl of kies een verfijnde leesstijl met instelbare accentkleur, leesbreedte en eigen gescopede CSS.
 * Actuele OpenAI-modelkeuze: GPT-5.6 Sol, Terra en Luna, GPT-5.4, Mini en Nano, met een gevalideerd veld voor een eigen model-ID.
@@ -80,6 +80,46 @@ Deze versie maakt standaard blogposts aan.
 4. Maak automatisch volledige conceptposts met AI-afbeeldingen.
 
 == Changelog ==
+
+= 1.9.9 =
+* Uitgebreide foutafhandeling voor onderwerpvoorstellen, wachtrij, planning, instellingen, modellen, prompt en postcreatie.
+* Elke actuele fout bevat een veilige oorzaak, concrete vervolgstap, relevante knop en foutreferentie voor ondersteuning; API-sleutels worden uit foutteksten verwijderd.
+* Bulkacties tonen een volledig eindoverzicht per mislukt onderwerp in plaats van alleen een nummer van het mislukte item.
+
+= 1.9.8 =
+* Publion volgt nu automatisch de WordPress-site- en gebruikerstalen: de beheerinterface heeft een Engelse basiscatalogus en kan worden uitgebreid met standaard WordPress-taalpakketten.
+* Nieuwe onderwerpvoorstellen en artikelen volgen de WordPress-sitetaal, terwijl de persoonlijke beheertaal veilig alleen de interface beïnvloedt.
+* Browsermeldingen, live voortgang en bevestigingsvensters gebruiken dezelfde vertaallaag als de PHP-interface.
+
+= 1.9.7 =
+* De dashboardhandleiding staat nu als volledige, gestructureerde tekst in de tab Handleiding & diagnose. De losse Markdown-handleiding is verwijderd.
+
+= 1.9.6 =
+* De gebundelde PDF-handleiding is volledig herschreven: installatie, modellen, onderwerpvalidatie, postcreatie, SEO/SEA/GEO, styling, analytics, diagnose, privacy en review.
+
+= 1.9.5 =
+* Onderwerpvoorstellen accepteren alleen vijf complete, gevalideerde SEO-briefs; JSON-fragmenten, losse velden en onvolledige antwoorden worden niet getoond of opgeslagen.
+* De OpenAI-fallback houdt JSON-modus actief wanneer Structured Outputs niet beschikbaar is.
+* De browser valideert ontvangen voorstellen opnieuw als extra bescherming tegen oude caches en gemanipuleerde responses.
+
+= 1.9.4 =
+* New articles use semantic image blocks in an intentional 16:9 and 1:1 rhythm; old float styles are no longer written into content.
+* The configurable image radius is enforced against theme image selectors.
+* Article generation uses one complete, strictly structured HTML response to prevent incomplete lists and repeated continuation text.
+* Meta descriptions finish at a readable word or sentence boundary.
+* Publion skips its own BlogPosting schema when Rank Math, Yoast, or All in One SEO is active, preventing duplicate article schema.
+
+= 1.9.3 =
+* “Nu maken” toont live, servergestuurde voortgang per artikel: onderzoek, tekst, afbeeldingen, SEO, opslaan en afronden.
+* De voortgang is een feitelijke workflowstatus met percentage per voltooid checkpoint, inclusief een duidelijke foutstatus.
+
+= 1.9.2 =
+* Onderwerpvoorstellen gebruiken strikt gestructureerde JSON-uitvoer. Onvolledige AI-antwoorden kunnen niet langer als losse, foutieve onderwerpkaarten verschijnen.
+* Het uitvoerbudget voor onderwerpvoorstellen is verhoogd en een duidelijke herstelmelding verschijnt bij een afgebroken respons.
+
+= 1.9.1 =
+* Verpakking gecorrigeerd voor WordPress: het importpakket bevat nu exact één `publion` pluginmap.
+* Bootstrap en alle PHP-bestanden opnieuw gecontroleerd op syntax en veilig laden.
 
 = 1.9.0 =
 * Nieuwe afzonderlijke afbeeldingsmodelkiezer met GPT Image 2 als standaard, GPT Image 1.5, GPT Image 1 en een eigen model-ID.

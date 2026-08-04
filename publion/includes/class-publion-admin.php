@@ -48,6 +48,87 @@ class Publion_Admin {
                 'ajax_url'    => admin_url( 'admin-ajax.php' ),
                 'nonce'       => wp_create_nonce( 'publion_nonce' ),
                 'has_api_key' => ! empty( get_option( 'publion_api_key' ) ),
+                'locale'      => determine_locale(),
+                // JavaScript messages must be passed through WordPress here;
+                // PHP gettext calls do not automatically translate browser code.
+                'i18n'        => [
+                    'action_required'             => __( 'Actie nodig', 'publion' ),
+                    'attention'                   => __( 'Let op', 'publion' ),
+                    'success'                     => __( 'Gelukt', 'publion' ),
+                    'no_valid_suggestions'        => __( 'Geen volledig gevalideerde onderwerpvoorstellen ontvangen. Er is niets opgeslagen. Vernieuw de voorstellen; blijft dit gebeuren, kies een ondersteund model of controleer de voorprompt.', 'publion' ),
+                    'add'                         => __( 'Toevoegen', 'publion' ),
+                    'remove'                      => __( 'Verwijderen', 'publion' ),
+                    'removing'                    => __( 'Verwijderen…', 'publion' ),
+                    'focus'                       => __( 'Focus', 'publion' ),
+                    'intent'                      => __( 'Intentie', 'publion' ),
+                    'faq'                         => __( 'FAQ', 'publion' ),
+                    'informational'               => __( 'informatief', 'publion' ),
+                    'select_category_first'       => __( 'Selecteer eerst een categorie om relevante onderwerpvoorstellen te maken.', 'publion' ),
+                    'refresh_failed'              => __( 'Vernieuwen van voorstellen mislukt. Controleer je API-sleutel en probeer opnieuw.', 'publion' ),
+                    'connection_interrupted'       => __( 'De verbinding met WordPress of OpenAI is onderbroken. Controleer je internetverbinding en probeer opnieuw.', 'publion' ),
+                    'suggestions_failed'          => __( 'Kon geen onderwerpvoorstellen ophalen. Controleer je API-sleutel en model in AI-instellingen.', 'publion' ),
+                    'request_failed'              => __( 'De aanvraag kon niet worden verstuurd. Controleer de verbinding en probeer opnieuw.', 'publion' ),
+                    'select_topic_first'          => __( 'Kies eerst minstens één onderwerp voordat je de wachtrij opslaat.', 'publion' ),
+                    'added_to_queue'              => __( 'Toegevoegd aan de wachtrij voor postcreatie!', 'publion' ),
+                    'selected_added_to_queue'     => __( 'De geselecteerde onderwerpen staan nu in de wachtrij.', 'publion' ),
+                    'save_failed'                 => __( 'Opslaan mislukt.', 'publion' ),
+                    'ajax_error'                  => __( 'AJAX-fout.', 'publion' ),
+                    'api_key_needed'              => __( 'Voeg een OpenAI API-sleutel toe om met onderwerpen, artikelen en afbeeldingen te werken.', 'publion' ),
+                    'saved'                       => __( 'Opgeslagen!', 'publion' ),
+                    'not_scheduled'               => __( 'Niet gepland', 'publion' ),
+                    'keep_current_key'            => __( 'Laat dit veld leeg om de huidige sleutel te behouden.', 'publion' ),
+                    'model_saved'                 => __( 'Model opgeslagen.', 'publion' ),
+                    'image_model_saved'           => __( 'Afbeeldingsmodel opgeslagen.', 'publion' ),
+                    'network_save_failed'         => __( 'Opslaan mislukt door een netwerkfout.', 'publion' ),
+                    'items_load_failed'           => __( 'Items laden mislukt.', 'publion' ),
+                    'working'                     => __( 'Bezig', 'publion' ),
+                    'server_processing'           => __( 'De server verwerkt deze stap.', 'publion' ),
+                    'percent'                     => __( 'procent', 'publion' ),
+                    'create_now_confirm'          => __( 'Wil je nu een blogpost maken voor dit onderwerp? De status hieronder volgt de echte stappen op de server.', 'publion' ),
+                    'request_sent'                => __( 'Aanvraag verstuurd', 'publion' ),
+                    'request_started'             => __( 'Aanvraag gestart', 'publion' ),
+                    'waiting_server'              => __( 'Publion wacht op de eerste serverbevestiging.', 'publion' ),
+                    'complete'                    => __( 'Klaar', 'publion' ),
+                    'draft_ready'                 => __( 'Het artikelconcept is aangemaakt en staat klaar voor controle.', 'publion' ),
+                    'post_created'                => __( 'Post succesvol aangemaakt. De wachtrij wordt bijgewerkt.', 'publion' ),
+                    'create_failed'               => __( 'Post aanmaken mislukt. Controleer de getoonde voortgang en probeer opnieuw.', 'publion' ),
+                    'creation_failed'             => __( 'Maken mislukt', 'publion' ),
+                    'create_now'                  => __( 'Nu maken', 'publion' ),
+                    'connection_lost'             => __( 'De verbinding met WordPress viel weg. Controleer de actuele status na het verversen voordat je opnieuw start.', 'publion' ),
+                    'connection_lost_stage'       => __( 'Verbinding onderbroken', 'publion' ),
+                    'delete_topic_confirm'        => __( 'Weet je zeker dat je dit onderwerp uit de wachtrij wilt verwijderen?', 'publion' ),
+                    'no_items_selected'           => __( 'Geen items geselecteerd.', 'publion' ),
+                    'reloading'                   => __( 'Klaar! Herladen…', 'publion' ),
+                    'failed_at_item'              => __( 'Mislukt bij item %d.', 'publion' ),
+                    'ajax_error_at_item'          => __( 'AJAX-fout bij item %d.', 'publion' ),
+                    'failed_count'                => __( '%d mislukt.', 'publion' ),
+                    'deleted'                     => __( 'Verwijderd.', 'publion' ),
+                    'choose_bulk_action'          => __( 'Kies een bulkactie.', 'publion' ),
+                    'bulk_generate_confirm'       => __( 'Weet je zeker dat je alle geselecteerde posts wilt genereren?', 'publion' ),
+                    'bulk_delete_confirm'         => __( 'Weet je zeker dat je alle geselecteerde items wilt verwijderen?', 'publion' ),
+                    'invalid_date_time'           => __( 'Ongeldige datum/tijd.', 'publion' ),
+                    'saved_short'                 => __( 'Opgeslagen', 'publion' ),
+                    'remove_from_publion_confirm' => __( 'Onderwerp verwijderen uit Publion?', 'publion' ),
+                    'remove_topic_failed'         => __( 'Onderwerp verwijderen mislukt.', 'publion' ),
+                    'delete_ajax_error'           => __( 'AJAX-fout bij verwijderen van onderwerp.', 'publion' ),
+                    'post_status_uncertain'       => __( 'Er ging iets mis. De post is mogelijk toch aangemaakt. Vernieuw de pagina om de actuele status te controleren.', 'publion' ),
+                    'generic_next_step'           => __( 'Controleer de getoonde informatie en probeer daarna opnieuw.', 'publion' ),
+                    'reference'                   => __( 'Referentie', 'publion' ),
+                    'open_queue'                  => __( 'Open wachtrij', 'publion' ),
+                    'connection_lost_next_step'   => __( 'Ververs eerst de wachtrij. Start alleen opnieuw als er nog geen concept is aangemaakt.', 'publion' ),
+                    'queue_item'                  => __( 'Wachtrij-item', 'publion' ),
+                    'bulk_completed_with_errors'  => __( 'Bulkactie afgerond: %d item(s) hebben aandacht nodig.', 'publion' ),
+                    'bulk_completed'              => __( 'Bulkactie succesvol afgerond.', 'publion' ),
+                    'bulk_progress_summary'       => __( '%d van %d verwerkt.', 'publion' ),
+                    'bulk_success_summary'        => __( '%d geslaagd.', 'publion' ),
+                    'refresh_queue'               => __( 'Ververs wachtrij', 'publion' ),
+                    'bulk_processing'             => __( 'Item %d wordt verwerkt.', 'publion' ),
+                    'bulk_delete_processing'      => __( 'Geselecteerde items worden verwijderd.', 'publion' ),
+                    'bulk_failed'                 => __( 'Een of meer items konden niet worden verwerkt.', 'publion' ),
+                    'session_expired_title'       => __( 'Je WordPress-sessie is verlopen.', 'publion' ),
+                    'session_expired_message'     => __( 'De actie is niet uitgevoerd omdat de beveiligingssessie niet meer geldig is.', 'publion' ),
+                    'session_expired_next_step'   => __( 'Ververs de pagina, meld je zo nodig opnieuw aan en probeer daarna opnieuw.', 'publion' ),
+                ],
             ]
         );
     }
@@ -65,7 +146,13 @@ class Publion_Admin {
         $custom_css = isset( $settings['custom_article_css'] ) ? (string) $settings['custom_article_css'] : '';
         wp_register_style( 'publion-content', false );
         wp_enqueue_style( 'publion-content' );
-        $frontend_css = '.publion-generated-post img, .publion-generated-image { border-radius: ' . $image_radius . 'px; }';
+        // Theme styles regularly target article images with very specific selectors.
+        // Keep the setting authoritative for old and new Publion images alike.
+        $frontend_css  = '.publion-generated-post img, .publion-generated-image { border-radius: ' . $image_radius . 'px !important; }';
+        $frontend_css .= '.publion-generated-post .publion-article-media { clear: both; display: block; width: 100%; margin: 2rem 0; overflow: hidden; border-radius: ' . $image_radius . 'px !important; background: #f4f5f7; }';
+        $frontend_css .= '.publion-generated-post .publion-article-media--landscape { aspect-ratio: 16 / 9; }';
+        $frontend_css .= '.publion-generated-post .publion-article-media--square { aspect-ratio: 1 / 1; max-width: min(30rem, 100%); margin-left: auto; margin-right: auto; }';
+        $frontend_css .= '.publion-generated-post .publion-article-media .publion-generated-image { display: block; width: 100% !important; height: 100% !important; max-width: none !important; object-fit: cover; border-radius: inherit !important; }';
         if ( 'refined' === $style_mode ) {
             $frontend_css .= '.publion-generated-post { --publion-accent: ' . $accent_color . '; --publion-content-width: ' . $content_width . 'px; }';
             $frontend_css .= '.publion-generated-post .entry-content, .publion-generated-post .wp-block-post-content { max-width: var(--publion-content-width); }';
@@ -102,9 +189,9 @@ class Publion_Admin {
     public function add_generated_thumbnail_class( $html, $post_id, $thumbnail_id, $size, $attr ) {
         if ( $html && get_post_meta( $post_id, '_publion_queue_id', true ) ) {
             if ( preg_match( '/<img[^>]*\bclass=["\'][^"\']*["\']/i', $html ) ) {
-                $html = preg_replace( '/(<img[^>]*\bclass=["\'][^"\']*)/i', '$1 publion-generated-image', $html, 1 );
+                $html = preg_replace( '/(<img[^>]*\bclass=["\'][^"\']*)/i', '$1 publion-generated-image publion-generated-featured', $html, 1 );
             } else {
-                $html = preg_replace( '/<img\s/i', '<img class="publion-generated-image" ', $html, 1 );
+                $html = preg_replace( '/<img\s/i', '<img class="publion-generated-image publion-generated-featured" ', $html, 1 );
             }
         }
         return $html;
@@ -116,6 +203,11 @@ class Publion_Admin {
         }
         $settings = get_option( 'publion_post_settings', [] );
         if ( ( $settings['structured_data'] ?? 'yes' ) !== 'yes' ) {
+            return;
+        }
+        // Let the active SEO suite own article schema. Emitting a second BlogPosting
+        // graph can make Google's rich-result interpretation ambiguous.
+        if ( defined( 'RANK_MATH_VERSION' ) || defined( 'WPSEO_VERSION' ) || defined( 'AIOSEO_VERSION' ) ) {
             return;
         }
         $post_id = get_queried_object_id();
@@ -131,7 +223,7 @@ class Publion_Admin {
             '@context'         => 'https://schema.org',
             '@type'            => 'BlogPosting',
             'headline'         => get_the_title( $post_id ),
-            'description'      => wp_trim_words( wp_strip_all_tags( $post->post_content ), 30, '' ),
+            'description'      => publion_build_meta_description( $post->post_content ),
             'datePublished'    => get_the_date( DATE_W3C, $post_id ),
             'dateModified'     => get_the_modified_date( DATE_W3C, $post_id ),
             'mainEntityOfPage' => get_permalink( $post_id ),
@@ -470,8 +562,9 @@ class Publion_Admin {
                             <option value="delete"><?php esc_html_e( 'Verwijderen', 'publion' ); ?></option>
                         </select>
                         <button type="button" id="publion-bulk-apply" class="button"><?php esc_html_e( 'Toepassen', 'publion' ); ?></button>
-                        <span id="publion-bulk-status" style="margin-left:6px;"></span>
+                        <div id="publion-bulk-status" role="status" aria-live="polite" aria-atomic="true"></div>
                     </div>
+                    <p class="description publion-progress-explainer"><?php esc_html_e( 'Bij “Nu maken” volgt de voortgang de echte serverstappen. Het percentage is een workflow-checkpoint, geen tijdsinschatting.', 'publion' ); ?></p>
                     <table class="widefat striped" id="publion-queue-table">
                         <thead>
                             <tr>
@@ -677,7 +770,7 @@ class Publion_Admin {
                             <th scope="row"><label for="publion_image_border_radius"><?php esc_html_e( 'Afronding van afbeeldingen', 'publion' ); ?></label></th>
                             <td>
                                 <input type="number" id="publion_image_border_radius" name="image_border_radius" min="0" max="48" step="1" value="<?php echo esc_attr( $settings['image_border_radius'] ?? 8 ); ?>" /> px
-                                <p class="description"><?php esc_html_e( 'Standaard 8px. Geldt voor alle afbeeldingen in Publion-artikelen, inclusief uitgelichte afbeeldingen waar het thema deze binnen het artikel toont.', 'publion' ); ?></p>
+                                <p class="description"><?php esc_html_e( 'Standaard 8px (0-48px). Wordt ook toegepast als het thema een eigen image-regel heeft. Nieuwe artikelen wisselen brede 16:9- en vierkante 1:1-beelden af; deze instelling geldt voor beide.', 'publion' ); ?></p>
                             </td>
                         </tr>
 
@@ -933,9 +1026,62 @@ class Publion_Admin {
                         </dl>
                     </section>
                 </div>
+                <nav class="publion-guide-nav" aria-label="<?php esc_attr_e( 'Onderdelen van de handleiding', 'publion' ); ?>">
+                    <a href="#publion-guide-workflow"><?php esc_html_e( 'Workflow', 'publion' ); ?></a>
+                    <a href="#publion-guide-quality"><?php esc_html_e( 'Kwaliteit & SEO', 'publion' ); ?></a>
+                    <a href="#publion-guide-style"><?php esc_html_e( 'Beelden & styling', 'publion' ); ?></a>
+                    <a href="#publion-guide-analytics"><?php esc_html_e( 'Meten', 'publion' ); ?></a>
+                    <a href="#publion-guide-diagnosis"><?php esc_html_e( 'Diagnose', 'publion' ); ?></a>
+                </nav>
+                <section id="publion-guide-workflow" class="publion-dashboard-panel publion-guide-section">
+                    <p class="publion-eyebrow"><?php esc_html_e( '01 - WERKWIJZE', 'publion' ); ?></p>
+                    <h3><?php esc_html_e( 'Van categorie naar gecontroleerd concept', 'publion' ); ?></h3>
+                    <div class="publion-guide-columns">
+                        <div><strong><?php esc_html_e( '1. Verbinden en kader stellen', 'publion' ); ?></strong><p><?php esc_html_e( 'Sla de OpenAI API-sleutel op, kies een tekst- en afbeeldingsmodel en beschrijf doelgroep, expertise en toon in de voorprompt. Deel nooit sleutels of vertrouwelijke klantinformatie.', 'publion' ); ?></p></div>
+                        <div><strong><?php esc_html_e( '2. Plannen met een SEO-brief', 'publion' ); ?></strong><p><?php esc_html_e( 'Kies een categorie. Publion leest de actuele contentkaart en vraagt vijf nieuwe kansen op. Beoordeel titel, focus-keyword, intentie, unieke invalshoek en FAQ-vragen voordat je iets bewaart.', 'publion' ); ?></p></div>
+                        <div><strong><?php esc_html_e( '3. Wachtrij en concept', 'publion' ); ?></strong><p><?php esc_html_e( 'Voeg alleen passende kansen toe. Kies bij voorkeur Concept als poststatus. Met Nu maken zie je de feitelijke stappen: onderzoek, tekst, beeld, SEO, opslaan en afronden.', 'publion' ); ?></p></div>
+                        <div><strong><?php esc_html_e( '4. Redactionele review', 'publion' ); ?></strong><p><?php esc_html_e( 'Controleer feiten, bronnen, links, merktoon, auteursrecht, meta description, afbeeldingen en placeholders. Publicatie blijft altijd een menselijke beslissing.', 'publion' ); ?></p></div>
+                    </div>
+                </section>
+                <section id="publion-guide-quality" class="publion-dashboard-panel publion-guide-section">
+                    <p class="publion-eyebrow"><?php esc_html_e( '02 - KWALITEIT', 'publion' ); ?></p>
+                    <h3><?php esc_html_e( 'Originaliteit, SEO, SEA en GEO/AEO', 'publion' ); ?></h3>
+                    <div class="publion-guide-columns">
+                        <div><strong><?php esc_html_e( 'Geen duplicate content', 'publion' ); ?></strong><p><?php esc_html_e( 'Voorstellen en artikelen worden vergeleken met bestaande berichten, concepten en ingeplande posts. Een te vergelijkbare titel of inhoud wordt geblokkeerd. Controleer daarnaast zelf op zoekwoordcannibalisatie.', 'publion' ); ?></p></div>
+                        <div><strong><?php esc_html_e( 'SEO en antwoordmachines', 'publion' ); ?></strong><p><?php esc_html_e( 'Werk vanuit een concrete zoekvraag, een direct antwoord, duidelijke h2- en h3-koppen, verifieerbare feiten, relevante interne links en alleen bruikbare bronnen. Vermijd keyword stuffing.', 'publion' ); ?></p></div>
+                        <div><strong><?php esc_html_e( 'SEA verantwoord gebruiken', 'publion' ); ?></strong><p><?php esc_html_e( 'Laat advertentiebelofte, landingspagina en conversieactie op elkaar aansluiten. Gebruik het artikel niet als excuus voor verzonnen prijzen, claims of kortingen.', 'publion' ); ?></p></div>
+                        <div><strong><?php esc_html_e( 'Structured data', 'publion' ); ?></strong><p><?php esc_html_e( 'Publion maakt optioneel BlogPosting- en FAQ-data. Bij Rank Math, Yoast of All in One SEO geeft Publion die artikeldata uit handen om dubbele schema-output te voorkomen.', 'publion' ); ?></p></div>
+                    </div>
+                </section>
+                <section id="publion-guide-style" class="publion-dashboard-panel publion-guide-section">
+                    <p class="publion-eyebrow"><?php esc_html_e( '03 - BEELD EN VORM', 'publion' ); ?></p>
+                    <h3><?php esc_html_e( 'Afbeeldingen, alt-tekst en thema-integratie', 'publion' ); ?></h3>
+                    <div class="publion-guide-columns">
+                        <div><strong><?php esc_html_e( 'Beeldopmaak', 'publion' ); ?></strong><p><?php esc_html_e( 'Nieuwe artikelen gebruiken een ritme van brede 16:9- en vierkante 1:1-beelden. De afbeeldingsradius is standaard 8px en is onder Instellingen voor postcreatie aanpasbaar van 0 tot 48px.', 'publion' ); ?></p></div>
+                        <div><strong><?php esc_html_e( 'Alt-tekst', 'publion' ); ?></strong><p><?php esc_html_e( 'Alt-tekst is kort en contextueel. Controleer in de mediabibliotheek of de tekst het daadwerkelijke beeld beschrijft; herhaal niet alleen het focus-keyword.', 'publion' ); ?></p></div>
+                        <div><strong><?php esc_html_e( 'Thema volgen of verfijnen', 'publion' ); ?></strong><p><?php esc_html_e( 'Thema volgen behoudt de bestaande vormgeving. De verfijnde leesstijl voegt leesbreedte, consistente links en beeldweergave toe. Eigen CSS blijft beperkt tot Publion-artikelen.', 'publion' ); ?></p></div>
+                        <div><strong><?php esc_html_e( 'Bestaande artikelen', 'publion' ); ?></strong><p><?php esc_html_e( 'De radiusregel geldt ook voor bestaande Publion-beelden. Vervang bestaande beelden of maak een nieuw concept als je de nieuwe 16:9/1:1-structuur wilt gebruiken.', 'publion' ); ?></p></div>
+                    </div>
+                </section>
+                <section id="publion-guide-analytics" class="publion-dashboard-panel publion-guide-section">
+                    <p class="publion-eyebrow"><?php esc_html_e( '04 - METEN', 'publion' ); ?></p>
+                    <h3><?php esc_html_e( 'Verbeter met echte brondata', 'publion' ); ?></h3>
+                    <p><?php esc_html_e( 'Voeg directe links naar de juiste Google Search Console-property en GA4-rapporten toe onder Instellingen voor postcreatie. Publion toont geen geschatte rankings, bezoekers of AI-verkeer.', 'publion' ); ?></p>
+                    <ul class="publion-guide-checklist"><li><?php esc_html_e( 'Veel vertoningen en lage CTR: verbeter eerst titel en meta description.', 'publion' ); ?></li><li><?php esc_html_e( 'Veel klikken: analyseer welke zoekvragen en structuur werken en gebruik dat in nieuwe briefs.', 'publion' ); ?></li><li><?php esc_html_e( 'Dalende resultaten: controleer actualiteit, intentie, techniek en interne links voordat je meer content publiceert.', 'publion' ); ?></li></ul>
+                </section>
+                <section id="publion-guide-diagnosis" class="publion-dashboard-panel publion-guide-section">
+                    <p class="publion-eyebrow"><?php esc_html_e( '05 - DIAGNOSE', 'publion' ); ?></p>
+                    <h3><?php esc_html_e( 'Veilig problemen oplossen', 'publion' ); ?></h3>
+                    <dl class="publion-troubleshooting-list publion-troubleshooting-list-wide">
+                        <div><dt><?php esc_html_e( 'Lees een foutmelding stap voor stap', 'publion' ); ?></dt><dd><?php esc_html_e( 'Elke actuele fout noemt de actie, oorzaak, vervolgstap en foutreferentie. Gebruik de voorgestelde knop; deel bij ondersteuning alleen de referentie en nooit je API-sleutel.', 'publion' ); ?></dd></div>
+                        <div><dt><?php esc_html_e( 'JSON-fout bij voorstellen', 'publion' ); ?></dt><dd><?php esc_html_e( 'Er is niets opgeslagen. Vernieuw de voorstellen; kies eventueel een ondersteund model of verkort een extreem lange voorprompt.', 'publion' ); ?></dd></div>
+                        <div><dt><?php esc_html_e( 'Afbeelding of tekst mislukt', 'publion' ); ?></dt><dd><?php esc_html_e( 'Controleer de veilige foutmelding, API-project, facturatie, netwerk en gekozen model. Vervang placeholders altijd voor publicatie.', 'publion' ); ?></dd></div>
+                        <div><dt><?php esc_html_e( 'Planning komt niet op gang', 'publion' ); ?></dt><dd><?php esc_html_e( 'WordPress Cron draait bij bezoek. Controleer tijdzone en planning; gebruik voor een betrouwbare productieplanning een echte servercron.', 'publion' ); ?></dd></div>
+                    </dl>
+                </section>
                 <div class="publion-resource-bar">
-                    <a class="button button-primary" href="<?php echo esc_url( PUBLION_URL . 'DASHBOARD-HANDLEIDING.md' ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Open dashboardhandleiding', 'publion' ); ?></a>
-                    <a class="button button-primary" href="<?php echo esc_url( PUBLION_URL . 'publion-documentation.pdf' ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Open volledige pluginhandleiding', 'publion' ); ?></a>
+                    <a class="button button-primary" href="#publion-guide-workflow"><?php esc_html_e( 'Naar de workflow', 'publion' ); ?></a>
+                    <a class="button" href="<?php echo esc_url( PUBLION_URL . 'publion-documentation.pdf' ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Download PDF-handleiding', 'publion' ); ?></a>
                     <a class="button" href="https://support.google.com/webmasters/answer/7576553" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Lees Search Console-metrics', 'publion' ); ?></a>
                     <a class="button" href="https://support.google.com/webmasters/answer/17010961" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Vind kansen met lage CTR', 'publion' ); ?></a>
                 </div>

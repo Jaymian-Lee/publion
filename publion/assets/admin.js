@@ -1,4 +1,16 @@
 jQuery(document).ready(function ($) {
+	const translations = (window.Publion && Publion.i18n) || {};
+	function t(key, fallback) {
+		return Object.prototype.hasOwnProperty.call(translations, key) ? translations[key] : fallback;
+	}
+	function format(message) {
+		const values = Array.prototype.slice.call(arguments, 1);
+		let index = 0;
+		return String(message).replace(/%d/g, function () {
+			return index < values.length ? values[index++] : '%d';
+		});
+	}
+
 	// Restore active tab from localStorage or from URL param
 	const urlParams = new URLSearchParams(window.location.search);
 	const urlTab = urlParams.get('publion_active_tab');
@@ -15,22 +27,70 @@ jQuery(document).ready(function ($) {
 	    localStorage.removeItem('publion_active_tab');
 	}
 
-	function showNotice(type, message) {
+	function errorDetails(response, fallback) {
+		const data = response && response.data;
+		const details = (data && typeof data === 'object' && !Array.isArray(data)) ? data : {};
+		const rawResponse = response && typeof response.responseText === 'string' ? response.responseText.trim() : '';
+		const sessionExpired = rawResponse === '-1' || (response && (response.status === 401 || response.status === 403));
+		return {
+			code: details.code || (sessionExpired ? 'session_expired' : 'operation_failed'),
+			title: details.title || (sessionExpired ? t('session_expired_title', 'Je WordPress-sessie is verlopen.') : t('action_required', 'Actie nodig')),
+			message: details.message || (sessionExpired ? t('session_expired_message', 'De actie is niet uitgevoerd omdat de beveiligingssessie niet meer geldig is.') : (typeof data === 'string' ? data : fallback)),
+			nextStep: details.next_step || (sessionExpired ? t('session_expired_next_step', 'Ververs de pagina, meld je zo nodig opnieuw aan en probeer daarna opnieuw.') : t('generic_next_step', 'Controleer de getoonde informatie en probeer daarna opnieuw.')),
+			actionLabel: details.action_label || (sessionExpired ? t('refresh_queue', 'Ververs wachtrij') : ''),
+			actionTab: details.action_tab || (sessionExpired ? 'publion-queue' : ''),
+			reference: details.reference || '',
+			retryable: details.retryable !== false
+		};
+	}
+
+	function appendErrorDetails($target, details, compact) {
+		if (!$target || !$target.length) return;
+		const $panel = $('<div>', { class: 'publion-operation-error', role: 'alert' });
+		$panel.append($('<strong>', { text: details.title }));
+		$panel.append($('<p>', { text: details.message }));
+		if (!compact && details.nextStep) {
+			$panel.append($('<p>', { class: 'publion-operation-error-next', text: details.nextStep }));
+		}
+		if (details.reference) {
+			$panel.append($('<small>', { text: t('reference', 'Referentie') + ': ' + details.reference }));
+		}
+		if (details.actionLabel && details.actionTab) {
+			$panel.append($('<button>', {
+				type: 'button',
+				class: 'button button-secondary publion-error-action',
+				text: details.actionLabel,
+				'data-publion-error-tab': details.actionTab
+			}));
+		}
+		$target.empty().append($panel);
+	}
+
+	function showNotice(type, message, details) {
 		const $notice = $('#publion-global-notice');
 		if (!$notice.length) return;
 		$notice.removeClass('is-success is-warning is-error').addClass('is-' + type).empty();
-		$notice.append($('<strong>', { text: type === 'error' ? 'Actie nodig' : type === 'warning' ? 'Let op' : 'Gelukt' }));
+		$notice.append($('<strong>', { text: type === 'error' ? t('action_required', 'Actie nodig') : type === 'warning' ? t('attention', 'Let op') : t('success', 'Gelukt') }));
 		$notice.append($('<span>', { text: message }));
+		if (details && details.actionLabel && details.actionTab) {
+			$notice.append($('<button>', { type: 'button', class: 'button button-secondary publion-error-action', text: details.actionLabel, 'data-publion-error-tab': details.actionTab }));
+		}
+		if (details && details.reference) {
+			$notice.append($('<small>', { text: t('reference', 'Referentie') + ': ' + details.reference }));
+		}
 		$notice.stop(true, true).slideDown(150);
 		if (type === 'success') setTimeout(function () { $notice.fadeOut(250); }, 4500);
 	}
 
 	function responseMessage(response, fallback) {
-		if (response && response.data) {
-			if (typeof response.data === 'string') return response.data;
-			if (response.data.message) return response.data.message;
-		}
-		return fallback;
+		return errorDetails(response, fallback).message;
+	}
+
+	function showActionableError(response, fallback, $target) {
+		const details = errorDetails(response, fallback);
+		showNotice('error', details.title + ': ' + details.message + (details.nextStep ? ' ' + details.nextStep : ''), details);
+		appendErrorDetails($target, details, false);
+		return details;
 	}
 
 	function openPublionTab(target) {
@@ -81,6 +141,10 @@ jQuery(document).ready(function ($) {
 		openPublionTab($(this).data('publion-tab'));
 	});
 
+	$(document).on('click', '[data-publion-error-tab]', function () {
+		openPublionTab($(this).data('publion-error-tab'));
+	});
+
 	$('#publion-open-quality-modal').on('click', function () {
 		openQualityModal(this);
 	});
@@ -118,17 +182,34 @@ jQuery(document).ready(function ($) {
     });
 
 	// Refresh Suggestions button
+	function isSafeSuggestion(suggestion) {
+		if (!suggestion || typeof suggestion !== 'object' || typeof suggestion.title !== 'string') return false;
+		const title = suggestion.title.trim();
+		const focus = typeof suggestion.focus_keyword === 'string' ? suggestion.focus_keyword.trim() : '';
+		const allowedIntents = ['informatief', 'commercieel', 'transactioneel', 'navigerend'];
+		if (title.length < 16 || title.length > 140 || focus.length < 2 || /[\[\]{}\r\n]/.test(title + focus)) return false;
+		if (/(?:^|\s|["'])\b(?:title|focus_keyword|search_intent|angle|faq_questions)\b\s*:/i.test(title + ' ' + focus)) return false;
+		if (!allowedIntents.includes(suggestion.search_intent)) return false;
+		if (typeof suggestion.angle !== 'string' || suggestion.angle.trim().length < 20) return false;
+		return Array.isArray(suggestion.faq_questions) && suggestion.faq_questions.filter(function (question) {
+			return typeof question === 'string' && question.trim().length >= 12;
+		}).length >= 3;
+	}
+
 	function renderSuggestions(suggestions) {
 		const $list = $('#publion-suggestions').empty();
-		if (!suggestions.length) {
+		const validSuggestions = Array.isArray(suggestions) ? suggestions.filter(function (suggestion) {
+			return isSafeSuggestion(suggestion);
+		}) : [];
+		if (!validSuggestions.length) {
 			$list.append($('<li>', {
 				class: 'publion-suggestion publion-suggestion-empty',
-				text: 'Geen veilige nieuwe onderwerpen gevonden. De voorstellen overlapten met bestaande berichten; kies een andere categorie of verfijn je voorprompt.'
+			text: t('no_valid_suggestions', 'Geen volledig gevalideerde onderwerpvoorstellen ontvangen. Er is niets opgeslagen. Vernieuw de voorstellen; blijft dit gebeuren, kies een ondersteund model of controleer de voorprompt.')
 			}));
 			return;
 		}
-		suggestions.forEach(function (suggestion) {
-			const title = suggestion.title || suggestion;
+		validSuggestions.forEach(function (suggestion) {
+			const title = suggestion.title.trim();
 			const brief = {
 				focus_keyword: suggestion.focus_keyword || title,
 				search_intent: suggestion.search_intent || 'informatief',
@@ -136,16 +217,16 @@ jQuery(document).ready(function ($) {
 				faq_questions: Array.isArray(suggestion.faq_questions) ? suggestion.faq_questions : []
 			};
 			const $li = $('<li>', { class: 'publion-suggestion' }).data('topic', title).data('seo-brief', brief);
-			const $button = $('<button>', { type: 'button', class: 'button button-primary add-topic', text: 'Toevoegen' });
+			const $button = $('<button>', { type: 'button', class: 'button button-primary add-topic', text: t('add', 'Toevoegen') });
 			const $content = $('<div>', { class: 'publion-suggestion-content' });
 			$content.append($('<strong>', { text: title }));
 			const $meta = $('<div>', { class: 'publion-seo-meta' });
-			$meta.append($('<span>', { class: 'publion-seo-tag', text: 'Focus: ' + brief.focus_keyword }));
-			$meta.append($('<span>', { class: 'publion-seo-tag', text: 'Intentie: ' + brief.search_intent }));
+			$meta.append($('<span>', { class: 'publion-seo-tag', text: t('focus', 'Focus') + ': ' + brief.focus_keyword }));
+			$meta.append($('<span>', { class: 'publion-seo-tag', text: t('intent', 'Intentie') + ': ' + brief.search_intent }));
 			if (brief.angle) $content.append($('<p>', { class: 'publion-suggestion-angle', text: brief.angle }));
 			$content.append($meta);
 			if (brief.faq_questions.length) {
-				$content.append($('<p>', { class: 'publion-faq-preview', text: 'FAQ: ' + brief.faq_questions.join(' · ') }));
+				$content.append($('<p>', { class: 'publion-faq-preview', text: t('faq', 'FAQ') + ': ' + brief.faq_questions.join(' · ') }));
 			}
 			$li.append($button, $content);
 			$list.append($li);
@@ -155,7 +236,7 @@ jQuery(document).ready(function ($) {
 	$('#publion-refresh').on('click', function () {
 	    const category = $('#publion-category').val();
 	    if (!category) {
-	        showNotice('warning', 'Selecteer eerst een categorie om relevante onderwerpvoorstellen te maken.');
+			showNotice('warning', t('select_category_first', 'Selecteer eerst een categorie om relevante onderwerpvoorstellen te maken.'));
 	        return;
 	    }
 
@@ -173,11 +254,11 @@ jQuery(document).ready(function ($) {
 	            $('#publion-suggestions-heading').show();
 	            renderSuggestions(response.data || []);
 	        } else {
-	            showNotice('error', responseMessage(response, 'Vernieuwen van voorstellen mislukt. Controleer je API-sleutel en probeer opnieuw.'));
+				showActionableError(response, t('refresh_failed', 'Vernieuwen van voorstellen mislukt. Controleer je API-sleutel en probeer opnieuw.'));
 	        }
 	    }).fail(function () {
 	        $('#publion-loading').hide();
-	        showNotice('error', 'De verbinding met WordPress of OpenAI is onderbroken. Controleer je internetverbinding en probeer opnieuw.');
+		showActionableError(null, t('connection_interrupted', 'De verbinding met WordPress of OpenAI is onderbroken. Controleer je internetverbinding en probeer opnieuw.'));
 	    });
 	});
 
@@ -185,7 +266,7 @@ jQuery(document).ready(function ($) {
 	$('#publion-suggest').on('click', function () {
 	    const category = $('#publion-category').val();
 	    if (!category) {
-	        showNotice('warning', 'Selecteer eerst een categorie om relevante onderwerpvoorstellen te maken.');
+	        showNotice('warning', t('select_category_first', 'Selecteer eerst een categorie om relevante onderwerpvoorstellen te maken.'));
 	        return;
 	    }
 
@@ -210,12 +291,12 @@ jQuery(document).ready(function ($) {
 	            renderSuggestions(response.data || []);
 	        } else {
 	            $('#publion-suggest').prop('disabled', false);
-	            showNotice('error', responseMessage(response, 'Kon geen onderwerpvoorstellen ophalen. Controleer je API-sleutel en model in AI-instellingen.'));
+				showActionableError(response, t('suggestions_failed', 'Kon geen onderwerpvoorstellen ophalen. Controleer je API-sleutel en model in AI-instellingen.'));
 	        }
 	    }).fail(function () {
 	        $('#publion-loading').hide();
 	        $('#publion-suggest').prop('disabled', false);
-	        showNotice('error', 'De aanvraag kon niet worden verstuurd. Controleer de verbinding en probeer opnieuw.');
+		showActionableError(null, t('request_failed', 'De aanvraag kon niet worden verstuurd. Controleer de verbinding en probeer opnieuw.'));
 	    });
 	});
 
@@ -247,7 +328,7 @@ jQuery(document).ready(function ($) {
 	    });
 
 	    if (postQueue.length === 0) {
-	        showNotice('warning', 'Kies eerst minstens één onderwerp voordat je de wachtrij opslaat.');
+	        showNotice('warning', t('select_topic_first', 'Kies eerst minstens één onderwerp voordat je de wachtrij opslaat.'));
 	        return;
 	    }
 
@@ -270,7 +351,7 @@ jQuery(document).ready(function ($) {
 	    }, function (response) {
 	        if (response.success) {
 	            $status.html('<span style="color:green;">✅ Toegevoegd aan de wachtrij voor postcreatie!</span>');
-	            showNotice('success', 'De geselecteerde onderwerpen staan nu in de wachtrij.');
+	            showNotice('success', t('selected_added_to_queue', 'De geselecteerde onderwerpen staan nu in de wachtrij.'));
 	            $('#publion-ai-queue tbody').empty();
 
 	            // Pause to show success message, then hide the section
@@ -281,11 +362,11 @@ jQuery(document).ready(function ($) {
 	                }
 	            }, 1500);
 
-	        } else {
-	            $status.html('<span style="color:red;">❌ Opslaan mislukt.</span>');
-	        }
-	    }).fail(function () {
-	        $status.html('<span style="color:red;">❌ AJAX error.</span>');
+            } else {
+				showActionableError(response, t('save_failed', 'Opslaan mislukt.'), $status);
+            }
+        }).fail(function () {
+			showActionableError(null, t('network_save_failed', 'Opslaan mislukt door een netwerkfout.'), $status);
 	    });
 	});
 
@@ -296,7 +377,7 @@ jQuery(document).ready(function ($) {
 
         $('[data-tab="publion-settings"]').addClass('nav-tab-active');
         $('#publion-settings').show();
-        showNotice('warning', 'Voeg een OpenAI API-sleutel toe om met onderwerpen, artikelen en afbeeldingen te werken.');
+        showNotice('warning', t('api_key_needed', 'Voeg een OpenAI API-sleutel toe om met onderwerpen, artikelen en afbeeldingen te werken.'));
     }
 
     // Toggle CTA fields on dropdown change
@@ -366,10 +447,10 @@ jQuery(document).ready(function ($) {
                     $('#publion-next-daily-topic').text(nextLabel);
                 }
             } else {
-                $status.html('<span style="color:red;">❌ Opslaan mislukt.</span>');
+				showActionableError(response, t('save_failed', 'Opslaan mislukt.'), $status);
             }
         }).fail(function () {
-            $status.html('<span style="color:red;">❌ AJAX error.</span>');
+			showActionableError(null, t('network_save_failed', 'Opslaan mislukt door een netwerkfout.'), $status);
         });
     });
 
@@ -409,10 +490,10 @@ jQuery(document).ready(function ($) {
 	        if (response.success) {
 	            $status.html('<span style="color:green; margin-left:5px;">✅ Opgeslagen!</span>');
 	        } else {
-	            $status.html('<span style="color:red;">❌ Opslaan mislukt.</span>');
+	            showActionableError(response, t('save_failed', 'Opslaan mislukt.'), $status);
 	        }
 	    }).fail(function () {
-	        $status.html('<span style="color:red;">❌ AJAX error.</span>');
+	        showActionableError(null, t('network_save_failed', 'Opslaan mislukt door een netwerkfout.'), $status);
 	    });
 	});
 
@@ -458,10 +539,10 @@ jQuery(document).ready(function ($) {
 	        if (response.success) {
 	            $status.text(response.data.message || 'Model opgeslagen.');
 	        } else {
-	            $status.text(response.data || 'Opslaan mislukt.');
+	            showActionableError(response, t('save_failed', 'Opslaan mislukt.'), $status);
 	        }
 	    }).fail(function () {
-	        $status.text('Opslaan mislukt door een netwerkfout.');
+	        showActionableError(null, t('network_save_failed', 'Opslaan mislukt door een netwerkfout.'), $status);
 	    });
 	});
 
@@ -480,10 +561,10 @@ jQuery(document).ready(function ($) {
 	        if (response.success) {
 	            $status.text(response.data.message || 'Afbeeldingsmodel opgeslagen.');
 	        } else {
-	            $status.text(response.data || 'Opslaan mislukt.');
+	            showActionableError(response, t('save_failed', 'Opslaan mislukt.'), $status);
 	        }
 	    }).fail(function () {
-	        $status.text('Opslaan mislukt door een netwerkfout.');
+	        showActionableError(null, t('network_save_failed', 'Opslaan mislukt door een netwerkfout.'), $status);
 	    });
 	});
 
@@ -502,10 +583,10 @@ jQuery(document).ready(function ($) {
 	        if (response.success) {
 	            $status.html('<span style="color:green; margin-left:9px">✅ Opgeslagen!</span>');
 	        } else {
-	            $status.html('<span style="color:red;">❌ Opslaan mislukt.</span>');
+	            showActionableError(response, t('save_failed', 'Opslaan mislukt.'), $status);
 	        }
 	    }).fail(function () {
-	        $status.html('<span style="color:red;">❌ AJAX error.</span>');
+	        showActionableError(null, t('network_save_failed', 'Opslaan mislukt door een netwerkfout.'), $status);
 	    });
 	});
 
@@ -543,8 +624,10 @@ jQuery(document).ready(function ($) {
 	                }
 	            }
 	        } else {
-	            alert('Items laden mislukt.');
+	            showActionableError(response, t('items_load_failed', 'Items laden mislukt.'));
 	        }
+	    }).fail(function () {
+	        showActionableError(null, t('connection_interrupted', 'De verbinding met WordPress of OpenAI is onderbroken. Controleer je internetverbinding en probeer opnieuw.'));
 	    });
 	}
 
@@ -570,44 +653,112 @@ jQuery(document).ready(function ($) {
 	    }
 	}, 150);
 
+	function renderCreationProgress($progress, progress) {
+		if (!$progress.length || !progress) return;
+		const percent = Math.max(0, Math.min(100, parseInt(progress.percent, 10) || 0));
+		const state = progress.state || 'running';
+		const stage = progress.stage || t('working', 'Bezig');
+		const detail = progress.detail || t('server_processing', 'De server verwerkt deze stap.');
+		const error = progress.error && typeof progress.error === 'object' ? progress.error : null;
+		$progress.prop('hidden', false)
+			.removeClass('is-running is-completed is-failed')
+			.addClass('is-' + state);
+		$progress.find('.publion-create-progress-stage').text(stage);
+		$progress.find('.publion-create-progress-percent').text(percent + '%');
+		$progress.find('.publion-create-progress-detail').text(detail);
+		const $guidance = $progress.find('.publion-create-progress-guidance');
+		const $reference = $progress.find('.publion-create-progress-reference');
+		const $action = $progress.find('.publion-create-progress-action');
+		if (error) {
+			$guidance.text(error.next_step || '').prop('hidden', !error.next_step);
+			$reference.text(error.reference ? t('reference', 'Referentie') + ': ' + error.reference : '').prop('hidden', !error.reference);
+			$action.text(error.action_label || '').attr('data-publion-error-tab', error.action_tab || '').prop('hidden', !(error.action_label && error.action_tab));
+		} else {
+			$guidance.empty().prop('hidden', true);
+			$reference.empty().prop('hidden', true);
+			$action.empty().removeAttr('data-publion-error-tab').prop('hidden', true);
+		}
+		$progress.find('.publion-create-progress-bar').css('width', percent + '%');
+		$progress.find('.publion-create-progress-track')
+			.attr('aria-valuenow', percent)
+			.attr('aria-valuetext', stage + ': ' + percent + ' ' + t('percent', 'procent'));
+	}
+
+	function pollCreationProgress(id, $progress, $button) {
+		const poll = function () {
+			$.post(Publion.ajax_url, {
+				action: 'publion_get_creation_progress',
+				nonce: Publion.nonce,
+				id: id
+			}, function (response) {
+				if (!response || !response.success || !response.data) return;
+				renderCreationProgress($progress, response.data);
+				if (response.data.state === 'running') {
+					$button.find('.button-text').text((response.data.stage || t('working', 'Bezig')) + ' · ' + (response.data.percent || 0) + '%');
+				}
+			});
+		};
+		poll();
+		return window.setInterval(poll, 1100);
+	}
+
 	$(document).on('click', '.publion-create-now', function () {
 	    const $button = $(this);
 	    const id = $button.data('id');
+	    const $cell = $button.closest('.publion-queue-actions');
+	    const $progress = $cell.find('.publion-create-progress');
 
-	    if (!confirm('Wil je nu een blogpost maken voor dit onderwerp? Dit kan even duren. Je krijgt een melding wanneer het klaar is.')) return;
+	    if (!confirm(t('create_now_confirm', 'Wil je nu een blogpost maken voor dit onderwerp? De status hieronder volgt de echte stappen op de server.'))) return;
 
-	    $button.prop('disabled', true).find('.button-text').text('Aanmaken...');
-	    const statusCycle = ['Tekst...', 'Afb. gen...', 'Post...'];
-	    let statusIndex = 0;
-	    const statusTimer = setInterval(() => {
-	        statusIndex = (statusIndex + 1) % statusCycle.length;
-	        $button.find('.button-text').text(statusCycle[statusIndex]);
-	    }, 2000);
-	    $button.next('.publion-create-spinner').addClass('is-active').show();
+	    $button.prop('disabled', true).find('.button-text').text(t('request_sent', 'Aanvraag verstuurd'));
+	    renderCreationProgress($progress, {
+			state: 'running',
+			percent: 1,
+			stage: t('request_started', 'Aanvraag gestart'),
+			detail: t('waiting_server', 'Publion wacht op de eerste serverbevestiging.')
+		});
+	    $button.siblings('.publion-create-spinner').addClass('is-active').show();
 	    $('.publion-delete[data-id="' + id + '"]').hide();
+	    const progressTimer = pollCreationProgress(id, $progress, $button);
 
-	    $.post(ajaxurl, {
+	    $.post(Publion.ajax_url, {
 	        action: 'publion_create_post_now',
+	        nonce: Publion.nonce,
 	        id: id
 	    }, function (res) {
-	        clearInterval(statusTimer);
-	        if (res.success) {
-	            alert('Post succesvol aangemaakt.');
-	            localStorage.setItem('publion_active_tab', 'publion-queue');
-	            location.reload();
-	        } else { 
-	            alert(res.data || 'Post aanmaken mislukt. Mogelijk heeft ChatGPT problemen. Probeer later opnieuw als dit aanhoudt.');
-	            $button.prop('disabled', false).find('.button-text').text('Nu maken');
-	            $button.next('.publion-create-spinner').removeClass('is-active').hide();
+	        window.clearInterval(progressTimer);
+	        if (res && res.success) {
+				renderCreationProgress($progress, {
+					state: 'completed',
+					percent: 100,
+					stage: t('complete', 'Klaar'),
+					detail: t('draft_ready', 'Het artikelconcept is aangemaakt en staat klaar voor controle.')
+				});
+				$button.find('.button-text').text(t('complete', 'Klaar') + ' · 100%');
+				$button.siblings('.publion-create-spinner').removeClass('is-active').hide();
+				showNotice('success', t('post_created', 'Post succesvol aangemaakt. De wachtrij wordt bijgewerkt.'));
+				localStorage.setItem('publion_active_tab', 'publion-queue');
+				window.setTimeout(function () { location.reload(); }, 1100);
+			} else {
+				const error = showActionableError(res, t('create_failed', 'Post aanmaken mislukt. Controleer de getoonde voortgang en probeer opnieuw.'));
+				renderCreationProgress($progress, { state: 'failed', percent: 0, stage: error.title, detail: error.message, error: error });
+	            $button.prop('disabled', false).find('.button-text').text(t('create_now', 'Nu maken'));
+	            $button.siblings('.publion-create-spinner').removeClass('is-active').hide();
 	            $('.publion-delete[data-id="' + id + '"]').show();
 	        }
 	    }).fail(function (jqXHR, textStatus, errorThrown) {
-	        // Catch server 500s or network errors
-	        try { console.error('Nu maken AJAX mislukt:', textStatus, errorThrown, jqXHR && jqXHR.responseText); } catch (e) {}
-	        alert('Oeps! Er ging iets mis. De post is waarschijnlijk toch aangemaakt. Klik op OK om te verversen en te controleren. Mogelijk heeft ChatGPT problemen. Als de post niet is aangemaakt en dit blijft gebeuren, probeer later opnieuw.');
-	        clearInterval(statusTimer);
-	        localStorage.setItem('publion_active_tab', 'publion-queue');
-	        location.reload();
+			window.clearInterval(progressTimer);
+			try { console.error('Nu maken AJAX mislukt:', textStatus, errorThrown, jqXHR && jqXHR.responseText); } catch (e) {}
+			const error = errorDetails(null, t('connection_lost', 'De verbinding met WordPress viel weg. Controleer de actuele status na het verversen voordat je opnieuw start.'));
+			error.title = t('connection_lost_stage', 'Verbinding onderbroken');
+			error.nextStep = t('connection_lost_next_step', 'Ververs eerst de wachtrij. Start alleen opnieuw als er nog geen concept is aangemaakt.');
+			error.actionLabel = t('open_queue', 'Open wachtrij');
+			error.actionTab = 'publion-queue';
+			renderCreationProgress($progress, { state: 'failed', percent: 0, stage: error.title, detail: error.message, error: error });
+			showNotice('error', error.title + ': ' + error.message + ' ' + error.nextStep, error);
+			$button.prop('disabled', false).find('.button-text').text(t('create_now', 'Nu maken'));
+			$button.siblings('.publion-create-spinner').removeClass('is-active').hide();
+			$('.publion-delete[data-id="' + id + '"]').show();
 	    });
 	});
 
@@ -629,9 +780,9 @@ jQuery(document).ready(function ($) {
 	    const $button = $(this);
 	    const id = $button.data('id');
 
-	    if (!confirm('Are you sure you want to delete this topic from the queue?')) return;
+	    if (!confirm(t('delete_topic_confirm', 'Weet je zeker dat je dit onderwerp uit de wachtrij wilt verwijderen?'))) return;
 
-	    $button.prop('disabled', true).text('Deleting...');
+	    $button.prop('disabled', true).text(t('removing', 'Verwijderen…'));
 
 	    $.post(Publion.ajax_url, {
 	        action: 'publion_delete_topic',
@@ -643,9 +794,12 @@ jQuery(document).ready(function ($) {
 	                $(this).remove();
 	            });
 	        } else {
-	            alert(res.data || 'Onderwerp verwijderen mislukt.');
-	            $button.prop('disabled', false).text('Verwijderen');
+	            showActionableError(res, t('remove_topic_failed', 'Onderwerp verwijderen mislukt.'));
+	            $button.prop('disabled', false).text(t('remove', 'Verwijderen'));
 	        }
+	    }).fail(function () {
+	        showActionableError(null, t('delete_ajax_error', 'AJAX-fout bij verwijderen van onderwerp.'));
+	        $button.prop('disabled', false).text(t('remove', 'Verwijderen'));
 	    });
 	});
 
@@ -664,12 +818,12 @@ jQuery(document).ready(function ($) {
 
     function processBulkGenerate(ids, index) {
         if (!ids.length) {
-            setBulkStatus('<span style="color:red;">❌ Geen items geselecteerd.</span>');
+            setBulkStatus('<span style="color:red;">&#10060; ' + t('no_items_selected', 'Geen items geselecteerd.') + '</span>');
             return;
         }
 
         if (index >= ids.length) {
-            setBulkStatus('<span style="color:green;">✅ Klaar! Herladen...</span>');
+            setBulkStatus('<span style="color:green;">&#9989; ' + t('reloading', 'Klaar! Herladen…') + '</span>');
             localStorage.setItem('publion_active_tab', 'publion-queue');
             location.reload();
             return;
@@ -686,16 +840,16 @@ jQuery(document).ready(function ($) {
             if (res && res.success) {
                 processBulkGenerate(ids, index + 1);
             } else {
-                setBulkStatus('<span style="color:red;">❌ Mislukt bij item ' + (index + 1) + '.</span>');
+                setBulkStatus('<span style="color:red;">&#10060; ' + format(t('failed_at_item', 'Mislukt bij item %d.'), index + 1) + '</span>');
             }
         }).fail(function () {
-            setBulkStatus('<span style="color:red;">❌ AJAX error bij item ' + (index + 1) + '.</span>');
+            setBulkStatus('<span style="color:red;">&#10060; ' + format(t('ajax_error_at_item', 'AJAX-fout bij item %d.'), index + 1) + '</span>');
         });
     }
 
     function processBulkDelete(ids) {
         if (!ids.length) {
-            setBulkStatus('<span style="color:red;">❌ Geen items geselecteerd.</span>');
+            setBulkStatus('<span style="color:red;">&#10060; ' + t('no_items_selected', 'Geen items geselecteerd.') + '</span>');
             return;
         }
 
@@ -722,10 +876,86 @@ jQuery(document).ready(function ($) {
                 completed++;
                 if (completed >= ids.length) {
                     if (failed) {
-                        setBulkStatus('<span style="color:red;">❌ ' + failed + ' mislukt.</span>');
+                        setBulkStatus('<span style="color:red;">&#10060; ' + format(t('failed_count', '%d mislukt.'), failed) + '</span>');
                     } else {
-                        setBulkStatus('<span style="color:green;">✅ Verwijderd.</span>');
+                        setBulkStatus('<span style="color:green;">&#9989; ' + t('deleted', 'Verwijderd.') + '</span>');
                     }
+                }
+            });
+        });
+    }
+
+    function queueTopicLabel(id) {
+        const $row = $('#publion-queue-table tbody .publion-row-select[data-id="' + id + '"]').closest('tr');
+        return $row.find('td').eq(2).text().trim() || t('queue_item', 'Wachtrij-item') + ' #' + id;
+    }
+
+    function renderBulkSummary(total, succeeded, failures) {
+        const $status = $('#publion-bulk-status').empty();
+        const $summary = $('<div>', { class: 'publion-bulk-summary' + (failures.length ? ' is-error' : '') });
+        const heading = failures.length
+            ? format(t('bulk_completed_with_errors', 'Bulkactie afgerond: %d item(s) hebben aandacht nodig.'), failures.length)
+            : t('bulk_completed', 'Bulkactie succesvol afgerond.');
+        $summary.append($('<strong>', { text: heading }));
+		$summary.append($('<span>', { text: format(t('bulk_progress_summary', '%d van %d verwerkt.'), succeeded + failures.length, total) + ' ' + format(t('bulk_success_summary', '%d geslaagd.'), succeeded) }));
+        if (failures.length) {
+            const $list = $('<ul>');
+            failures.slice(0, 5).forEach(function (failure) {
+                $list.append($('<li>', { text: failure.topic + ' — ' + failure.error.title + ': ' + failure.error.message + ' ' + failure.error.nextStep }));
+            });
+            $summary.append($list);
+            const first = failures[0].error;
+            if (first.actionLabel && first.actionTab) {
+                $summary.append($('<button>', { type: 'button', class: 'button button-secondary publion-error-action', text: first.actionLabel, 'data-publion-error-tab': first.actionTab }));
+            }
+        }
+        $summary.append($('<button>', { type: 'button', class: 'button publion-error-action', text: t('refresh_queue', 'Ververs wachtrij'), 'data-publion-error-tab': 'publion-queue' }));
+        $status.append($summary);
+    }
+
+    function processBulkGenerateDetailed(ids, index, results) {
+        results = results || { succeeded: 0, failures: [] };
+        if (index >= ids.length) {
+            renderBulkSummary(ids.length, results.succeeded, results.failures);
+            if (results.failures.length) showActionableError({ data: results.failures[0].error }, t('bulk_failed', 'Een of meer items konden niet worden verwerkt.'));
+            return;
+        }
+        const id = ids[index];
+        setBulkStatus('<span class="spinner is-active" style="float:none;display:inline-block;"></span> ' + format(t('bulk_processing', 'Item %d wordt verwerkt.'), index + 1));
+        $.post(Publion.ajax_url, { action: 'publion_create_post_now', nonce: Publion.nonce, id: id }, function (res) {
+            if (res && res.success) {
+                results.succeeded++;
+                $('#publion-queue-table tbody .publion-row-select[data-id="' + id + '"]').closest('tr').fadeOut(180, function () { $(this).remove(); });
+            } else {
+                results.failures.push({ topic: queueTopicLabel(id), error: errorDetails(res, t('bulk_failed', 'Dit item kon niet worden verwerkt.')) });
+            }
+            processBulkGenerateDetailed(ids, index + 1, results);
+        }).fail(function () {
+            results.failures.push({ topic: queueTopicLabel(id), error: errorDetails(null, t('connection_lost', 'De verbinding met WordPress viel weg.')) });
+            processBulkGenerateDetailed(ids, index + 1, results);
+        });
+    }
+
+    function processBulkDeleteDetailed(ids) {
+        const results = { succeeded: 0, failures: [] };
+        let completed = 0;
+        setBulkStatus('<span class="spinner is-active" style="float:none;display:inline-block;"></span> ' + t('bulk_delete_processing', 'Geselecteerde items worden verwijderd.'));
+        ids.forEach(function (id) {
+            const topic = queueTopicLabel(id);
+            $.post(Publion.ajax_url, { action: 'publion_delete_topic', nonce: Publion.nonce, id: id }, function (res) {
+                if (res && res.success) {
+                    results.succeeded++;
+                    $('#publion-queue-table tbody .publion-row-select[data-id="' + id + '"]').closest('tr').fadeOut(180, function () { $(this).remove(); });
+                } else {
+                    results.failures.push({ topic: topic, error: errorDetails(res, t('remove_topic_failed', 'Onderwerp verwijderen mislukt.')) });
+                }
+            }).fail(function () {
+                results.failures.push({ topic: topic, error: errorDetails(null, t('delete_ajax_error', 'AJAX-fout bij verwijderen van onderwerp.')) });
+            }).always(function () {
+                completed++;
+                if (completed === ids.length) {
+                    renderBulkSummary(ids.length, results.succeeded, results.failures);
+                    if (results.failures.length) showActionableError({ data: results.failures[0].error }, t('bulk_failed', 'Een of meer items konden niet worden verwijderd.'));
                 }
             });
         });
@@ -747,16 +977,21 @@ jQuery(document).ready(function ($) {
         const ids = getSelectedQueueIds();
 
         if (!action) {
-            setBulkStatus('<span style="color:red;">❌ Kies een bulkactie.</span>');
+            setBulkStatus('<span style="color:red;">&#10060; ' + t('choose_bulk_action', 'Kies een bulkactie.') + '</span>');
+            return;
+        }
+
+        if (!ids.length) {
+            setBulkStatus('<span style="color:red;">&#10060; ' + t('no_items_selected', 'Geen items geselecteerd.') + '</span>');
             return;
         }
 
         if (action === 'generate') {
-            if (!confirm('Weet je zeker dat je alle geselecteerde posts wilt genereren?')) return;
-            processBulkGenerate(ids, 0);
+	            if (!confirm(t('bulk_generate_confirm', 'Weet je zeker dat je alle geselecteerde posts wilt genereren?'))) return;
+            processBulkGenerateDetailed(ids, 0);
         } else if (action === 'delete') {
-            if (!confirm('Weet je zeker dat je alle geselecteerde items wilt verwijderen?')) return;
-            processBulkDelete(ids);
+	            if (!confirm(t('bulk_delete_confirm', 'Weet je zeker dat je alle geselecteerde items wilt verwijderen?'))) return;
+            processBulkDeleteDetailed(ids);
         }
     });
 
@@ -771,7 +1006,7 @@ jQuery(document).ready(function ($) {
         const $status = $cell.find('.publion-schedule-status');
 
         if (!id || !value) {
-            $status.html('<span style="color:red;">❌ Ongeldige datum/tijd.</span>');
+            $status.html('<span style="color:red;">&#10060; ' + t('invalid_date_time', 'Ongeldige datum/tijd.') + '</span>');
             return;
         }
 
@@ -785,7 +1020,7 @@ jQuery(document).ready(function ($) {
             scheduled_at: value
         }, function (response) {
             if (response.success) {
-                $status.html('<span style="color:green;">✅ Opgeslagen</span>');
+                $status.html('<span style="color:green;">&#9989; ' + t('saved_short', 'Opgeslagen') + '</span>');
                 if (response.data && response.data.scheduled_input) {
                     $input.val(response.data.scheduled_input);
                 }
@@ -793,10 +1028,10 @@ jQuery(document).ready(function ($) {
                     $row.find('.publion-days-until').text(response.data.days_until);
                 }
             } else {
-                $status.html('<span style="color:red;">❌ Opslaan mislukt.</span>');
+                showActionableError(response, t('save_failed', 'Opslaan mislukt.'), $status);
             }
         }).fail(function () {
-            $status.html('<span style="color:red;">❌ AJAX error.</span>');
+            showActionableError(null, t('network_save_failed', 'Opslaan mislukt door een netwerkfout.'), $status);
         }).always(function () {
             $button.prop('disabled', false);
         });
@@ -808,9 +1043,9 @@ jQuery(document).ready(function ($) {
 	    const id = $btn.data('id');
 	    if (!id) return;
 
-	    if (!confirm('Onderwerp verwijderen uit Publion?')) return;
+	    if (!confirm(t('remove_from_publion_confirm', 'Onderwerp verwijderen uit Publion?'))) return;
 
-	    $btn.prop('disabled', true).text('Verwijderen...');
+	    $btn.prop('disabled', true).text(t('removing', 'Verwijderen…'));
 
 	    $.post(Publion.ajax_url, {
 	        action: 'publion_delete_topic',
@@ -822,12 +1057,12 @@ jQuery(document).ready(function ($) {
 	            localStorage.setItem('publion_active_tab', 'publion-queue');
 	            location.reload();
 	        } else {
-	            alert(res.data || 'Onderwerp verwijderen mislukt.');
-	            $btn.prop('disabled', false).text('Verwijderen');
+	            showActionableError(res, t('remove_topic_failed', 'Onderwerp verwijderen mislukt.'));
+	            $btn.prop('disabled', false).text(t('remove', 'Verwijderen'));
 	        }
 	    }).fail(function () {
-	        alert('AJAX-fout bij verwijderen van onderwerp.');
-	        $btn.prop('disabled', false).text('Verwijderen');
+	        showActionableError(null, t('delete_ajax_error', 'AJAX-fout bij verwijderen van onderwerp.'));
+	        $btn.prop('disabled', false).text(t('remove', 'Verwijderen'));
 	    });
 	});
 	
@@ -865,10 +1100,10 @@ function updateQueueVisibility() {
 	    $button.prop('disabled', true);
 
 	    const $row = $('<tr>').data('topic', rawTopic).data('category', category).data('seo-brief', seoBrief);
-	    $row.append($('<td>').append($('<button>', { type: 'button', class: 'button remove-topic', text: 'Verwijderen' }).data('restore-topic', rawTopic)));
+	    $row.append($('<td>').append($('<button>', { type: 'button', class: 'button remove-topic', text: t('remove', 'Verwijderen') }).data('restore-topic', rawTopic)));
 	    $row.append($('<td>').data('category', category).data('category-label', categoryLabel).text(categoryLabel));
 	    $row.append($('<td>').data('topic', rawTopic).text(rawTopic));
-	    const briefText = 'Focus: ' + (seoBrief.focus_keyword || rawTopic) + ' · ' + (seoBrief.search_intent || 'informatief');
+	    const briefText = t('focus', 'Focus') + ': ' + (seoBrief.focus_keyword || rawTopic) + ' · ' + (seoBrief.search_intent || t('informational', 'informatief'));
 	    $row.append($('<td>', { class: 'publion-queue-brief', text: briefText }));
 	    $('#publion-ai-queue tbody').append($row);
 
@@ -926,12 +1161,19 @@ function updateQueueVisibility() {
 	
 	$(document).ajaxError(function (event, jqXHR, settings, thrownError) {
 	    try {
-	        // settings.data is a URL-encoded string for $.post
-	        if (settings && typeof settings.data === 'string' && settings.data.indexOf('action=publion_create_post_now') !== -1) {
-	            alert('Oeps! Er ging iets mis. De post is waarschijnlijk toch aangemaakt. Klik op OK om te verversen en te controleren.');
-	            localStorage.setItem('publion_active_tab', 'publion-queue');
-	            location.reload();
+	        if (settings && typeof settings.data === 'string' && settings.data.indexOf('action=publion_') !== -1 && jqXHR && String(jqXHR.responseText || '').trim() === '-1') {
+	            showActionableError(jqXHR, t('session_expired_message', 'De actie is niet uitgevoerd omdat de beveiligingssessie niet meer geldig is.'));
+	            return;
 	        }
+	        // settings.data is a URL-encoded string for $.post
+        if (settings && typeof settings.data === 'string' && settings.data.indexOf('action=publion_create_post_now') !== -1) {
+	            const error = errorDetails(null, t('post_status_uncertain', 'Er ging iets mis. De post is mogelijk toch aangemaakt. Vernieuw de pagina om de actuele status te controleren.'));
+	            error.title = t('connection_lost_stage', 'Verbinding onderbroken');
+	            error.nextStep = t('connection_lost_next_step', 'Ververs eerst de wachtrij. Start alleen opnieuw als er nog geen concept is aangemaakt.');
+	            error.actionLabel = t('refresh_queue', 'Ververs wachtrij');
+	            error.actionTab = 'publion-queue';
+	            showNotice('error', error.title + ': ' + error.message + ' ' + error.nextStep, error);
+        }
 	    } catch (e) {
 	        // If anything goes wrong parsing, fail quietly—this is just a fallback.
 	    }
