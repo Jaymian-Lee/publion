@@ -4,7 +4,7 @@
 
 Publion helpt redacties, marketeers en ondernemers om van een categorie naar een gecontroleerd artikelconcept te werken. De plugin maakt niet alleen tekst: hij bouwt eerst een contentbrief met zoekintentie, focus-keyword, invalshoek en FAQ-vragen. Daarna kun je onderwerpen plannen, artikelen als concept maken, afbeeldingen laten genereren en de resultaten volgen in je eigen analyticsomgeving.
 
-De huidige release is **1.9.20**. Download het WordPress-importpakket: [publion-wordpress-1.9.20.zip](publion-wordpress-1.9.20.zip). Het pakket bevat precies één hoofdmap: `publion/`. Dat is de vereiste WordPress-structuur en voorkomt dat WordPress een tweede, losstaande pluginmap maakt.
+De huidige release is **1.9.24**. Download het WordPress-importpakket: [publion-wordpress-1.9.24.zip](publion-wordpress-1.9.24.zip). Het pakket bevat precies één hoofdmap: `publion/`. Dat is de vereiste WordPress-structuur en voorkomt dat WordPress een tweede, losstaande pluginmap maakt.
 
 ## In één oogopslag
 
@@ -71,7 +71,7 @@ Nieuwe AI-onderwerpvoorstellen en artikelen volgen juist de **sitetaal**. Zo kan
 
 ### Installeren via WordPress
 
-1. Download [publion-wordpress-1.9.20.zip](publion-wordpress-1.9.20.zip).
+1. Download [publion-wordpress-1.9.24.zip](publion-wordpress-1.9.24.zip).
 2. Ga in WordPress naar **Plugins → Nieuwe plugin → Plugin uploaden**.
 3. Upload het zipbestand, installeer en activeer de plugin.
 4. Open **Berichten → Publion**.
@@ -131,7 +131,11 @@ Ga naar **Instellingen voor postcreatie** en kies:
 | Automatisch onderwerp | Voegt op vaste momenten een nieuwe contentkans toe. |
 | Externe bronwebsite | Geeft de AI een betrouwbare externe bronwebsite. Publion gebruikt de HTTPS-homepage als veilige fallback. |
 | Geverifieerde externe bron-URL's | Zet één relevante HTTPS-URL per regel. Publion gebruikt precies één passende bron per artikel; zonder ingestelde bron verzint de plugin nooit een URL. |
-| Rank Math | Slaat focus-keyword, titel en metabeschrijving op wanneer Rank Math dit gebruikt. |
+| Live brononderzoek op internet | Zoekt voor de artikeltekst actuele bronnen via OpenAI web search. Dit is bewust opt-in, omdat het extra API-kosten en tijd kan geven. |
+| Onderzoeksregels | Kies het researchmodel, 1â€“5 bronnen, contextdiepte, live toegang en wat er gebeurt wanneer onderzoek geen bruikbare bronnen oplevert. |
+| Domeinbeleid | Sta alleen gezaghebbende domeinen toe of sluit bijvoorbeeld concurrenten en forums uit. De API ontvangt alleen gevalideerde hostnamen, maximaal 100 per lijst. |
+| Klikbare bronnenlijst | Plaatst uitsluitend URLs die de live webzoekactie werkelijk heeft teruggegeven, met veilige linkattributen. |
+| Rank Math | Bereidt alle controleerbare contenttests voor: unieke focus-keyword, keyword-led titel/meta/URL, intro, koppen, links, inhoudsopgave, 4+ afbeeldingen en korte alinea's. Met de integratie aan vraagt Publion circa 2.500-2.800 woorden; dat kost meer tijd en API-tegoed. Bij het openen in de editor start Rank Math automatisch zijn eigen analyse; de score blijft de echte Rank Math-score. |
 | Structured data | Publiceert optioneel `BlogPosting`- en `FAQPage`-gegevens voor Publion-posts, tenzij Rank Math, Yoast of All in One SEO al articleschema beheert. |
 | Thema-integratie | Volgt standaard de bestaande themastijl; biedt optioneel een verfijnde leesstijl en gescoped Custom CSS. |
 | Afbeeldingafronding | Standaard **8px**, instelbaar van 0 tot 48px voor Publion-afbeeldingen. |
@@ -227,7 +231,7 @@ Bij **Nu maken** staat de actuele fase met het bijbehorende workflowpercentage i
 6. Genereert vijf contextuele afbeeldingen voor de inhoud en één uitgelichte afbeelding.
 7. Voegt beschrijvende alt-tekst, lazy loading en de ingestelde border-radius toe.
 8. Maakt een WordPress-post als concept of gepubliceerd item, afhankelijk van de instelling.
-9. Slaat indien ingeschakeld Rank Math-data en dynamische article/FAQ-schema-informatie op.
+9. Slaat indien ingeschakeld Rank Math-data en dynamische article/FAQ-schema-informatie op. Bij het openen in de WordPress-editor vraagt Publion Rank Math om de eigen titel- en contenttests opnieuw uit te voeren.
 
 ### Verplichte review voor publicatie
 

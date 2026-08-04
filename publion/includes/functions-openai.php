@@ -47,6 +47,245 @@ function publion_get_openai_model() {
 }
 
 /**
+ * Returns the safe defaults for optional, live web-grounded article research.
+ * It is opt-in because every lookup can add latency and OpenAI tool usage.
+ */
+function publion_get_web_research_settings() {
+    $saved = get_option( 'publion_post_settings', array() );
+    $model = publion_normalize_openai_model_id( $saved['web_research_model'] ?? 'gpt-5.6' );
+
+    return array(
+        'enabled'          => ( $saved['web_research_enabled'] ?? 'no' ) === 'yes',
+        'model'            => $model ?: 'gpt-5.6',
+        'source_count'     => max( 1, min( 5, (int) ( $saved['web_research_source_count'] ?? 3 ) ) ),
+        'context_size'     => in_array( $saved['web_research_context_size'] ?? 'medium', array( 'low', 'medium', 'high' ), true ) ? $saved['web_research_context_size'] : 'medium',
+        'live_access'      => ( $saved['web_research_live_access'] ?? 'yes' ) === 'yes',
+        'allowed_domains'  => publion_parse_web_research_domains( $saved['web_research_allowed_domains'] ?? '' ),
+        'blocked_domains'  => publion_parse_web_research_domains( $saved['web_research_blocked_domains'] ?? '' ),
+        'display_sources'  => ( $saved['web_research_display_sources'] ?? 'yes' ) === 'yes',
+        'failure_mode'     => in_array( $saved['web_research_failure_mode'] ?? 'stop', array( 'stop', 'continue' ), true ) ? $saved['web_research_failure_mode'] : 'stop',
+    );
+}
+
+/**
+ * Normalises one domain per line (or comma-separated) for OpenAI web-search
+ * filters. Protocols and paths are intentionally removed: the API expects hostnames.
+ */
+function publion_parse_web_research_domains( $raw ) {
+    $domains = preg_split( '/[\r\n,]+/', (string) $raw, -1, PREG_SPLIT_NO_EMPTY );
+    $valid   = array();
+
+    foreach ( (array) $domains as $domain ) {
+        $domain = trim( (string) $domain );
+        if ( '' === $domain ) {
+            continue;
+        }
+        if ( ! preg_match( '/^https?:\/\//i', $domain ) ) {
+            $domain = 'https://' . $domain;
+        }
+        $host = strtolower( (string) wp_parse_url( $domain, PHP_URL_HOST ) );
+        if ( $host && preg_match( '/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i', $host ) ) {
+            $valid[ $host ] = $host;
+        }
+    }
+
+    return array_slice( array_values( $valid ), 0, 100 );
+}
+
+/**
+ * Pull a concise, editor-safe source set from a Responses API web-search result.
+ */
+function publion_extract_web_research_sources( $response_data, $limit = 3 ) {
+    $sources = array();
+    $items   = is_array( $response_data['output'] ?? null ) ? $response_data['output'] : array();
+
+    foreach ( $items as $item ) {
+        $candidates = array();
+        if ( is_array( $item['action']['sources'] ?? null ) ) {
+            $candidates = array_merge( $candidates, $item['action']['sources'] );
+        }
+        if ( is_array( $item['sources'] ?? null ) ) {
+            $candidates = array_merge( $candidates, $item['sources'] );
+        }
+        foreach ( (array) ( $item['content'] ?? array() ) as $content ) {
+            foreach ( (array) ( $content['annotations'] ?? array() ) as $annotation ) {
+                if ( 'url_citation' === ( $annotation['type'] ?? '' ) ) {
+                    $candidates[] = $annotation;
+                }
+            }
+        }
+
+        foreach ( $candidates as $candidate ) {
+            $url    = esc_url_raw( (string) ( $candidate['url'] ?? '' ), array( 'https' ) );
+            $host   = (string) wp_parse_url( $url, PHP_URL_HOST );
+            $title  = sanitize_text_field( (string) ( $candidate['title'] ?? '' ) );
+            $site   = (string) wp_parse_url( home_url(), PHP_URL_HOST );
+            if ( '' === $url || '' === $host || ( $site && 0 === strcasecmp( $host, $site ) ) ) {
+                continue;
+            }
+            $key = untrailingslashit( strtolower( $url ) );
+            if ( ! isset( $sources[ $key ] ) ) {
+                $sources[ $key ] = array(
+                    'url'   => $url,
+                    'title' => $title ?: $host,
+                );
+            }
+        }
+    }
+
+    return array_slice( array_values( $sources ), 0, max( 1, min( 5, (int) $limit ) ) );
+}
+
+function publion_get_web_research_response_text( $response_data ) {
+    $text = sanitize_textarea_field( (string) ( $response_data['output_text'] ?? '' ) );
+    if ( '' !== $text ) {
+        return $text;
+    }
+
+    $parts = array();
+    foreach ( (array) ( $response_data['output'] ?? array() ) as $item ) {
+        foreach ( (array) ( $item['content'] ?? array() ) as $content ) {
+            if ( ! empty( $content['text'] ) ) {
+                $parts[] = sanitize_textarea_field( (string) $content['text'] );
+            }
+        }
+    }
+
+    return trim( implode( "\n", array_filter( $parts ) ) );
+}
+
+/**
+ * Searches the live web before article generation. The source URLs returned by
+ * the hosted tool become the sole automatically-added research sources; this
+ * keeps the article traceable without pretending that a model browsed a URL.
+ */
+function publion_research_web_sources( $topic, $category_name, $seo_brief = array() ) {
+    $settings = publion_get_web_research_settings();
+    if ( ! $settings['enabled'] ) {
+        return array( 'enabled' => false, 'sources' => array(), 'summary' => '' );
+    }
+
+    $api_key = get_option( 'publion_api_key', false );
+    if ( ! $api_key ) {
+        $api_key = maybe_unserialize( get_option( 'publion_api_key' ) );
+    }
+    if ( ! is_string( $api_key ) || '' === trim( $api_key ) ) {
+        return new WP_Error( 'publion_web_research_key_missing', __( 'Live brononderzoek is ingeschakeld, maar er is geen geldige OpenAI API-sleutel gevonden.', 'publion' ) );
+    }
+
+    $focus_keyword = sanitize_text_field( $seo_brief['focus_keyword'] ?? $topic );
+    $tool           = array(
+        'type'                => 'web_search',
+        'search_context_size' => $settings['context_size'],
+        'external_web_access' => (bool) $settings['live_access'],
+    );
+    $filters = array();
+    if ( ! empty( $settings['allowed_domains'] ) ) {
+        $filters['allowed_domains'] = $settings['allowed_domains'];
+    }
+    if ( ! empty( $settings['blocked_domains'] ) ) {
+        $filters['blocked_domains'] = $settings['blocked_domains'];
+    }
+    if ( ! empty( $filters ) ) {
+        $tool['filters'] = $filters;
+    }
+
+    $research_prompt = sprintf(
+        "Onderzoek actuele, feitelijke en niet-commerciÃ«le bronnen voor een Nederlands artikel over: %s. Categorie: %s. Focuszoekterm: %s. Zoek alleen informatie die direct relevant is voor de lezer. Geef geen advies of artikel terug; voer de webzoekactie uit en gebruik betrouwbare primaire bronnen, overheid, kennisinstituten of vakorganisaties waar mogelijk. Vermijd advertorials, affiliatepagina's, forums en directe concurrenten.",
+        sanitize_text_field( $topic ),
+        sanitize_text_field( $category_name ),
+        $focus_keyword
+    );
+    $response = publion_openai_post(
+        'https://api.openai.com/v1/responses',
+        array(
+            'headers' => array(
+                'Content-Type'  => 'application/json',
+                'Authorization' => 'Bearer ' . $api_key,
+            ),
+            'body'    => wp_json_encode(
+                array(
+                    'model'       => $settings['model'],
+                    'tools'       => array( $tool ),
+                    'tool_choice' => 'required',
+                    'include'     => array( 'web_search_call.action.sources' ),
+                    'input'       => $research_prompt,
+                )
+            ),
+            'timeout' => 120,
+        ),
+        'web_research'
+    );
+
+    if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+        $message = publion_get_openai_request_error( $response, $settings['model'] );
+        if ( 'continue' === $settings['failure_mode'] ) {
+            update_option( 'publion_last_openai_error', $message );
+            return array( 'enabled' => true, 'sources' => array(), 'summary' => '', 'warning' => $message );
+        }
+        return new WP_Error( 'publion_web_research_failed', sprintf( __( 'Live brononderzoek kon niet worden uitgevoerd: %s', 'publion' ), $message ) );
+    }
+
+    $data    = json_decode( wp_remote_retrieve_body( $response ), true );
+    $sources = is_array( $data ) ? publion_extract_web_research_sources( $data, $settings['source_count'] ) : array();
+    if ( empty( $sources ) ) {
+        $message = __( 'Live brononderzoek leverde geen bruikbare, externe HTTPS-bronnen op. Pas de domeinfilters aan of probeer opnieuw.', 'publion' );
+        if ( 'continue' === $settings['failure_mode'] ) {
+            update_option( 'publion_last_openai_error', $message );
+            return array( 'enabled' => true, 'sources' => array(), 'summary' => '', 'warning' => $message );
+        }
+        return new WP_Error( 'publion_web_research_no_sources', $message );
+    }
+
+    return array(
+        'enabled' => true,
+        'sources' => $sources,
+        'summary' => publion_get_web_research_response_text( $data ),
+    );
+}
+
+function publion_format_web_research_context( $research ) {
+    $sources = is_array( $research['sources'] ?? null ) ? $research['sources'] : array();
+    if ( empty( $sources ) ) {
+        return '';
+    }
+
+    $rows = array();
+    foreach ( $sources as $source ) {
+        $rows[] = '- ' . sanitize_text_field( $source['title'] ?? '' ) . ': ' . esc_url_raw( $source['url'] ?? '', array( 'https' ) );
+    }
+    $summary = publion_trim_text_at_word_boundary( (string) ( $research['summary'] ?? '' ), 6000 );
+
+    $source_instruction = publion_get_web_research_settings()['display_sources']
+        ? 'De geverifieerde bronnenlijst wordt automatisch onder het artikel geplaatst; maak zelf geen tweede bronnenlijst.'
+        : 'Verwerk ten minste één passende bronlink natuurlijk in de inhoud, met duidelijke ankertekst.';
+
+    return "\n\n=== ACTUELE WEBBRONNEN ===\n" . implode( "\n", $rows ) . ( $summary ? "\n\nOnderzoekssamenvatting (alleen als controleerbare achtergrond, geen bron om letterlijk over te nemen):\n" . $summary : '' ) . "\n=== EINDE WEBBRONNEN ===\nGebruik alleen deze bronnen voor feitelijke externe verwijzingen. Schrijf geen bronclaim die deze pagina's niet ondersteunt en verzin geen extra bron-URL's. " . $source_instruction;
+}
+
+function publion_append_web_research_sources( $html, $sources ) {
+    if ( empty( $html ) || empty( $sources ) || ! is_array( $sources ) ) {
+        return $html;
+    }
+
+    $items = array();
+    foreach ( $sources as $source ) {
+        $url   = esc_url_raw( (string) ( $source['url'] ?? '' ), array( 'https' ) );
+        $title = sanitize_text_field( (string) ( $source['title'] ?? '' ) );
+        if ( '' === $url ) {
+            continue;
+        }
+        $items[] = '<li><a href="' . esc_url( $url ) . '" target="_blank" rel="noopener noreferrer">' . esc_html( $title ?: wp_parse_url( $url, PHP_URL_HOST ) ) . '</a></li>';
+    }
+
+    if ( empty( $items ) ) {
+        return $html;
+    }
+
+    return $html . '<div class="publion-research-sources"><h2>' . esc_html__( 'Bronnen en verdieping', 'publion' ) . '</h2><p>' . esc_html__( 'Voor dit artikel is actueel brononderzoek uitgevoerd. Controleer deze bronnen altijd voordat je publiceert.', 'publion' ) . '</p><ul>' . implode( '', $items ) . '</ul></div>';
+}
+
+/**
  * Return a user-safe explanation for failed OpenAI requests, without ever exposing a key.
  */
 function publion_get_openai_request_error( $response, $model = '' ) {
@@ -462,17 +701,35 @@ function publion_generate_chatgpt_html( $topic, $category_name, $seo_brief = arr
 	$content_language = publion_get_site_content_language();
     // A complete response is more reliable than joining continuations: the latter can
     // leave lists and headings open and produces repeated phrases in published HTML.
-    $target_word_count = 1200;
+	$article_settings   = get_option( 'publion_post_settings', array() );
+	$rank_math_enabled  = ( $article_settings['rank_math_integration'] ?? 'no' ) === 'yes';
+	// Rank Math awards the full content-length score from 2,500 words. Keep
+	// this target limited to the explicit Rank Math workflow because it has a
+	// material impact on API cost and generation time.
+	$target_word_count = $rank_math_enabled ? 2500 : 1200;
+	$max_output_tokens = $rank_math_enabled ? 7000 : 4096;
     $max_iterations = 1;
 
     $html_output = '';
     $word_count = 0;
     $iteration = 0;
 
-    $reference_urls = publion_get_configured_external_reference_urls();
+    $configured_reference_urls = publion_get_configured_external_reference_urls();
+    $web_research              = publion_research_web_sources( $topic, $category_name, $seo_brief );
+    if ( is_wp_error( $web_research ) ) {
+        update_option( 'publion_last_openai_error', $web_research->get_error_message() );
+        return $web_research;
+    }
+    $research_source_urls = array();
+    foreach ( (array) ( $web_research['sources'] ?? array() ) as $source ) {
+        if ( ! empty( $source['url'] ) ) {
+            $research_source_urls[] = $source['url'];
+        }
+    }
+    $reference_urls = array_values( array_unique( array_merge( $configured_reference_urls, $research_source_urls ) ) );
     $external_link_instruction = "\n\nGebruik externe links alleen als ze inhoudelijk echt iets toevoegen. Verzin, gok of reconstrueer nooit een URL. Gebruik voor externe links target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\".";
-    if ( ! empty( $reference_urls ) ) {
-        $external_link_instruction .= " Voeg precies één relevante externe bronlink toe uit deze door de redacteur gecontroleerde URL's. Gebruik alleen een URL uit deze lijst, met duidelijke ankertekst, bij voorkeur in een korte slotparagraaf met de kop <h2>Bronnen en verdieping</h2>:\n- " . implode( "\n- ", $reference_urls );
+    if ( ! empty( $configured_reference_urls ) ) {
+        $external_link_instruction .= " Voeg precies één relevante externe bronlink toe uit deze door de redacteur gecontroleerde URL's. Gebruik alleen een URL uit deze lijst, met duidelijke ankertekst, bij voorkeur in een korte slotparagraaf met de kop <h2>Bronnen en verdieping</h2>:\n- " . implode( "\n- ", $configured_reference_urls );
     } else {
         $external_link_instruction .= " Voeg alleen een andere bron toe als je de exacte, relevante HTTPS-URL zeker weet. Als je die zekerheid niet hebt, laat de link weg; een redacteur kan in de instellingen geverifieerde bron-URL's toevoegen om voor elk artikel een externe link te waarborgen.";
     }
@@ -480,6 +737,7 @@ function publion_generate_chatgpt_html( $topic, $category_name, $seo_brief = arr
     $focus_keyword  = sanitize_text_field( $seo_brief['focus_keyword'] ?? $topic );
     $search_intent  = sanitize_text_field( $seo_brief['search_intent'] ?? 'informatief' );
     $angle          = sanitize_text_field( $seo_brief['angle'] ?? '' );
+	$rank_math_generation_instruction = publion_get_rank_math_generation_instruction( $focus_keyword, $rank_math_enabled );
     $faq_questions  = ! empty( $seo_brief['faq_questions'] ) && is_array( $seo_brief['faq_questions'] ) ? $seo_brief['faq_questions'] : array();
     $faq_instruction = '';
     if ( ! empty( $faq_questions ) ) {
@@ -501,9 +759,9 @@ Maak de inhoud bruikbaar voor klassieke zoekmachines, antwoordmachines en genera
 
 Wanneer de zoekintentie commercieel of transactioneel is, help de lezer eerlijk vergelijken met duidelijke selectiecriteria, beperkingen en een rustige volgende stap. Schrijf geen advertentietekst, verzin geen aanbiedingen en gebruik geen druk- of clickbaittaal.
 
-Schrijf circa 1.200 tot 1.600 woorden, maar vermijd opvultekst en herhaling. Voeg geen paginamarkup toe zoals <!DOCTYPE html>, <head>, <body>, <header>, <footer>, <script> of <meta>. Maak de eerste kop een <h2>, geen <h1>. Gebruik uitsluitend semantische content-HTML: <p>, <h2>, <h3>, <ul>, <ol>, <strong>, <table> waar dat inhoudelijk helpt. Sluit elke HTML-tag. Plaats een kop, alinea, tabel of nieuw onderwerp nooit binnen een <ul> of <ol>; daarin staan uitsluitend <li>-elementen. Herhaal een kop, openingszin, woordgroep of FAQ-vraag niet.
+Schrijf " . ( $rank_math_enabled ? 'circa 2.500 tot 2.800 woorden' : 'circa 1.200 tot 1.600 woorden' ) . ", maar vermijd opvultekst en herhaling. Voeg geen paginamarkup toe zoals <!DOCTYPE html>, <head>, <body>, <header>, <footer>, <script> of <meta>. Maak de eerste kop een <h2>, geen <h1>. Gebruik uitsluitend semantische content-HTML: <p>, <h2>, <h3>, <ul>, <ol>, <strong>, <table> waar dat inhoudelijk helpt. Sluit elke HTML-tag. Plaats een kop, alinea, tabel of nieuw onderwerp nooit binnen een <ul> of <ol>; daarin staan uitsluitend <li>-elementen. Herhaal een kop, openingszin, woordgroep of FAQ-vraag niet.
 
-Neem alleen links op naar relevante, betrouwbare en verifieerbare bronnen.$external_link_instruction$faq_instruction$originality_instruction
+Neem alleen links op naar relevante, betrouwbare en verifieerbare bronnen.$external_link_instruction" . publion_format_web_research_context( $web_research ) . "$rank_math_generation_instruction$faq_instruction$originality_instruction
 
 Geef uitsluitend valide HTML-content terug, zonder uitleg, notities of Markdown.";
 
@@ -518,8 +776,8 @@ Geef uitsluitend valide HTML-content terug, zonder uitleg, notities of Markdown.
                 'Content-Type'  => 'application/json',
                 'Authorization' => 'Bearer ' . $api_key,
             ],
-            'body' => wp_json_encode( publion_build_openai_chat_body( $model, $messages, 4096 ) ),
-            'timeout' => 135
+            'body' => wp_json_encode( publion_build_openai_chat_body( $model, $messages, $max_output_tokens ) ),
+            'timeout' => $rank_math_enabled ? 210 : 135
         ], 'article');
 
         if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
@@ -546,11 +804,14 @@ Geef uitsluitend valide HTML-content terug, zonder uitleg, notities of Markdown.
     // Clean & validate
     $html_output = publion_clean_html_output($html_output);
     $html_output = publion_normalize_article_html( $html_output );
+    $html_output = publion_ensure_rank_math_keyword_intro( $html_output, $focus_keyword, $rank_math_enabled );
+	$html_output = publion_ensure_rank_math_keyword_heading( $html_output, $focus_keyword, $rank_math_enabled );
     $html_output = publion_validate_links_in_html( $html_output, $reference_urls );
     $html_output = publion_enhance_external_links($html_output);
-    $html_output = publion_ensure_configured_external_reference( $html_output, $reference_urls, $topic );
+    $html_output = publion_ensure_configured_external_reference( $html_output, $configured_reference_urls, $topic );
 	$html_output = preg_replace('/<h1>(.*?)<\/h1>/i', '<h2>$1</h2>', $html_output, 1);
 	$html_output = str_ireplace(['<header>', '</header>'], '', $html_output);
+	$html_output = publion_add_rank_math_table_of_contents( $html_output, $rank_math_enabled );
 	$keywords = publion_extract_noun_keywords($html_output, $api_key, $model);
 	$html_output = publion_auto_internal_links($html_output, $keywords);
 
@@ -564,6 +825,10 @@ Geef uitsluitend valide HTML-content terug, zonder uitleg, notities of Markdown.
         );
         update_option( 'publion_last_openai_error', $error );
         return new WP_Error( 'publion_duplicate_content', $error );
+    }
+
+    if ( ! empty( $web_research['sources'] ) && publion_get_web_research_settings()['display_sources'] ) {
+        $html_output = publion_append_web_research_sources( $html_output, $web_research['sources'] );
     }
 
     // Append CTA
@@ -617,6 +882,189 @@ function publion_extract_faq_pairs( $html ) {
 function publion_store_article_seo_data( $post_id, $post_html, $focus_keyword = '' ) {
     update_post_meta( $post_id, '_publion_focus_keyword', sanitize_text_field( $focus_keyword ) );
     update_post_meta( $post_id, '_publion_faq_pairs', publion_extract_faq_pairs( $post_html ) );
+}
+
+/**
+ * Check the two focus-keyword stores used by Publion and Rank Math. This is a
+ * focused cannibalisation guard; the full title/content duplicate check still
+ * runs separately.
+ */
+function publion_rank_math_focus_keyword_in_use( $focus_keyword ) {
+    $focus_keyword = sanitize_text_field( $focus_keyword );
+    if ( '' === $focus_keyword ) {
+        return false;
+    }
+
+    $posts = get_posts(
+        array(
+            'post_type'              => 'post',
+            'post_status'            => array( 'publish', 'future', 'draft', 'pending', 'private' ),
+            'posts_per_page'         => 1,
+            'fields'                 => 'ids',
+            'meta_query'             => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+                'relation' => 'OR',
+                array(
+                    'key'     => '_publion_focus_keyword',
+                    'value'   => $focus_keyword,
+                    'compare' => '=',
+                ),
+                array(
+                    'key'     => 'rank_math_focus_keyword',
+                    'value'   => $focus_keyword,
+                    'compare' => '=',
+                ),
+            ),
+            'no_found_rows'          => true,
+            'ignore_sticky_posts'    => true,
+            'update_post_meta_cache' => false,
+            'update_post_term_cache' => false,
+        )
+    );
+
+    return ! empty( $posts );
+}
+
+function publion_validate_rank_math_focus_keyword( $focus_keyword ) {
+    if ( ! publion_rank_math_focus_keyword_in_use( $focus_keyword ) ) {
+        return true;
+    }
+
+    return new WP_Error(
+        'publion_duplicate_focus_keyword',
+        __( 'Deze focus-keyword is al aan een bestaand bericht gekoppeld. Kies een specifiekere zoekterm om keywordcannibalisatie te voorkomen.', 'publion' )
+    );
+}
+
+/**
+ * Build a compact, keyword-led permalink for new posts. A short slug is more
+ * useful than copying a long editorial title verbatim, while WordPress still
+ * guarantees uniqueness when it saves the post.
+ */
+function publion_build_rank_math_slug( $focus_keyword, $topic = '' ) {
+    $slug = sanitize_title( $focus_keyword ?: $topic );
+    if ( '' === $slug ) {
+        return '';
+    }
+
+	// Rank Math evaluates the whole URL, not only the permalink fragment. Keep
+	// enough room for the site URL while retaining the keyword-led slug.
+	$home_url_length = strlen( untrailingslashit( home_url( '/' ) ) );
+	$slug_max_length = max( 20, min( 75, 75 - $home_url_length - 1 ) );
+	$slug = substr( $slug, 0, $slug_max_length );
+    $slug = preg_replace( '/-[^-]*$/', '', $slug );
+    return trim( (string) $slug, '-' );
+}
+
+function publion_build_rank_math_seo_title( $topic, $focus_keyword ) {
+    $topic         = sanitize_text_field( $topic );
+    $focus_keyword = sanitize_text_field( $focus_keyword );
+    if ( '' === $focus_keyword ) {
+        return $topic;
+    }
+
+    if ( false !== strpos( publion_normalize_content_for_comparison( $topic ), publion_normalize_content_for_comparison( $focus_keyword ) ) ) {
+        return $topic;
+    }
+
+    $prefix    = $focus_keyword . ': ';
+    $remaining = max( 12, 60 - mb_strlen( $prefix ) );
+    return $prefix . publion_trim_text_at_word_boundary( $topic, $remaining );
+}
+
+function publion_build_rank_math_meta_description( $html, $focus_keyword ) {
+    $description   = publion_build_meta_description( $html, 155 );
+    $focus_keyword = sanitize_text_field( $focus_keyword );
+    if ( '' === $focus_keyword || publion_article_has_focus_keyword( $description, $focus_keyword ) ) {
+        return $description;
+    }
+
+    return publion_trim_text_at_word_boundary( $focus_keyword . ': ' . $description, 155 );
+}
+
+/** Insert Rank Math's own TOC block only when its integration is enabled. */
+function publion_add_rank_math_table_of_contents( $html, $enabled ) {
+    if ( ! $enabled || ! defined( 'RANK_MATH_VERSION' ) || false !== strpos( $html, 'rank-math/toc-block' ) || ! function_exists( 'serialize_block' ) ) {
+        return $html;
+    }
+
+    $toc_block = serialize_block(
+        array(
+            'blockName'    => 'rank-math/toc-block',
+            'attrs'        => array( 'title' => __( 'Inhoudsopgave', 'publion' ) ),
+            'innerBlocks'  => array(),
+            'innerHTML'    => '',
+            'innerContent' => array(),
+        )
+    );
+
+    return preg_replace( '/(?=<h2\b)/i', $toc_block . "\n", $html, 1 );
+}
+
+function publion_article_has_focus_keyword( $html, $focus_keyword, $limit = 0 ) {
+    $focus_keyword = trim( publion_normalize_content_for_comparison( $focus_keyword ) );
+    if ( '' === $focus_keyword ) {
+        return false;
+    }
+    $text = publion_normalize_content_for_comparison( wp_strip_all_tags( (string) $html ) );
+    if ( $limit > 0 ) {
+        $text = substr( $text, 0, $limit );
+    }
+    return false !== strpos( $text, $focus_keyword );
+}
+
+/**
+ * Applies Rank Math's meaningful checks while protecting editorial quality.
+ */
+function publion_get_rank_math_generation_instruction( $focus_keyword, $enabled ) {
+    if ( ! $enabled || '' === trim( (string) $focus_keyword ) ) {
+        return '';
+    }
+
+    return "\n\nRANK MATH-KWALITEITSCONTROLE: Gebruik de exacte focus-keyword \"" . sanitize_text_field( $focus_keyword ) . "\" natuurlijk in de eerste alinea, in ten minste Ã©Ã©n beschrijvende <h2> of <h3> en ongeveer 1 tot 1,5% van de zichtbare tekst. Vermijd keyword stuffing en ga nooit boven 2,5%. Houd alle alinea's korter dan 120 woorden. Gebruik minimaal vier inhoudelijk relevante afbeeldingen; de eerste afbeelding moet het hoofdonderwerp zichtbaar tonen, zodat de alt-tekst de focus-keyword natuurlijk kan bevatten. Een betrouwbare externe bronlink is verplicht zodra er een gecontroleerde bron of live onderzoeksbron beschikbaar is; gebruik nooit nofollow voor zo'n redactionele bron. Verwerk relevante interne links zodra er passende bestaande pagina's zijn. Voeg een getal, sentimentwoord of power word alleen toe wanneer het feitelijk is en de titel daardoor niet misleidend wordt.";
+}
+
+function publion_ensure_rank_math_keyword_intro( $html, $focus_keyword, $enabled ) {
+    if ( ! $enabled || '' === trim( (string) $focus_keyword ) || publion_article_has_focus_keyword( $html, $focus_keyword, 500 ) ) {
+        return $html;
+    }
+
+    $sentence = ' ' . sprintf(
+        /* translators: %s: focus keyword. */
+        esc_html__( 'In dit artikel lees je praktische aandachtspunten over %s.', 'publion' ),
+        '<strong>' . esc_html( $focus_keyword ) . '</strong>'
+    );
+    // esc_html__ treats the markup as text; restore only our own safe emphasis.
+    $sentence = str_replace( array( '&lt;strong&gt;', '&lt;/strong&gt;' ), array( '<strong>', '</strong>' ), $sentence );
+
+    if ( preg_match( '/<p\b[^>]*>.*?<\/p>/is', $html, $match ) ) {
+        $first_paragraph = preg_replace( '/<\/p>$/i', $sentence . '</p>', $match[0] );
+        return preg_replace( '/<p\b[^>]*>.*?<\/p>/is', $first_paragraph, $html, 1 );
+    }
+
+    return '<p>' . ltrim( $sentence ) . '</p>' . $html;
+}
+
+function publion_ensure_rank_math_keyword_heading( $html, $focus_keyword, $enabled ) {
+    if ( ! $enabled || '' === trim( (string) $focus_keyword ) ) {
+        return $html;
+    }
+
+    if ( preg_match_all( '/<h[2-3][^>]*>(.*?)<\/h[2-3]>/is', $html, $headings ) ) {
+        foreach ( $headings[1] as $heading ) {
+            if ( publion_article_has_focus_keyword( $heading, $focus_keyword ) ) {
+                return $html;
+            }
+        }
+    }
+
+    return preg_replace_callback(
+        '/<h2([^>]*)>(.*?)<\/h2>/is',
+        static function ( $match ) use ( $focus_keyword ) {
+            return '<h2' . $match[1] . '>' . esc_html( $focus_keyword ) . ': ' . $match[2] . '</h2>';
+        },
+        $html,
+        1
+    );
 }
 
 function publion_auto_internal_links($html, $keywords) {
@@ -1321,7 +1769,7 @@ function publion_process_and_upload_images($remote_image_urls) {
     return $processed;
 }
 
-function publion_insert_images_into_content($html, $image_urls, $layouts = array()) {
+function publion_insert_images_into_content($html, $image_urls, $layouts = array(), $focus_keyword = '') {
     if (!is_array($image_urls) || count($image_urls) < 5 || empty($html)) return $html;
 
     // Match to headings (h2–h4)
@@ -1356,6 +1804,11 @@ function publion_insert_images_into_content($html, $image_urls, $layouts = array
         }
 
         $layout = isset( $layouts[ $i ] ) && 'square' === $layouts[ $i ] ? 'square' : 'landscape';
+        // Rank Math checks whether one relevant image describes the primary
+        // subject. The first image is generated for the main article context.
+        if ( 0 === $i && '' !== trim( (string) $focus_keyword ) && ! publion_article_has_focus_keyword( $alt_text, $focus_keyword ) ) {
+            $alt_text = sanitize_text_field( $focus_keyword ) . ': ' . $alt_text;
+        }
         $alt_text = publion_build_descriptive_image_alt( $alt_text );
         $inserts[] = array(
             'offset' => $closest ?? $target,

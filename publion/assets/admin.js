@@ -436,8 +436,14 @@ jQuery(document).ready(function ($) {
 		$('.publion-refined-style-control').toggle($('#publion_article_style_mode').val() === 'refined');
 	}
 
+	function toggleWebResearchControls() {
+		$('.publion-web-research-options').toggle($('#publion_web_research_enabled').is(':checked'));
+	}
+
 	$('#publion_article_style_mode').on('change', toggleRefinedStyleControls);
+	$('#publion_web_research_enabled').on('change', toggleWebResearchControls);
 	toggleRefinedStyleControls();
+	toggleWebResearchControls();
 
     // Auto-save Rank Math toggle to prevent accidental loss on refresh.
     $('#publion_rank_math_integration').on('change', function () {
@@ -471,6 +477,15 @@ jQuery(document).ready(function ($) {
 		    daily_topic_interval_days: $('#publion_daily_topic_interval_days').val(),
 		    preferred_external_domain: $('#publion_preferred_external_domain').val(),
 		    preferred_external_urls: $('#publion_preferred_external_urls').val(),
+		    web_research_enabled: $('#publion_web_research_enabled').is(':checked') ? 'yes' : 'no',
+		    web_research_model: $('#publion_web_research_model').val(),
+		    web_research_source_count: $('#publion_web_research_source_count').val(),
+		    web_research_context_size: $('#publion_web_research_context_size').val(),
+		    web_research_live_access: $('#publion_web_research_live_access').is(':checked') ? 'yes' : 'no',
+		    web_research_allowed_domains: $('#publion_web_research_allowed_domains').val(),
+		    web_research_blocked_domains: $('#publion_web_research_blocked_domains').val(),
+		    web_research_display_sources: $('#publion_web_research_display_sources').is(':checked') ? 'yes' : 'no',
+		    web_research_failure_mode: $('#publion_web_research_failure_mode').val(),
 		    rank_math_integration: $('#publion_rank_math_integration').is(':checked') ? 'yes' : 'no',
 		    structured_data: $('#publion_structured_data').is(':checked') ? 'yes' : 'no',
 		    image_border_radius: $('#publion_image_border_radius').val(),

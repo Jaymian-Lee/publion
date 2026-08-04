@@ -312,6 +312,10 @@ class Publion_Cron {
 		$seo_brief = ! empty( $topic->seo_brief ) ? json_decode( $topic->seo_brief, true ) : array();
 		$seo_brief = is_array( $seo_brief ) ? $seo_brief : array();
 		$seo_brief['focus_keyword'] = sanitize_text_field( $topic->focus_keyword ?? $topic->topic );
+		if ( $rank_math_enabled && is_wp_error( publion_validate_rank_math_focus_keyword( $seo_brief['focus_keyword'] ) ) ) {
+			publion_release_queue_claim( (int) $topic->id, $topic->topic, 'blocked' );
+			return;
+		}
 		$post_html = publion_generate_chatgpt_html( $topic->topic, $topic->category_label, $seo_brief );
 		if ( is_wp_error( $post_html ) && 'publion_duplicate_content' === $post_html->get_error_code() ) {
 			$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -367,7 +371,7 @@ class Publion_Cron {
 		}
 
 		// Insert images into content (first 5).
-		$post_html = publion_insert_images_into_content( $post_html, array_slice( $final_image_urls, 0, 5 ), array_slice( $image_layouts, 0, 5 ) );
+		$post_html = publion_insert_images_into_content( $post_html, array_slice( $final_image_urls, 0, 5 ), array_slice( $image_layouts, 0, 5 ), $seo_brief['focus_keyword'] );
 
 
 		// Check once more immediately before writing: another source may have
@@ -381,6 +385,7 @@ class Publion_Cron {
 		// Create post.
 		$post_id = wp_insert_post( array(
 			'post_title'    => $topic->topic,
+			'post_name'     => publion_build_rank_math_slug( $seo_brief['focus_keyword'], $topic->topic ),
 			'post_content'  => $post_html,
 			'post_status'   => $post_status,
 			'post_category' => array( $topic->category_id ),
@@ -396,8 +401,8 @@ class Publion_Cron {
 
 			if ( $rank_math_enabled ) {
 				update_post_meta( (int) $post_id, 'rank_math_focus_keyword', $seo_brief['focus_keyword'] );
-				update_post_meta( (int) $post_id, 'rank_math_title', $topic->topic );
-				update_post_meta( (int) $post_id, 'rank_math_description', publion_build_meta_description( $post_html ) );
+				update_post_meta( (int) $post_id, 'rank_math_title', publion_build_rank_math_seo_title( $topic->topic, $seo_brief['focus_keyword'] ) );
+				update_post_meta( (int) $post_id, 'rank_math_description', publion_build_rank_math_meta_description( $post_html, $seo_brief['focus_keyword'] ) );
 			}
 		}
 		

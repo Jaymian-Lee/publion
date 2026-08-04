@@ -771,6 +771,7 @@ function publion_normalize_seo_suggestions( $text, &$is_valid_json = false, $req
 
 	$required_count = max( 1, min( 5, (int) $required_count ) );
 	$seen_titles    = array();
+	$seen_focuses   = array();
 	foreach ( (array) $excluded_titles as $excluded_title ) {
 		$excluded_title = publion_normalize_title( $excluded_title );
 		if ( '' !== $excluded_title ) {
@@ -813,6 +814,12 @@ function publion_normalize_seo_suggestions( $text, &$is_valid_json = false, $req
 			unset( $seen_titles[ $title_key ] );
 			continue;
 		}
+		$focus_key = mb_strtolower( $focus );
+		if ( isset( $seen_focuses[ $focus_key ] ) || ( function_exists( 'publion_rank_math_focus_keyword_in_use' ) && publion_rank_math_focus_keyword_in_use( $focus ) ) ) {
+			unset( $seen_titles[ $title_key ] );
+			continue;
+		}
+		$seen_focuses[ $focus_key ] = true;
 
 		$suggestions[] = array(
 			'title'         => $title,
@@ -1263,6 +1270,18 @@ function publion_save_post_settings_callback() {
 	$ga4_url              = esc_url_raw( wp_unslash( $_POST['ga4_url'] ?? '' ) );
 	$preferred_external_domain = sanitize_text_field( wp_unslash( $_POST['preferred_external_domain'] ?? '' ) );
 	$preferred_external_urls   = wp_kses_post( wp_unslash( $_POST['preferred_external_urls'] ?? '' ) );
+	$web_research_enabled      = ( isset( $_POST['web_research_enabled'] ) && 'yes' === $_POST['web_research_enabled'] ) ? 'yes' : 'no';
+	$web_research_model        = publion_normalize_openai_model_id( wp_unslash( $_POST['web_research_model'] ?? 'gpt-5.6' ) );
+	$web_research_model        = $web_research_model ?: 'gpt-5.6';
+	$web_research_source_count = max( 1, min( 5, absint( wp_unslash( $_POST['web_research_source_count'] ?? 3 ) ) ) );
+	$web_research_context_size = sanitize_key( wp_unslash( $_POST['web_research_context_size'] ?? 'medium' ) );
+	$web_research_context_size = in_array( $web_research_context_size, array( 'low', 'medium', 'high' ), true ) ? $web_research_context_size : 'medium';
+	$web_research_live_access  = ( isset( $_POST['web_research_live_access'] ) && 'yes' === $_POST['web_research_live_access'] ) ? 'yes' : 'no';
+	$web_research_allowed_domains = sanitize_textarea_field( wp_unslash( $_POST['web_research_allowed_domains'] ?? '' ) );
+	$web_research_blocked_domains = sanitize_textarea_field( wp_unslash( $_POST['web_research_blocked_domains'] ?? '' ) );
+	$web_research_display_sources = ( isset( $_POST['web_research_display_sources'] ) && 'yes' === $_POST['web_research_display_sources'] ) ? 'yes' : 'no';
+	$web_research_failure_mode    = sanitize_key( wp_unslash( $_POST['web_research_failure_mode'] ?? 'stop' ) );
+	$web_research_failure_mode    = in_array( $web_research_failure_mode, array( 'stop', 'continue' ), true ) ? $web_research_failure_mode : 'stop';
 
 	if ( $default_post_author ) {
 		$user = get_user_by( 'id', $default_post_author );
@@ -1295,6 +1314,15 @@ function publion_save_post_settings_callback() {
 		'ga4_url'               => $ga4_url,
 		'preferred_external_domain' => $preferred_external_domain,
 		'preferred_external_urls'   => $preferred_external_urls,
+		'web_research_enabled'      => $web_research_enabled,
+		'web_research_model'        => $web_research_model,
+		'web_research_source_count' => $web_research_source_count,
+		'web_research_context_size' => $web_research_context_size,
+		'web_research_live_access'  => $web_research_live_access,
+		'web_research_allowed_domains' => $web_research_allowed_domains,
+		'web_research_blocked_domains' => $web_research_blocked_domains,
+		'web_research_display_sources' => $web_research_display_sources,
+		'web_research_failure_mode'    => $web_research_failure_mode,
 	];
 
 	if ( false === update_option( 'publion_post_settings', $settings ) && $settings !== $existing_settings ) {
@@ -1967,7 +1995,16 @@ function publion_create_post_now() {
 	$seo_brief = ! empty( $topic->seo_brief ) ? json_decode( $topic->seo_brief, true ) : array();
 	$seo_brief = is_array( $seo_brief ) ? $seo_brief : array();
 	$seo_brief['focus_keyword'] = sanitize_text_field( $topic->focus_keyword ?? $topic->topic );
-	publion_set_creation_progress( $topic_id, 'running', 15, __( 'Onderzoek', 'publion' ), __( 'De bestaande contentkaart en zoekintentie worden meegenomen.', 'publion' ) );
+	if ( ( $settings['rank_math_integration'] ?? 'no' ) === 'yes' ) {
+		$focus_validation = publion_validate_rank_math_focus_keyword( $seo_brief['focus_keyword'] );
+		if ( is_wp_error( $focus_validation ) ) {
+			publion_fail_post_creation( $topic_id, $focus_validation->get_error_message(), 'duplicate_content' );
+		}
+	}
+	$research_status = ( $settings['web_research_enabled'] ?? 'no' ) === 'yes'
+		? __( 'Actueel webonderzoek zoekt en controleert externe bronnen.', 'publion' )
+		: __( 'De bestaande contentkaart en zoekintentie worden meegenomen.', 'publion' );
+	publion_set_creation_progress( $topic_id, 'running', 15, __( 'Onderzoek', 'publion' ), $research_status );
 	$post_html = publion_generate_chatgpt_html( $topic->topic, $topic->category_label, $seo_brief );
 	if ( is_wp_error( $post_html ) || ! $post_html ) {
 		publion_fail_post_creation( $topic_id, is_wp_error( $post_html ) ? $post_html->get_error_message() : __( 'De artikeltekst is niet teruggekomen van OpenAI.', 'publion' ) );
@@ -2022,7 +2059,7 @@ function publion_create_post_now() {
 	publion_abort_if_creation_cancelled( $topic_id );
 
 	// Insert 5 images into content.
-	$post_html = publion_insert_images_into_content( $post_html, array_slice( $final_image_urls, 0, 5 ), array_slice( $image_layouts, 0, 5 ) );
+	$post_html = publion_insert_images_into_content( $post_html, array_slice( $final_image_urls, 0, 5 ), array_slice( $image_layouts, 0, 5 ), $seo_brief['focus_keyword'] );
 	$final_conflict = publion_find_existing_content_conflict( $topic->topic, $post_html );
 	if ( $final_conflict ) {
 		publion_fail_post_creation( $topic_id, __( 'Tijdens de generatie is al een vergelijkbaar artikel aangemaakt. Er is geen tweede post opgeslagen.', 'publion' ), 'duplicate_content' );
@@ -2033,6 +2070,7 @@ function publion_create_post_now() {
 	$post_id = wp_insert_post(
 		[
 			'post_title'    => wp_strip_all_tags( $topic->topic ),
+			'post_name'     => publion_build_rank_math_slug( $seo_brief['focus_keyword'], $topic->topic ),
 			'post_content'  => $post_html,
 			'post_status'   => $post_status,
 			'post_category' => [ (int) $topic->category_id ],
@@ -2054,8 +2092,8 @@ function publion_create_post_now() {
 	$rank_math_enabled = ( ( $settings['rank_math_integration'] ?? 'no' ) === 'yes' );
 	if ( $rank_math_enabled ) {
 		update_post_meta( (int) $post_id, 'rank_math_focus_keyword', $seo_brief['focus_keyword'] );
-		update_post_meta( (int) $post_id, 'rank_math_title', $topic->topic );
-		update_post_meta( (int) $post_id, 'rank_math_description', publion_build_meta_description( $post_html ) );
+		update_post_meta( (int) $post_id, 'rank_math_title', publion_build_rank_math_seo_title( $topic->topic, $seo_brief['focus_keyword'] ) );
+		update_post_meta( (int) $post_id, 'rank_math_description', publion_build_rank_math_meta_description( $post_html, $seo_brief['focus_keyword'] ) );
 	}
 
 	// Featured image: prefer 6th slot; use core helper to resolve attachment ID.

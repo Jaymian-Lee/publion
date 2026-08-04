@@ -6,6 +6,7 @@ class Publion_Admin {
     public function __construct() {
         add_action( 'admin_menu', [ $this, 'add_admin_menu' ] );
         add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
+        add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_rank_math_content_refresh' ], 100 );
         add_action( 'admin_init', [ $this, 'handle_form_submissions' ] );
         add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_frontend_styles' ] );
         add_filter( 'post_class', [ $this, 'add_generated_post_class' ], 10, 3 );
@@ -171,6 +172,10 @@ class Publion_Admin {
         $frontend_css .= '.publion-generated-post .publion-article-media--landscape { aspect-ratio: 16 / 9; }';
         $frontend_css .= '.publion-generated-post .publion-article-media--square { aspect-ratio: 1 / 1; max-width: min(30rem, 100%); margin-left: auto; margin-right: auto; }';
         $frontend_css .= '.publion-generated-post .publion-article-media .publion-generated-image { display: block; width: 100% !important; height: 100% !important; max-width: none !important; object-fit: cover; border-radius: inherit !important; }';
+        $frontend_css .= '.publion-generated-post .publion-research-sources { clear: both; margin: 2.5rem 0; padding: 1.25rem 1.5rem; border: 1px solid #d9e2f0; border-radius: 8px; background: #f8fafc; }';
+        $frontend_css .= '.publion-generated-post .publion-research-sources h2 { margin-top: 0; }';
+        $frontend_css .= '.publion-generated-post .publion-research-sources p { margin: 0 0 .75rem; }';
+        $frontend_css .= '.publion-generated-post .publion-research-sources ul { margin: 0; padding-left: 1.25rem; }';
         if ( 'refined' === $style_mode ) {
             $frontend_css .= '.publion-generated-post { --publion-accent: ' . $accent_color . '; --publion-content-width: ' . $content_width . 'px; }';
             $frontend_css .= '.publion-generated-post .entry-content, .publion-generated-post .wp-block-post-content { max-width: var(--publion-content-width); }';
@@ -188,6 +193,43 @@ class Publion_Admin {
             wp_enqueue_style( 'publion-hide-title' );
             wp_add_inline_style( 'publion-hide-title', '.publion-title { display: none !important; }' );
         }
+    }
+
+    /**
+     * Ask Rank Math to run its own, browser-based content tests when a
+     * Publion-generated post is opened in the WordPress editor.
+     *
+     * Rank Math deliberately calculates its score in the editor, so no score
+     * is guessed or stored by Publion during a background generation request.
+     * This integration only invokes Rank Math's public editor refresh method.
+     *
+     * @param string $hook Current admin page hook.
+     * @return void
+     */
+    public function enqueue_rank_math_content_refresh( $hook ) {
+        if ( 'post.php' !== $hook || ! defined( 'RANK_MATH_VERSION' ) ) {
+            return;
+        }
+
+        $settings = get_option( 'publion_post_settings', [] );
+        if ( ( $settings['rank_math_integration'] ?? 'no' ) !== 'yes' ) {
+            return;
+        }
+
+        $post_id = isset( $_GET['post'] ) ? absint( $_GET['post'] ) : 0;
+        if ( ! $post_id || ! get_post_meta( $post_id, '_publion_queue_id', true ) ) {
+            return;
+        }
+
+        // Do not assume Rank Math's private script handles exist. The refresh
+        // script waits for the documented rankMathEditor global instead.
+        wp_enqueue_script(
+            'publion-rank-math-refresh',
+            PUBLION_URL . 'assets/rank-math-refresh.js',
+            [],
+            file_exists( PUBLION_PATH . 'assets/rank-math-refresh.js' ) ? filemtime( PUBLION_PATH . 'assets/rank-math-refresh.js' ) : PUBLION_VERSION,
+            true
+        );
     }
 
     public static function sanitize_custom_article_css( $css ) {
@@ -758,6 +800,70 @@ class Publion_Admin {
                         </tr>
 
                         <tr>
+                            <th scope="row"><?php esc_html_e( 'Live brononderzoek op internet', 'publion' ); ?></th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" id="publion_web_research_enabled" name="web_research_enabled" value="yes" <?php checked( $settings['web_research_enabled'] ?? '', 'yes' ); ?> />
+                                    <?php esc_html_e( 'Zoek actuele externe bronnen voordat een artikel wordt geschreven', 'publion' ); ?>
+                                </label>
+                                <p class="description" style="margin-top:6px; max-width:760px;">
+                                    <?php esc_html_e( 'Publion gebruikt de OpenAI Responses API met webzoekfunctie. Alleen de werkelijk teruggegeven HTTPS-bronnen worden aan de AI meegegeven en kunnen als klikbare bronnenlijst in het artikel verschijnen. Dit kan extra API-kosten en generatietijd geven.', 'publion' ); ?>
+                                </p>
+                                <div class="publion-web-research-options" style="margin-top:14px; max-width:760px; padding:14px; border:1px solid #d9e2f0; border-radius:8px; background:#f8fafc;">
+                                    <p style="margin-top:0;"><strong><?php esc_html_e( 'Onderzoeksregels', 'publion' ); ?></strong></p>
+                                    <p>
+                                        <label for="publion_web_research_model"><strong><?php esc_html_e( 'Model voor brononderzoek', 'publion' ); ?></strong></label><br>
+                                        <input type="text" id="publion_web_research_model" name="web_research_model" value="<?php echo esc_attr( $settings['web_research_model'] ?? 'gpt-5.6' ); ?>" placeholder="gpt-5.6" maxlength="128" style="width:260px;" spellcheck="false" autocomplete="off" />
+                                        <span class="description"><?php esc_html_e( 'Aanbevolen: gpt-5.6. Gebruik alleen een model-ID die de Responses API en webzoekfunctie ondersteunt.', 'publion' ); ?></span>
+                                    </p>
+                                    <p>
+                                        <label for="publion_web_research_source_count"><strong><?php esc_html_e( 'Aantal bronnen per artikel', 'publion' ); ?></strong></label><br>
+                                        <select id="publion_web_research_source_count" name="web_research_source_count">
+                                            <?php for ( $source_count = 1; $source_count <= 5; $source_count++ ) : ?>
+                                                <option value="<?php echo esc_attr( $source_count ); ?>" <?php selected( (int) ( $settings['web_research_source_count'] ?? 3 ), $source_count ); ?>><?php echo esc_html( $source_count ); ?></option>
+                                            <?php endfor; ?>
+                                        </select>
+                                        <label for="publion_web_research_context_size" style="margin-left:14px;"><strong><?php esc_html_e( 'Onderzoeksdiepte', 'publion' ); ?></strong></label>
+                                        <select id="publion_web_research_context_size" name="web_research_context_size">
+                                            <option value="low" <?php selected( $settings['web_research_context_size'] ?? 'medium', 'low' ); ?>><?php esc_html_e( 'Laag (snel)', 'publion' ); ?></option>
+                                            <option value="medium" <?php selected( $settings['web_research_context_size'] ?? 'medium', 'medium' ); ?>><?php esc_html_e( 'Gemiddeld (aanbevolen)', 'publion' ); ?></option>
+                                            <option value="high" <?php selected( $settings['web_research_context_size'] ?? 'medium', 'high' ); ?>><?php esc_html_e( 'Hoog (meer context)', 'publion' ); ?></option>
+                                        </select>
+                                    </p>
+                                    <p>
+                                        <label>
+                                            <input type="checkbox" id="publion_web_research_live_access" name="web_research_live_access" value="yes" <?php checked( $settings['web_research_live_access'] ?? 'yes', 'yes' ); ?> />
+                                            <?php esc_html_e( 'Gebruik actuele live webinhoud (aanbevolen)', 'publion' ); ?>
+                                        </label>
+                                    </p>
+                                    <p>
+                                        <label for="publion_web_research_allowed_domains"><strong><?php esc_html_e( 'Alleen deze domeinen (optioneel)', 'publion' ); ?></strong></label><br>
+                                        <textarea id="publion_web_research_allowed_domains" name="web_research_allowed_domains" rows="3" style="width:100%;"><?php echo esc_textarea( $settings['web_research_allowed_domains'] ?? '' ); ?></textarea>
+                                        <span class="description"><?php esc_html_e( 'Eén domein per regel, zonder https://. Gebruik dit voor bijvoorbeeld overheid-, fabrikant- of kennisbankbronnen. Subdomeinen worden meegenomen.', 'publion' ); ?></span>
+                                    </p>
+                                    <p>
+                                        <label for="publion_web_research_blocked_domains"><strong><?php esc_html_e( 'Deze domeinen uitsluiten (optioneel)', 'publion' ); ?></strong></label><br>
+                                        <textarea id="publion_web_research_blocked_domains" name="web_research_blocked_domains" rows="3" style="width:100%;"><?php echo esc_textarea( $settings['web_research_blocked_domains'] ?? '' ); ?></textarea>
+                                        <span class="description"><?php esc_html_e( 'Eén domein per regel. Handig voor concurrenten, forums of bronnen die niet bij je redactiebeleid passen.', 'publion' ); ?></span>
+                                    </p>
+                                    <p>
+                                        <label>
+                                            <input type="checkbox" id="publion_web_research_display_sources" name="web_research_display_sources" value="yes" <?php checked( $settings['web_research_display_sources'] ?? 'yes', 'yes' ); ?> />
+                                            <?php esc_html_e( 'Plaats automatisch een klikbare bronnenlijst onder elk onderzocht artikel', 'publion' ); ?>
+                                        </label>
+                                    </p>
+                                    <p style="margin-bottom:0;">
+                                        <label for="publion_web_research_failure_mode"><strong><?php esc_html_e( 'Als brononderzoek mislukt', 'publion' ); ?></strong></label><br>
+                                        <select id="publion_web_research_failure_mode" name="web_research_failure_mode">
+                                            <option value="stop" <?php selected( $settings['web_research_failure_mode'] ?? 'stop', 'stop' ); ?>><?php esc_html_e( 'Stop de artikelgeneratie en toon een duidelijke foutmelding (aanbevolen)', 'publion' ); ?></option>
+                                            <option value="continue" <?php selected( $settings['web_research_failure_mode'] ?? 'stop', 'continue' ); ?>><?php esc_html_e( 'Ga door zonder live bronnen en sla een waarschuwing op', 'publion' ); ?></option>
+                                        </select>
+                                    </p>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <tr>
                             <th scope="row"><?php esc_html_e( 'Geverifieerde externe bron-URL\'s', 'publion' ); ?></th>
                             <td>
                                 <textarea id="publion_preferred_external_urls" name="preferred_external_urls" rows="4" style="width:100%; max-width:600px;"><?php echo esc_textarea( $settings['preferred_external_urls'] ?? '' ); ?></textarea>
@@ -772,8 +878,11 @@ class Publion_Admin {
                             <td>
                                 <label>
                                     <input type="checkbox" name="rank_math_integration" id="publion_rank_math_integration" value="yes" <?php checked( $settings['rank_math_integration'] ?? '', 'yes' ); ?> />
-                                    <?php esc_html_e( 'Voeg automatisch focus keyword en meta description toe via Rank Math', 'publion' ); ?>
+                                    <?php esc_html_e( 'Gebruik de volledige Rank Math-contentcontrole voor nieuwe Publion-artikelen', 'publion' ); ?>
                                 </label>
+                                <p class="description" style="margin-top:6px; max-width:720px;">
+                                    <?php esc_html_e( 'Publion bewaakt een unieke focus-keyword, een keyword-led SEO-titel en korte URL, meta description, intro, koppen, relevante interne en externe links, een Rank Math-inhoudsopgave, minimaal vier afbeeldingen en leesbare alinea’s. Voor de maximale lengtecheck vraagt het circa 2.500 tot 2.800 woorden; dat vraagt meer generatietijd en API-tegoed. Open je het artikel in de WordPress-editor, dan start Rank Math automatisch zijn eigen analyse opnieuw. De score komt altijd rechtstreeks van Rank Math; Publion verzint of bewaart geen score.', 'publion' ); ?>
+                                </p>
                             </td>
                         </tr>
 

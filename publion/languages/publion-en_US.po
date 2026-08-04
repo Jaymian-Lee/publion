@@ -710,3 +710,107 @@ msgstr "More background information from %s"
 
 msgid "Bron en verdieping:"
 msgstr "Source and further reading:"
+
+# Live web research
+msgid "Live brononderzoek op internet"
+msgstr "Live web source research"
+
+msgid "Zoek actuele externe bronnen voordat een artikel wordt geschreven"
+msgstr "Search current external sources before an article is written"
+
+msgid "Publion gebruikt de OpenAI Responses API met webzoekfunctie. Alleen de werkelijk teruggegeven HTTPS-bronnen worden aan de AI meegegeven en kunnen als klikbare bronnenlijst in het artikel verschijnen. Dit kan extra API-kosten en generatietijd geven."
+msgstr "Publion uses the OpenAI Responses API with web search. Only HTTPS sources actually returned by the tool are passed to the AI and can appear as a clickable source list in the article. This can add API costs and generation time."
+
+msgid "Onderzoeksregels"
+msgstr "Research rules"
+
+msgid "Model voor brononderzoek"
+msgstr "Source research model"
+
+msgid "Aanbevolen: gpt-5.6. Gebruik alleen een model-ID die de Responses API en webzoekfunctie ondersteunt."
+msgstr "Recommended: gpt-5.6. Use only a model ID that supports the Responses API and web search."
+
+msgid "Aantal bronnen per artikel"
+msgstr "Sources per article"
+
+msgid "Onderzoeksdiepte"
+msgstr "Research depth"
+
+msgid "Laag (snel)"
+msgstr "Low (fast)"
+
+msgid "Gemiddeld (aanbevolen)"
+msgstr "Medium (recommended)"
+
+msgid "Hoog (meer context)"
+msgstr "High (more context)"
+
+msgid "Gebruik actuele live webinhoud (aanbevolen)"
+msgstr "Use current live web content (recommended)"
+
+msgid "Alleen deze domeinen (optioneel)"
+msgstr "Only these domains (optional)"
+
+msgid "Eén domein per regel, zonder https://. Gebruik dit voor bijvoorbeeld overheid-, fabrikant- of kennisbankbronnen. Subdomeinen worden meegenomen."
+msgstr "Enter one domain per line, without https://. Use this for government, manufacturer, or knowledge-base sources, for example. Subdomains are included."
+
+msgid "Deze domeinen uitsluiten (optioneel)"
+msgstr "Exclude these domains (optional)"
+
+msgid "Eén domein per regel. Handig voor concurrenten, forums of bronnen die niet bij je redactiebeleid passen."
+msgstr "Enter one domain per line. Useful for competitors, forums, or sources that do not fit your editorial policy."
+
+msgid "Plaats automatisch een klikbare bronnenlijst onder elk onderzocht artikel"
+msgstr "Automatically place a clickable source list below every researched article"
+
+msgid "Als brononderzoek mislukt"
+msgstr "If source research fails"
+
+msgid "Stop de artikelgeneratie en toon een duidelijke foutmelding (aanbevolen)"
+msgstr "Stop article generation and show a clear error message (recommended)"
+
+msgid "Ga door zonder live bronnen en sla een waarschuwing op"
+msgstr "Continue without live sources and save a warning"
+
+msgid "Live brononderzoek is ingeschakeld, maar er is geen geldige OpenAI API-sleutel gevonden."
+msgstr "Live source research is enabled, but no valid OpenAI API key was found."
+
+msgid "Live brononderzoek kon niet worden uitgevoerd: %s"
+msgstr "Live source research could not be performed: %s"
+
+msgid "Live brononderzoek leverde geen bruikbare, externe HTTPS-bronnen op. Pas de domeinfilters aan of probeer opnieuw."
+msgstr "Live source research returned no usable external HTTPS sources. Adjust the domain filters or try again."
+
+msgid "Bronnen en verdieping"
+msgstr "Sources and further reading"
+
+msgid "Voor dit artikel is actueel brononderzoek uitgevoerd. Controleer deze bronnen altijd voordat je publiceert."
+msgstr "Current source research was performed for this article. Always check these sources before publishing."
+
+msgid "Actueel webonderzoek zoekt en controleert externe bronnen."
+msgstr "Current web research is finding and checking external sources."
+
+# Rank Math-aware article finishing
+msgid "In dit artikel lees je praktische aandachtspunten over %s."
+msgstr "This article covers practical points about %s."
+
+msgid "Gebruik Rank Math-feedback voor focus-keyword, korte URL, koppen, bronnen en metadata"
+msgstr "Use Rank Math feedback for the focus keyword, short URL, headings, sources, and metadata"
+
+msgid "Publion verwerkt alleen inhoudelijke controles: focus-keyword in intro en koppen, een beknopte keyword-URL en een echte uitgaande bronlink zodra je vaste bronnen of Live brononderzoek instelt. Het forceert geen clickbaitnummer of loze power word in een titel."
+msgstr "Publion applies only meaningful checks: the focus keyword in the introduction and headings, a concise keyword URL, and a real outbound source link once you configure fixed sources or Live source research. It does not force a clickbait number or an empty power word into a title."
+
+msgid "Publion verwerkt inhoudelijke controles: focus-keyword in intro en koppen, een beknopte keyword-URL en een echte uitgaande bronlink zodra je vaste bronnen of Live brononderzoek instelt. Open je een Publion-artikel in de WordPress-editor, dan start Rank Math automatisch zijn eigen titel- en contentanalyse opnieuw. De score komt altijd rechtstreeks van Rank Math; Publion verzint of bewaart geen score."
+msgstr "Publion applies meaningful checks: the focus keyword in the introduction and headings, a concise keyword URL, and a real outbound source link once you configure fixed sources or Live source research. When you open a Publion article in the WordPress editor, Rank Math automatically reruns its own title and content analysis. The score always comes directly from Rank Math; Publion does not invent or store a score."
+
+msgid "Gebruik de volledige Rank Math-contentcontrole voor nieuwe Publion-artikelen"
+msgstr "Use the complete Rank Math content checks for new Publion articles"
+
+msgid "Publion bewaakt een unieke focus-keyword, een keyword-led SEO-titel en korte URL, meta description, intro, koppen, relevante interne en externe links, een Rank Math-inhoudsopgave, minimaal vier afbeeldingen en leesbare alinea’s. Voor de maximale lengtecheck vraagt het circa 2.500 tot 2.800 woorden; dat vraagt meer generatietijd en API-tegoed. Open je het artikel in de WordPress-editor, dan start Rank Math automatisch zijn eigen analyse opnieuw. De score komt altijd rechtstreeks van Rank Math; Publion verzint of bewaart geen score."
+msgstr "Publion checks a unique focus keyword, a keyword-led SEO title and short URL, meta description, introduction, headings, relevant internal and external links, a Rank Math table of contents, at least four images, and readable paragraphs. For the maximum length check it requests about 2,500 to 2,800 words; this needs more generation time and API credit. When you open the article in the WordPress editor, Rank Math automatically reruns its own analysis. The score always comes directly from Rank Math; Publion does not invent or store a score."
+
+msgid "Deze focus-keyword is al aan een bestaand bericht gekoppeld. Kies een specifiekere zoekterm om keywordcannibalisatie te voorkomen."
+msgstr "This focus keyword is already linked to an existing post. Choose a more specific search term to prevent keyword cannibalization."
+
+msgid "Inhoudsopgave"
+msgstr "Table of contents"

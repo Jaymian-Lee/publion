@@ -5,7 +5,7 @@ Tags: ai content, chatgpt, blog automatisering, post generatie, blogpost ai
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.9.20
+Stable tag: 1.9.24
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -31,7 +31,7 @@ Publion is je persoonlijke content-assistent voor WordPress. Deze plugin is bedo
 * Actuele OpenAI-modelkeuze: GPT-5.6 Sol, Terra en Luna, GPT-5.4, Mini en Nano, met een gevalideerd veld voor een eigen model-ID.
 * Afzonderlijke keuze voor GPT Image 2, eerdere afbeeldingsmodellen of een eigen afbeeldingsmodel-ID.
 * API-sleutels worden na opslag niet meer in het instellingenformulier weergegeven; model- en API-fouten zijn duidelijker uitgelegd.
-* Optionele Rank Math integratie met een dynamisch focus-keyword en meta description.
+* Optionele Rank Math-integratie met dynamisch focus-keyword, metadata en een automatische heranalyse in de editor voor ieder Publion-artikel.
 * Optioneel e-mailmeldingen ontvangen wanneer een nieuwe conceptpost is aangemaakt.
 
 **Bespaar tijd. Blijf consistent. Laat je site groeien.**
@@ -80,6 +80,25 @@ Deze versie maakt standaard blogposts aan.
 4. Maak automatisch volledige conceptposts met AI-afbeeldingen.
 
 == Changelog ==
+
+= 1.9.24 =
+* De uitgebreide Rank Math-workflow bereidt nieuwe artikelen voor op de officiële contenttests: unieke focus-keyword, keyword-led metadata, korte URL, intro, koppen, relevante links, inhoudsopgave, vier of meer afbeeldingen en korte alinea's.
+* Bij ingeschakelde Rank Math-integratie vraagt Publion circa 2.500 tot 2.800 woorden voor de volledige lengtescore; dit kan meer generatietijd en API-tegoed vragen.
+* Geen gegarandeerde score of ranking: Publion verwerkt controleerbare voorwaarden, terwijl Rank Math de daadwerkelijke score en de redacteur de inhoudelijke kwaliteit bepaalt.
+
+= 1.9.23 =
+* Wanneer je een Publion-artikel in de WordPress-editor opent, vraagt Publion Rank Math automatisch om de eigen titel- en contentanalyse opnieuw uit te voeren.
+* De zichtbare score blijft uitsluitend de echte Rank Math-score; Publion berekent, bewaart of simuleert geen score op de achtergrond.
+
+= 1.9.22 =
+* Nieuwe artikelen gebruiken de inhoudelijke Rank Math-feedback: focus-keyword in de introductie en koppen, een korte keyword-URL en complete metadata.
+* Een uitgaande dofollow-bronlink wordt alleen gebruikt wanneer een gecontroleerde vaste bron of Live brononderzoek beschikbaar is; Publion verzint geen bronlink om een score te manipuleren.
+* Titelnummers en â€˜power wordsâ€™ blijven redactionele keuzes en worden niet blind geforceerd.
+
+= 1.9.21 =
+* Nieuwe optionele Live brononderzoek-instelling zoekt met de OpenAI Responses API actuele externe bronnen vÃ³Ã³r de artikelgeneratie.
+* Beheerders kunnen model, aantal bronnen, onderzoeksdiepte, live toegang, domeinfilters, zichtbare bronnenlijst en foutgedrag instellen.
+* Alleen werkelijk door de webzoekactie teruggegeven HTTPS-bronnen worden aan het artikel gekoppeld; bij verplichte research zonder bruikbare bronnen wordt de generatie veilig gestopt.
 
 = 1.9.20 =
 * De bulkstatus toont nu tijdens het genereren het actuele batchnummer, bijvoorbeeld: â€œItem 2 van 4 wordt verwerkt.â€
