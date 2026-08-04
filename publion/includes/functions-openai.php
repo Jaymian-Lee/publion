@@ -1,8 +1,16 @@
 <?php
 function publion_get_allowed_openai_models() {
     $models = [
-        'gpt-5.2-2025-12-11' => 'GPT-5.2',
-        'gpt-5-mini-2025-08-07' => 'GPT-5 Mini',
+        'gpt-5.6-sol'           => 'GPT-5.6 Sol — hoogste kwaliteit',
+        'gpt-5.6-terra'         => 'GPT-5.6 Terra — beste balans',
+        'gpt-5.6-luna'          => 'GPT-5.6 Luna — snel en schaalbaar',
+        'gpt-5.6'               => 'GPT-5.6 — alias voor Sol',
+        'gpt-5.5'               => 'GPT-5.5',
+        'gpt-5.4'               => 'GPT-5.4',
+        'gpt-5.4-mini'          => 'GPT-5.4 Mini',
+        'gpt-5.4-nano'          => 'GPT-5.4 Nano — voordelig voor volume',
+        'gpt-5.2-2025-12-11'    => 'GPT-5.2 — eerdere versie',
+        'gpt-5-mini-2025-08-07' => 'GPT-5 Mini — eerdere versie',
         'gpt-4o' => 'GPT-4o',
         'gpt-4o-mini' => 'GPT-4o Mini',
     ];
@@ -10,16 +18,251 @@ function publion_get_allowed_openai_models() {
     return apply_filters( 'publion/openai_models', $models );
 }
 
-function publion_get_openai_model() {
-    $models   = publion_get_allowed_openai_models();
-    $default  = 'gpt-4o';
-    $selected = sanitize_text_field( get_option( 'publion_openai_model', $default ) );
+/**
+ * Keep custom model IDs predictable and safe to pass to the API.
+ * OpenAI model IDs use letters, numbers, dots, underscores, colons and hyphens.
+ */
+function publion_normalize_openai_model_id( $model ) {
+    $model = sanitize_text_field( wp_strip_all_tags( (string) $model ) );
+    $model = strtolower( trim( $model ) );
 
-    if ( ! isset( $models[ $selected ] ) ) {
-        $selected = array_key_first( $models );
+    if ( ! preg_match( '/^[a-z0-9][a-z0-9._:-]{0,127}$/', $model ) ) {
+        return '';
     }
 
-    return $selected ?: $default;
+    return $model;
+}
+
+function publion_get_openai_model() {
+    $default  = 'gpt-5.6-terra';
+    $selected = publion_normalize_openai_model_id( get_option( 'publion_openai_model', $default ) );
+
+    if ( '' === $selected ) {
+        $selected = $default;
+    }
+
+    // A project can expose a model that is not in the curated list. Its availability
+    // remains checked by OpenAI on the first request, while the format is validated here.
+    return $selected;
+}
+
+/**
+ * Return a user-safe explanation for failed OpenAI requests, without ever exposing a key.
+ */
+function publion_get_openai_request_error( $response, $model = '' ) {
+    if ( is_wp_error( $response ) ) {
+        return sprintf(
+            /* translators: %s: transport error returned by WordPress. */
+            __( 'OpenAI is niet bereikbaar: %s', 'publion' ),
+            sanitize_text_field( $response->get_error_message() )
+        );
+    }
+
+    $status = (int) wp_remote_retrieve_response_code( $response );
+    $body   = json_decode( wp_remote_retrieve_body( $response ), true );
+    $detail = is_array( $body ) ? sanitize_text_field( $body['error']['message'] ?? '' ) : '';
+    $label  = $model ? ' (' . $model . ')' : '';
+
+    if ( 401 === $status ) {
+        return __( 'OpenAI heeft de API-sleutel geweigerd. Vervang de sleutel en controleer het API-project.', 'publion' );
+    }
+
+    if ( 429 === $status ) {
+        return __( 'OpenAI heeft deze aanvraag tijdelijk beperkt. Controleer tegoed, facturatie en rate limits en probeer later opnieuw.', 'publion' );
+    }
+
+    if ( $detail ) {
+        return sprintf(
+            /* translators: 1: selected model ID, 2: error returned by OpenAI. */
+            __( 'OpenAI kon het geselecteerde model%s niet gebruiken: %s', 'publion' ),
+            $label,
+            $detail
+        );
+    }
+
+    return sprintf(
+        /* translators: %d: HTTP status returned by OpenAI. */
+        __( 'OpenAI gaf een onverwachte fout terug (HTTP %d).', 'publion' ),
+        $status
+    );
+}
+
+/**
+ * Build a Chat Completions payload that is compatible with both the newer GPT-5
+ * reasoning family and the retained GPT-4o models.
+ */
+function publion_build_openai_chat_body( $model, $messages, $max_output_tokens, $temperature = 0.7 ) {
+    $body = array(
+        'model'    => $model,
+        'messages' => $messages,
+    );
+
+    if ( 0 === strpos( $model, 'gpt-5' ) ) {
+        // GPT-5 reasoning models use max_completion_tokens and do not accept
+        // custom sampling temperatures in Chat Completions.
+        $body['max_completion_tokens'] = (int) $max_output_tokens;
+    } else {
+        $body['temperature'] = (float) $temperature;
+        $body['max_tokens']  = (int) $max_output_tokens;
+    }
+
+    return $body;
+}
+
+/**
+ * Read the local editorial archive on every AI run. The map preserves every
+ * post title and heading, then adds a substantial body excerpt for context.
+ * This keeps the request useful for normal API context limits while the
+ * duplicate gate below still compares against the complete local post body.
+ */
+function publion_get_existing_content_map( $exclude_post_id = 0 ) {
+    $posts = get_posts(
+        array(
+            'post_type'              => 'post',
+            'post_status'            => array( 'publish', 'future', 'draft', 'pending', 'private' ),
+            'posts_per_page'         => -1,
+            'orderby'                => 'modified',
+            'order'                  => 'DESC',
+            'post__not_in'           => $exclude_post_id ? array( (int) $exclude_post_id ) : array(),
+            'ignore_sticky_posts'    => true,
+            'suppress_filters'       => false,
+            'update_post_meta_cache' => false,
+            'update_post_term_cache' => false,
+        )
+    );
+
+    if ( empty( $posts ) ) {
+        return array(
+            'count'   => 0,
+            'context' => "Er zijn nog geen bestaande WordPress-berichten. Schrijf daarom een duidelijk afgebakend, origineel eerste artikel.",
+        );
+    }
+
+    $max_context_chars = (int) apply_filters( 'publion/content_map_max_chars', 300000 );
+    $excerpt_chars     = (int) apply_filters( 'publion/content_map_excerpt_chars', 3500 );
+    $context           = array();
+    $used_chars        = 0;
+
+    foreach ( $posts as $post ) {
+        $title    = sanitize_text_field( get_the_title( $post ) );
+        $headings = array();
+        if ( preg_match_all( '/<h[1-3][^>]*>(.*?)<\/h[1-3]>/is', (string) $post->post_content, $matches ) ) {
+            $headings = array_slice( array_filter( array_map( 'wp_strip_all_tags', $matches[1] ) ), 0, 12 );
+        }
+
+        $plain_content = preg_replace( '/\s+/', ' ', wp_strip_all_tags( strip_shortcodes( (string) $post->post_content ) ) );
+        $plain_content = trim( (string) $plain_content );
+        $excerpt       = function_exists( 'mb_substr' ) ? mb_substr( $plain_content, 0, $excerpt_chars ) : substr( $plain_content, 0, $excerpt_chars );
+        $entry         = "BERICHT #" . (int) $post->ID . ": " . $title;
+        $entry        .= "\nKoppen: " . ( ! empty( $headings ) ? implode( ' | ', array_map( 'sanitize_text_field', $headings ) ) : 'geen koppen gevonden' );
+        $entry        .= "\nInhoudsextract: " . ( $excerpt ?: 'geen inhoudsextract beschikbaar' ) . "\n";
+
+        // Always preserve an entry for the post; shorten only the body extract
+        // when a very large archive approaches the API safety budget.
+        if ( $used_chars + strlen( $entry ) > $max_context_chars ) {
+            $entry = "BERICHT #" . (int) $post->ID . ": " . $title . "\nKoppen: " . ( ! empty( $headings ) ? implode( ' | ', array_map( 'sanitize_text_field', $headings ) ) : 'geen koppen gevonden' ) . "\n";
+        }
+
+        $context[]  = $entry;
+        $used_chars += strlen( $entry );
+    }
+
+    return array(
+        'count'   => count( $posts ),
+        'context' => implode( "\n", $context ),
+    );
+}
+
+function publion_normalize_content_for_comparison( $text ) {
+    $text = wp_strip_all_tags( (string) $text );
+    $text = function_exists( 'mb_strtolower' ) ? mb_strtolower( $text, 'UTF-8' ) : strtolower( $text );
+    $text = preg_replace( '/[^\p{L}\p{N}\s]+/u', ' ', $text );
+    $text = preg_replace( '/\s+/u', ' ', $text );
+    return trim( (string) $text );
+}
+
+function publion_get_content_word_set( $text ) {
+    $words = preg_split( '/\s+/u', publion_normalize_content_for_comparison( $text ) );
+    $set   = array();
+    foreach ( (array) $words as $word ) {
+        if ( 3 > ( function_exists( 'mb_strlen' ) ? mb_strlen( $word, 'UTF-8' ) : strlen( $word ) ) ) {
+            continue;
+        }
+        $set[ $word ] = true;
+    }
+    return $set;
+}
+
+function publion_get_content_shingles( $text, $size = 5 ) {
+    $raw_words = preg_split( '/\s+/u', publion_normalize_content_for_comparison( $text ) );
+    $words     = array();
+    $shingles  = array();
+    foreach ( (array) $raw_words as $word ) {
+        if ( 3 <= ( function_exists( 'mb_strlen' ) ? mb_strlen( $word, 'UTF-8' ) : strlen( $word ) ) ) {
+            $words[] = $word;
+        }
+    }
+    $word_count = count( $words );
+    for ( $index = 0; $index <= $word_count - $size; $index++ ) {
+        $shingles[ implode( ' ', array_slice( $words, $index, $size ) ) ] = true;
+    }
+    return $shingles;
+}
+
+/**
+ * Check a candidate against every local post. Exact/near-identical titles and
+ * repeated five-word sequences are blocked before WordPress creates a draft.
+ */
+function publion_find_existing_content_conflict( $candidate_title, $candidate_html = '', $exclude_post_id = 0 ) {
+    $candidate_title = publion_normalize_content_for_comparison( $candidate_title );
+    $candidate_words = $candidate_html ? publion_get_content_word_set( $candidate_html ) : array();
+    $candidate_shingles = $candidate_html ? publion_get_content_shingles( $candidate_html ) : array();
+
+    foreach ( get_posts(
+        array(
+            'post_type'              => 'post',
+            'post_status'            => array( 'publish', 'future', 'draft', 'pending', 'private' ),
+            'posts_per_page'         => -1,
+            'post__not_in'           => $exclude_post_id ? array( (int) $exclude_post_id ) : array(),
+            'ignore_sticky_posts'    => true,
+            'suppress_filters'       => false,
+            'update_post_meta_cache' => false,
+            'update_post_term_cache' => false,
+        )
+    ) as $post ) {
+        $existing_title = publion_normalize_content_for_comparison( get_the_title( $post ) );
+        $title_score    = 0.0;
+        if ( $candidate_title && $existing_title ) {
+            similar_text( $candidate_title, $existing_title, $title_score );
+            if ( $candidate_title === $existing_title || $title_score >= 88 ) {
+                return array( 'post_id' => (int) $post->ID, 'title' => get_the_title( $post ), 'reason' => 'titel' );
+            }
+        }
+
+        if ( empty( $candidate_words ) || empty( $candidate_shingles ) ) {
+            continue;
+        }
+
+        $existing_content  = (string) $post->post_content;
+        $existing_words    = publion_get_content_word_set( $existing_content );
+        $existing_shingles = publion_get_content_shingles( $existing_content );
+        if ( empty( $existing_words ) || empty( $existing_shingles ) ) {
+            continue;
+        }
+
+        $shared_words = count( array_intersect_key( $candidate_words, $existing_words ) );
+        $word_union   = count( $candidate_words ) + count( $existing_words ) - $shared_words;
+        $word_score   = $word_union ? $shared_words / $word_union : 0;
+        $shared_phrases = count( array_intersect_key( $candidate_shingles, $existing_shingles ) );
+        $shortest_phrase_set = min( count( $candidate_shingles ), count( $existing_shingles ) );
+        $phrase_score = $shortest_phrase_set ? $shared_phrases / $shortest_phrase_set : 0;
+
+        if ( ( $word_score >= 0.82 && $shared_words >= 80 ) || ( $phrase_score >= 0.16 && $shared_phrases >= 18 ) || ( $title_score >= 75 && $word_score >= 0.68 ) ) {
+            return array( 'post_id' => (int) $post->ID, 'title' => get_the_title( $post ), 'reason' => 'inhoud' );
+        }
+    }
+
+    return false;
 }
 
 function publion_get_preferred_external_domain() {
@@ -84,6 +327,9 @@ function publion_generate_chatgpt_html( $topic, $category_name, $seo_brief = arr
         $faq_instruction = "\nGebruik aan het eind een <h2>Veelgestelde vragen</h2> met deze vragen als <h3>-koppen en een direct, feitelijk antwoord per vraag:\n- " . implode( "\n- ", array_map( 'sanitize_text_field', $faq_questions ) );
     }
 
+    $content_map = publion_get_existing_content_map();
+    $originality_instruction = "\n\nORIGINALITEITSCONTROLE: Lees eerst de volledige onderstaande contentkaart van " . (int) $content_map['count'] . " bestaande WordPress-berichten. Dit artikel moet een aantoonbaar nieuwe zoekvraag, invalshoek en koppenstructuur toevoegen. Kopieer, parafraseer of herstructureer geen bestaand bericht. Vermijd een titel die sterk lijkt op een bestaande titel en herhaal geen lange zinnen, FAQ's of stappenplannen uit de kaart.\n\n=== ACTUELE CONTENTKAART ===\n" . $content_map['context'] . "\n=== EINDE CONTENTKAART ===";
+
     $base_prompt = "Schrijf een origineel, behulpzaam en inhoudelijk sterk artikel in HTML over \"$topic\" binnen de categorie \"$category_name\". De primaire zoekterm is \"$focus_keyword\" en de zoekintentie is \"$search_intent\".";
     if ( $angle ) {
         $base_prompt .= " De gekozen invalshoek is: \"$angle\".";
@@ -98,7 +344,7 @@ Wanneer de zoekintentie commercieel of transactioneel is, help de lezer eerlijk 
 
 Gebruik minimaal 1.500 woorden, maar vermijd opvultekst en herhaling. Voeg geen paginamarkup toe zoals <!DOCTYPE html>, <head>, <body>, <header>, <footer>, <script> of <meta>. Maak de eerste kop een <h2>, geen <h1>. Gebruik uitsluitend semantische content-HTML: <p>, <h2>, <h3>, <ul>, <ol>, <strong>, <table> waar dat inhoudelijk helpt.
 
-Neem alleen links op naar relevante, betrouwbare en verifieerbare bronnen. Gebruik voor externe links target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\". Plaats geen links die je niet met zekerheid passend kunt maken.$preferred_note$faq_instruction
+Neem alleen links op naar relevante, betrouwbare en verifieerbare bronnen. Gebruik voor externe links target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\". Plaats geen links die je niet met zekerheid passend kunt maken.$preferred_note$faq_instruction$originality_instruction
 
 Geef uitsluitend valide HTML-content terug, zonder uitleg, notities of Markdown.";
 
@@ -113,19 +359,24 @@ Geef uitsluitend valide HTML-content terug, zonder uitleg, notities of Markdown.
                 'Content-Type'  => 'application/json',
                 'Authorization' => 'Bearer ' . $api_key,
             ],
-            'body' => json_encode([
-                'model'       => $model,
-                'messages'    => $messages,
-                'temperature' => 0.7,
-                'max_tokens'  => 2048
-            ]),
+            'body' => wp_json_encode( publion_build_openai_chat_body( $model, $messages, 2048 ) ),
             'timeout' => 60
         ]);
+
+        if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+            $error = publion_get_openai_request_error( $response, $model );
+            update_option( 'publion_last_openai_error', $error );
+            return new WP_Error( 'publion_openai_request_failed', $error );
+        }
 
         $body = json_decode(wp_remote_retrieve_body($response), true);
         $new_html = $body['choices'][0]['message']['content'] ?? '';
 
-        if (!$new_html) break;
+        if (!$new_html) {
+            $error = __( 'OpenAI gaf geen bruikbare artikeltekst terug. Probeer een ander model of verkort de voorprompt.', 'publion' );
+            update_option( 'publion_last_openai_error', $error );
+            return new WP_Error( 'publion_openai_empty_response', $error );
+        }
 
         $html_output .= $new_html;
         $word_count = str_word_count(wp_strip_all_tags($html_output));
@@ -144,6 +395,18 @@ Geef uitsluitend valide HTML-content terug, zonder uitleg, notities of Markdown.
 	$html_output = str_ireplace(['<header>', '</header>'], '', $html_output);
 	$keywords = publion_extract_noun_keywords($html_output, $api_key, $model);
 	$html_output = publion_auto_internal_links($html_output, $keywords);
+
+    $content_conflict = publion_find_existing_content_conflict( $topic, $html_output );
+    if ( $content_conflict ) {
+        $error = sprintf(
+            /* translators: 1: duplicate type, 2: existing post title. */
+            __( 'Concept geblokkeerd: de nieuwe %1$s lijkt te veel op bestaand bericht “%2$s”. Kies een duidelijk andere zoekvraag of invalshoek.', 'publion' ),
+            'titel' === $content_conflict['reason'] ? __( 'titel', 'publion' ) : __( 'inhoud', 'publion' ),
+            $content_conflict['title']
+        );
+        update_option( 'publion_last_openai_error', $error );
+        return new WP_Error( 'publion_duplicate_content', $error );
+    }
 
     // Append CTA
     $settings = get_option('publion_post_settings', []);
@@ -164,6 +427,7 @@ Geef uitsluitend valide HTML-content terug, zonder uitleg, notities of Markdown.
     
     $html_output = preg_replace('/<h([1-2])>(.*?)<\/h\1>/i', '<h$1 class="publion-title">$2</h$1>', $html_output, 1);
 
+    delete_option( 'publion_last_openai_error' );
     return $html_output;
 }
 
@@ -278,15 +542,15 @@ $text";
             'Content-Type'  => 'application/json',
             'Authorization' => 'Bearer ' . $api_key,
         ],
-        'body' => json_encode([
-            'model' => $model ?: publion_get_openai_model(),
-            'messages' => [
-                ['role' => 'system', 'content' => 'Je bent een assistent die nuttige keywords extraheert.'],
-                ['role' => 'user', 'content' => $prompt],
-            ],
-            'temperature' => 0.3,
-            'max_tokens' => 200
-        ]),
+        'body' => wp_json_encode( publion_build_openai_chat_body(
+            $model ?: publion_get_openai_model(),
+            array(
+                array( 'role' => 'system', 'content' => 'Je bent een assistent die nuttige keywords extraheert.' ),
+                array( 'role' => 'user', 'content' => $prompt ),
+            ),
+            200,
+            0.3
+        ) ),
         'timeout' => 30
     ]);
 
@@ -452,8 +716,21 @@ function publion_ensure_preferred_domain_link( $html, $preferred_domain, $topic 
     return $html . '<p>' . $link_html . '</p>';
 }
 
+function publion_get_allowed_openai_image_models() {
+    $models = array(
+        'gpt-image-2'   => 'GPT Image 2 — aanbevolen',
+        'gpt-image-1.5' => 'GPT Image 1.5 — vorige generatie',
+        'gpt-image-1'   => 'GPT Image 1 — eerdere generatie',
+    );
+
+    return apply_filters( 'publion/openai_image_models', $models );
+}
+
 function publion_get_openai_image_model() {
-    return apply_filters( 'publion/openai_image_model', 'gpt-image-1.5' );
+    $default  = 'gpt-image-2';
+    $selected = publion_normalize_openai_model_id( get_option( 'publion_openai_image_model', $default ) );
+
+    return apply_filters( 'publion/openai_image_model', $selected ? $selected : $default );
 }
 
 function publion_build_image_prompt( $topic, $category_name = '' ) {
@@ -584,6 +861,7 @@ function publion_generate_image_base64s( $prompt, $api_key, $count = 1 ) {
         return [];
     }
 
+    $image_model = publion_get_openai_image_model();
     $response = wp_remote_post(
         'https://api.openai.com/v1/images/generations',
         [
@@ -593,7 +871,7 @@ function publion_generate_image_base64s( $prompt, $api_key, $count = 1 ) {
             ],
             'body'    => wp_json_encode(
                 [
-                    'model'         => publion_get_openai_image_model(),
+                    'model'         => $image_model,
                     'prompt'        => $prompt,
                     'n'             => $count,
                     'size'          => '1024x1024',
@@ -605,18 +883,13 @@ function publion_generate_image_base64s( $prompt, $api_key, $count = 1 ) {
         ]
     );
 
-    if ( is_wp_error( $response ) ) {
-        update_option( 'publion_last_image_error', $response->get_error_message() );
+    if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+        update_option( 'publion_last_image_error', publion_get_openai_request_error( $response, $image_model ) );
         return [];
     }
 
     $code = wp_remote_retrieve_response_code( $response );
     $body = json_decode( wp_remote_retrieve_body( $response ), true );
-    if ( 200 !== $code ) {
-        $message = $body['error']['message'] ?? 'Onbekende fout bij het genereren van afbeeldingen.';
-        update_option( 'publion_last_image_error', $message );
-        return [];
-    }
 
     if ( empty( $body['data'] ) || ! is_array( $body['data'] ) ) {
         update_option( 'publion_last_image_error', 'Geen afbeeldingsdata ontvangen.' );

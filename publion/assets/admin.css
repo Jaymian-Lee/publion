@@ -117,6 +117,7 @@
 
 #publion-suggestions { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 12px; margin: 14px 0 26px; }
 #publion-suggestions .publion-suggestion { display: flex; align-items: flex-start; gap: 11px; margin: 0; padding: 16px; background: #fff; border: 1px solid var(--publion-line); border-radius: 10px; box-sizing: border-box; }
+.publion-suggestion-empty { color: #854d0e; background: #fffbeb !important; border-color: #fde68a !important; line-height: 1.5; }
 .publion-suggestion-content { min-width: 0; }
 .publion-suggestion-content strong { display: block; line-height: 1.35; }
 .publion-suggestion-angle, .publion-faq-preview { margin: 7px 0 0; color: var(--publion-muted); font-size: 12px; line-height: 1.45; }
@@ -135,6 +136,13 @@
 #publion-post-settings-form textarea#publion_custom_article_css { min-height: 140px; color: #1e293b; background: #f8fafc; border-color: #cbd5e1; line-height: 1.55; }
 #publion-post-settings-form input[type="color"] { width: 44px; height: 34px; padding: 3px; vertical-align: middle; }
 .publion-refined-style-control th, .publion-refined-style-control td { background: #fafaff; }
+.publion-key-help { margin: 7px 0 0; }
+.publion-model-control { max-width: 620px; padding: 16px; background: #f8fafc; border: 1px solid var(--publion-line); border-radius: 10px; }
+.publion-model-control > label { color: var(--publion-ink); }
+.publion-custom-model-wrap { display: grid; gap: 6px; max-width: 420px; margin-top: 12px; }
+.publion-custom-model-wrap label { font-size: 12px; font-weight: 700; }
+.publion-model-help { max-width: 570px; margin: 10px 0; line-height: 1.5; }
+.publion-model-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 
 @media (max-width: 640px) {
     .publion-app-header { padding: 22px; flex-direction: column; }

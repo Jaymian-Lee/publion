@@ -15,11 +15,17 @@ Verkeers- en rankingcijfers worden niet geschat. Open hiervoor Google Search Con
 ## Vaste workflow
 
 1. **Verbind OpenAI.** Voeg een API-sleutel toe in *OpenAI/ChatGPT instellingen*.
-2. **Plan artikelen.** Kies een categorie en beoordeel per voorstel de focus-term, zoekintentie, invalshoek en FAQ-vragen.
+2. **Plan artikelen.** Kies een categorie. Publion leest eerst de actuele contentkaart van bestaande berichten; beoordeel daarna per voorstel de focus-term, zoekintentie, afwijkende invalshoek en FAQ-vragen.
 3. **Zet alleen goede kansen in de wachtrij.** Kies een realistisch ritme in *Instellingen voor postcreatie*.
 4. **Maak een concept.** Controleer altijd feiten, bronnen, interne links, merktoon, auteursrechten en afbeeldingen.
 5. **Publiceer bewust.** Een concept is geen automatisch goedgekeurd artikel.
 6. **Meet na publicatie.** Kijk in Search Console naar vertoningen, klikken, CTR en gemiddelde positie.
+
+## Bescherming tegen dubbele content
+
+Publion geeft de AI bij onderwerp- en artikelgeneratie een actuele kaart van de bestaande WordPress-berichten. Daardoor moet een voorstel een andere zoekvraag of inhoudelijke invalshoek kiezen. Vóór een nieuw concept wordt opgeslagen, vergelijkt Publion vervolgens lokaal de titel en de inhoud met alle bestaande berichten, inclusief concepten en ingeplande posts. Een identieke of sterk vergelijkbare uitkomst wordt geblokkeerd en krijgt een duidelijke foutmelding.
+
+Controleer desondanks altijd zelf op zoekwoordcannibalisatie: twee artikelen kunnen technisch verschillend zijn, maar toch op dezelfde zoekvraag concurreren.
 
 ## Analytics gebruiken
 
@@ -54,6 +60,8 @@ De modal is met toetsenbord te gebruiken: Enter of Spatie opent hem, Escape slui
 ## Afbeeldingen en alt-tekst
 
 Publion voegt afbeeldingen als gewone HTML-afbeeldingen toe en maakt een korte alt-tekst op basis van de relevante passage. Controleer die tekst altijd in de mediabibliotheek: een goede alt-tekst beschrijft de afbeelding in context, herhaalt niet alleen het focus-keyword en bevat geen reeks zoekwoorden.
+
+Kies onder *OpenAI/ChatGPT instellingen* apart het **OpenAI-afbeeldingsmodel**. GPT Image 2 is de aanbevolen standaard. Je kunt ook een eerder model of **Eigen afbeeldingsmodel-ID…** kiezen; gebruik dan alleen een exacte model-ID die via de OpenAI Images API voor jouw project beschikbaar is. Test een nieuw model eerst op één concept, omdat beeldgeneratie kosten kan veroorzaken.
 
 ## Fouten oplossen
 

@@ -118,11 +118,13 @@ class Publion_Cron {
 		if ( empty( $wpdb->publion_queue ) ) {
 			$wpdb->publion_queue = $wpdb->prefix . 'publion_queue';
 		}
+		$content_map = publion_get_existing_content_map();
 
 		foreach ( $categories as $category ) {
 			$category_name = $category->name;
 
 			$prompt  = $pre_prompt . "\n\nOp basis van de categorie \"" . $category_name . "\", stel 5 unieke blogonderwerpen voor.";
+			$prompt .= "\n\nLees eerst de onderstaande actuele contentkaart van alle " . (int) $content_map['count'] . " bestaande WordPress-berichten. Geef alleen een onderwerp met een nieuwe zoekvraag en een duidelijk andere invalshoek; hergebruik geen bestaande titel, koppenstructuur of centrale uitleg.\n\n=== ACTUELE CONTENTKAART ===\n" . $content_map['context'] . "\n=== EINDE CONTENTKAART ===";
 			$prompt .= "\n\nFormaat: geef exact 5 onderwerpen, elk op een eigen regel. Geen inleiding, geen bullets, geen nummers, geen Markdown, geen extra uitleg.";
 
 			$response = wp_remote_post(
@@ -133,29 +135,32 @@ class Publion_Cron {
 						'Content-Type'  => 'application/json',
 					),
 					'body'    => wp_json_encode(
-						array(
-							'model'       => publion_get_openai_model(),
-							'messages'    => array(
+						publion_build_openai_chat_body(
+							publion_get_openai_model(),
+							array(
 								array( 'role' => 'system', 'content' => 'Je bent een behulpzame assistent.' ),
 								array( 'role' => 'user', 'content' => $prompt ),
 							),
-							'temperature' => 0.7,
-							'max_tokens'  => 200,
+							200
 						)
 					),
-					'timeout' => 30,
+					'timeout' => 60,
 				)
 			);
 
-			if ( is_wp_error( $response ) ) {
+			if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+				update_option( 'publion_last_openai_error', publion_get_openai_request_error( $response, publion_get_openai_model() ) );
 				continue;
 			}
 
 			$body = json_decode( wp_remote_retrieve_body( $response ), true );
 			$text = $body['choices'][0]['message']['content'] ?? '';
 			if ( empty( $text ) ) {
+				update_option( 'publion_last_openai_error', 'OpenAI gaf geen onderwerpvoorstellen terug tijdens de geplande taak.' );
 				continue;
 			}
+
+			delete_option( 'publion_last_openai_error' );
 
 			$lines = preg_split( '/\r\n|\n|\r/', trim( $text ) );
 			foreach ( $lines as $line ) {
@@ -177,6 +182,9 @@ class Publion_Cron {
 					if ( publion_get_post_id_by_exact_title( $line ) ) {
 						continue;
 					}
+				}
+				if ( publion_find_existing_content_conflict( $line ) ) {
+					continue;
 				}
 
 				$exists_in_queue = $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

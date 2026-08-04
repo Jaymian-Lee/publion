@@ -4,13 +4,13 @@
 
 Publion helpt redacties, marketeers en ondernemers om van een categorie naar een gecontroleerd artikelconcept te werken. De plugin maakt niet alleen tekst: hij bouwt eerst een contentbrief met zoekintentie, focus-keyword, invalshoek en FAQ-vragen. Daarna kun je onderwerpen plannen, artikelen als concept maken, afbeeldingen laten genereren en de resultaten volgen in je eigen analyticsomgeving.
 
-De huidige release is **1.6.0**. Download het installatiepakket: [publion-1.6.0.zip](publion-1.6.0.zip).
+De huidige release is **1.9.0**. Download het installatiepakket: [publion-1.9.0.zip](publion-1.9.0.zip).
 
 ## In één oogopslag
 
 | Onderdeel | Wat Publion doet |
 | --- | --- |
-| Contentplanning | Genereert vijf relevante artikelkansen per WordPress-categorie. |
+| Contentplanning | Leest de bestaande contentkaart en genereert vijf relevante, afwijkende artikelkansen per categorie. |
 | SEO-brief | Geeft elk voorstel een focus-keyword, zoekintentie, invalshoek en FAQ-vragen. |
 | Artikelproductie | Schrijft een semantisch HTML-concept van minimaal 1.500 woorden. |
 | Afbeeldingen | Maakt vijf contextuele afbeeldingen in de inhoud en één uitgelichte afbeelding. |
@@ -65,7 +65,7 @@ Google Search Console en Google Analytics zijn optioneel. Je kunt er zonder API-
 
 ### Installeren via WordPress
 
-1. Download [publion-1.6.0.zip](publion-1.6.0.zip).
+1. Download [publion-1.9.0.zip](publion-1.9.0.zip).
 2. Ga in WordPress naar **Plugins → Nieuwe plugin → Plugin uploaden**.
 3. Upload het zipbestand, installeer en activeer de plugin.
 4. Open **Berichten → Publion**.
@@ -89,6 +89,29 @@ Ga naar **OpenAI/ChatGPT instellingen** en voeg de API-sleutel toe. Kies daarna 
 - welke onderwerpen of claims je wilt vermijden.
 
 De sleutel wordt als WordPress-optie `publion_api_key` opgeslagen. Plaats een sleutel nooit in broncode, screenshots of een Git-repository.
+
+### 1a. Tekstmodel kiezen of zelf invullen
+
+Publion gebruikt de officiële OpenAI API-model-ID's. De standaard voor een nieuwe installatie is **GPT-5.6 Terra**: een goede balans tussen kwaliteit, snelheid en kosten voor artikelproductie. De lijst bevat ook:
+
+| Keuze | API-model-ID | Praktisch gebruik |
+| --- | --- | --- |
+| GPT-5.6 Sol | `gpt-5.6-sol` | Maximale kwaliteit voor strategische of complexe long-form artikelen. |
+| GPT-5.6 Terra | `gpt-5.6-terra` | Aanbevolen standaard voor reguliere SEO- en GEO-artikelen. |
+| GPT-5.6 Luna | `gpt-5.6-luna` | Kostenefficiënt voor grotere contentplanningen en snelle concepten. |
+| GPT-5.4 | `gpt-5.4` | Sterke vorige generatie voor professionele taken. |
+| GPT-5.4 Mini | `gpt-5.4-mini` | Lagere kosten en latency voor lichtere taken. |
+| GPT-5.4 Nano | `gpt-5.4-nano` | Hoge volumes, classificatie en eenvoudige contentstappen. |
+
+Kies **Eigen OpenAI model-ID…** als jouw API-project toegang heeft tot een ander model of een vaste snapshot. Vul uitsluitend de exacte API-ID in, bijvoorbeeld `gpt-5.6-sol`. Publion valideert het veilige formaat (maximaal 128 tekens) en OpenAI bevestigt bij de eerstvolgende aanvraag of dat model voor jouw project beschikbaar is. Een onjuiste of niet-beschikbare ID levert een concrete foutmelding op zonder je API-sleutel te tonen.
+
+De namen **Sol**, **Terra** en **Luna** zijn echte GPT-5.6 API-varianten; `gpt-5.6` is de alias voor Sol. Kies geen naam uit ChatGPT of Codex als die niet exact als API-model-ID in je OpenAI-project beschikbaar is.
+
+### 1b. Afbeeldingsmodel kiezen of zelf invullen
+
+Tekst en afbeeldingen gebruiken afzonderlijke modelinstellingen. Voor afbeeldingen is **GPT Image 2** (`gpt-image-2`) de standaard voor nieuwe installaties. GPT Image 1.5 en GPT Image 1 blijven als eerdere opties beschikbaar. Kies **Eigen afbeeldingsmodel-ID…** wanneer je een exacte model-ID of snapshot uit jouw OpenAI API-project wilt gebruiken.
+
+Publion gebruikt het gekozen afbeeldingsmodel via de OpenAI Images API. Een handmatig ingevuld model moet daarom deze endpoint ondersteunen; een ongeldige of niet-beschikbare keuze toont de concrete OpenAI-fout in het dashboard. Image-generatie kan kosten per beeld veroorzaken: test een nieuwe keuze eerst met één conceptartikel.
 
 ### 2. Postinstellingen bepalen
 
@@ -175,20 +198,27 @@ Kies onder **Content plannen** een WordPress-categorie en vraag voorstellen op. 
 | Invalshoek | De concrete, onderscheidende belofte van het artikel. |
 | FAQ-vragen | Vragen die aan het einde van het artikel als FAQ kunnen worden beantwoord. |
 
+### Contentkaart en duplicaatbescherming
+
+Vóór iedere onderwerpaanvraag bouwt Publion opnieuw een contentkaart uit alle lokale WordPress-berichten met titel, koppen en een relevant inhoudsextract. Die kaart gaat mee naar de AI, zodat een nieuw onderwerp een nog onbeantwoorde zoekvraag of een duidelijk andere invalshoek moet kiezen. Dit gebeurt ook voor de automatische dagelijkse onderwerpplanning.
+
+Vóór een concept wordt opgeslagen, vergelijkt Publion de nieuwe titel en inhoud daarnaast lokaal met alle bestaande berichten, inclusief concepten en geplande posts. Identieke of sterk vergelijkbare titels en veel herhaalde langere woordreeksen blokkeren de creatie. De melding noemt het bestaande bericht dat aanleiding gaf. Dit is een technische vangrail, geen vervanging voor een redactionele review op inhoudelijke overlap of cannibalisatie.
+
 Controleer deze brief voordat je iets in de wachtrij zet. Een goede brief past bij de doelgroep en de bestaande inhoud van je website; een AI-voorstel is geen zoekwoordonderzoek of feitelijke garantie.
 
 ## Wat er gebeurt bij artikelgeneratie
 
 Wanneer je **Nu maken** gebruikt of een gepland item aan de beurt is, doorloopt Publion deze stappen:
 
-1. Leest het onderwerp, de categorie en de opgeslagen SEO-brief.
+1. Leest het onderwerp, de categorie, de opgeslagen SEO-brief én de actuele contentkaart van bestaande berichten.
 2. Laat een artikel schrijven met een directe beantwoording, semantische HTML, duidelijke `h2`/`h3`-structuur, voorbeelden en FAQ-sectie.
-3. Vraagt de AI om feitelijk te blijven en geen bronnen, citaten, cijfers of ervaringen te verzinnen.
-4. Schoont de HTML op en verbetert relevante externe links en interne links.
-5. Genereert vijf contextuele afbeeldingen voor de inhoud en één uitgelichte afbeelding.
-6. Voegt beschrijvende alt-tekst, lazy loading en de ingestelde border-radius toe.
-7. Maakt een WordPress-post als concept of gepubliceerd item, afhankelijk van de instelling.
-8. Slaat indien ingeschakeld Rank Math-data en dynamische article/FAQ-schema-informatie op.
+3. Vraagt de AI om feitelijk te blijven, niet te herformuleren wat al bestaat en geen bronnen, citaten, cijfers of ervaringen te verzinnen.
+4. Vergelijkt titel en inhoud lokaal met alle bestaande berichten; bij een conflict wordt geen concept opgeslagen.
+5. Schoont de HTML op en verbetert relevante externe links en interne links.
+6. Genereert vijf contextuele afbeeldingen voor de inhoud en één uitgelichte afbeelding.
+7. Voegt beschrijvende alt-tekst, lazy loading en de ingestelde border-radius toe.
+8. Maakt een WordPress-post als concept of gepubliceerd item, afhankelijk van de instelling.
+9. Slaat indien ingeschakeld Rank Math-data en dynamische article/FAQ-schema-informatie op.
 
 ### Verplichte review voor publicatie
 
@@ -279,7 +309,7 @@ De plugin behoudt bij een mislukte beeldgeneratie een placeholder, zodat de rest
 
 - Onderwerpen, wachtrijgegevens en postinstellingen worden in de WordPress-database opgeslagen.
 - De OpenAI API-sleutel wordt als WordPress-optie opgeslagen en nooit in deze repository opgenomen.
-- Bij genereren worden het onderwerp, de categorie, de SEO-brief en de geconfigureerde voorprompt naar de OpenAI API gestuurd.
+- Bij genereren worden het onderwerp, de categorie, de SEO-brief, de geconfigureerde voorprompt en een lokale contentkaart (titels, koppen en inhoudsextracten van bestaande berichten) naar de OpenAI API gestuurd.
 - Google Search Console- en GA4-links zijn alleen opgeslagen URL’s; Publion haalt daarmee zelf geen analyticsdata op.
 - Verwijder of anonimiseer persoonsgegevens voordat je ze aan een AI-prompt toevoegt.
 

@@ -192,11 +192,16 @@ class Publion_Admin {
         $openai_api_key   = get_option( 'publion_api_key', '' );
         $openai_model     = publion_get_openai_model();
         $model_options    = publion_get_allowed_openai_models();
+        $custom_model     = array_key_exists( $openai_model, $model_options ) ? '' : $openai_model;
+        $image_model      = publion_get_openai_image_model();
+        $image_model_options = publion_get_allowed_openai_image_models();
+        $custom_image_model = array_key_exists( $image_model, $image_model_options ) ? '' : $image_model;
         $warning_display  = empty( $openai_api_key ) ? 'display:inline-block;' : 'display:none;';
         $default_prompt   = "Je bent een expert in het schrijven van blogs en maakt hoogwaardige, SEO-geoptimaliseerde content voor [JOUW BEDRIJFSNAAM (INDIEN VAN TOEPASSING) EN WEBSITE-URL], [WAT JOUW BEDRIJF/WEBSITE BIEDT]. Het doel is [JOUW BEDRIJFS/WEBSITE-DOELEN]. Stem de toon af op het merk: [DE TOON DIE JE WILT UITSTRALEN - voorbeeld: professioneel maar benaderbaar, deskundig maar eenvoudig uit te leggen]. Elk onderwerp moet de missie van [JOUW BEDRIJFS/WEBSITE-NAAM] weerspiegelen om [BEDRIJVEN of MENSEN] te helpen met [HOE JE BEDRIJVEN of MENSEN HELPT].\n\n(Vervang deze prompt door je eigen tekst om je doelen beter te weerspiegelen.)";
         $openai_prompt    = get_option( 'publion_prompt', $default_prompt );
         $dashboard_settings = get_option( 'publion_post_settings', array() );
         $last_image_error   = get_option( 'publion_last_image_error', '' );
+        $last_openai_error  = get_option( 'publion_last_openai_error', '' );
         global $wpdb;
         publion_register_table_on_wpdb();
         $queue_table = $wpdb->publion_queue;
@@ -294,9 +299,9 @@ class Publion_Admin {
                         <div><strong><?php esc_html_e( 'AI is nog niet verbonden.', 'publion' ); ?></strong><span><?php esc_html_e( 'Voeg eerst een OpenAI API-sleutel toe; zonder sleutel kan Publion geen onderwerpen, artikelen of afbeeldingen maken.', 'publion' ); ?></span></div>
                         <button type="button" class="button button-primary" data-publion-tab="publion-settings"><?php esc_html_e( 'API-sleutel instellen', 'publion' ); ?></button>
                     </div>
-                <?php elseif ( ! empty( $last_image_error ) ) : ?>
+                <?php elseif ( ! empty( $last_openai_error ) || ! empty( $last_image_error ) ) : ?>
                     <div class="publion-callout publion-callout-error">
-                        <div><strong><?php esc_html_e( 'De laatste afbeeldingsopdracht had een probleem.', 'publion' ); ?></strong><span><?php echo esc_html( $last_image_error ); ?></span></div>
+                        <div><strong><?php esc_html_e( 'De laatste AI-opdracht had een probleem.', 'publion' ); ?></strong><span><?php echo esc_html( $last_openai_error ?: $last_image_error ); ?></span></div>
                         <button type="button" class="button" data-publion-tab="publion-settings"><?php esc_html_e( 'Controleer AI-instellingen', 'publion' ); ?></button>
                     </div>
                 <?php else : ?>
@@ -378,6 +383,7 @@ class Publion_Admin {
                 </select>
                 <button id="publion-suggest" class="button button-primary" style="margin-left:8px;"><?php esc_html_e( 'Onderwerpen voorstellen', 'publion' ); ?></button>
                 <button id="publion-refresh" class="button" style="margin-left:8px; display:none;"><?php esc_html_e( 'Voorstellen vernieuwen', 'publion' ); ?></button>
+                <p class="description" style="max-width:760px; margin:10px 0 0;"><?php esc_html_e( 'Voor elke aanvraag leest Publion de actuele contentkaart van bestaande berichten. Nieuwe voorstellen moeten een andere zoekvraag of invalshoek hebben; een te vergelijkbaar concept wordt vóór het opslaan geblokkeerd.', 'publion' ); ?></p>
 
                 <h2 id="publion-suggestions-heading" style="display:none;"><?php esc_html_e( 'AI-onderwerpvoorstellen', 'publion' ); ?></h2>
                 <div id="publion-loading" style="display:none; margin: 10px 0; align-items:center; gap:10px;">
@@ -786,29 +792,70 @@ class Publion_Admin {
                 <div style="display:flex; align-items:flex-start; gap:18px; margin-top:22px;">
                     <!-- API Key Field -->
                     <div style="max-width:600px; flex:0 0 600px;">
-                        <input type="text" name="publion_api_key" id="publion_api_key"
-                            value="<?php echo esc_attr( $openai_api_key ); ?>"
-                            style="width:100%;" autocomplete="off">
+                        <label class="screen-reader-text" for="publion_api_key"><?php esc_html_e( 'Nieuwe OpenAI API-sleutel', 'publion' ); ?></label>
+                        <input type="password" name="publion_api_key" id="publion_api_key"
+                            value="" placeholder="<?php echo esc_attr( empty( $openai_api_key ) ? 'sk-...' : __( 'Er is al een sleutel opgeslagen; plak hier alleen een vervanging.', 'publion' ) ); ?>"
+                            style="width:100%;" autocomplete="new-password">
+                        <p class="description publion-key-help">
+                            <?php echo empty( $openai_api_key ) ? esc_html__( 'Plak hier je OpenAI API-sleutel.', 'publion' ) : esc_html__( 'Er is een API-sleutel opgeslagen. Die wordt om veiligheidsredenen niet opnieuw weergegeven.', 'publion' ); ?>
+                        </p>
                         <button type="button" id="publion-save-api-key" class="button button-primary" style="margin-top:8px;">
                             <?php esc_html_e( 'Sleutel opslaan', 'publion' ); ?>
                         </button>
                         <span id="publion-api-key-status" class="publion-save-status" style="position:relative; top:8px;"></span>
 
-                        <div style="margin-top:16px;">
+                        <div class="publion-model-control" style="margin-top:16px;">
                             <label for="publion_openai_model" style="display:block; font-weight:600; margin-bottom:6px;">
                                 <?php esc_html_e( 'OpenAI-model', 'publion' ); ?>
                             </label>
-                            <select id="publion_openai_model" style="width:100%; max-width:320px;">
+                            <select id="publion_openai_model" aria-describedby="publion-model-help" style="width:100%; max-width:420px;">
                                 <?php foreach ( $model_options as $value => $label ) : ?>
                                     <option value="<?php echo esc_attr( $value ); ?>" <?php selected( $openai_model, $value ); ?>>
                                         <?php echo esc_html( $label ); ?>
                                     </option>
                                 <?php endforeach; ?>
+                                <option value="__custom__" <?php selected( ! empty( $custom_model ) ); ?>><?php esc_html_e( 'Eigen OpenAI model-ID…', 'publion' ); ?></option>
                             </select>
-                            <button type="button" id="publion-save-model" class="button" style="margin-left:8px;">
-                                <?php esc_html_e( 'Model opslaan', 'publion' ); ?>
-                            </button>
-                            <span id="publion-model-status" class="publion-save-status" style="position:relative; top:2px; margin-left:6px;"></span>
+                            <div id="publion-custom-model-wrap" class="publion-custom-model-wrap" <?php echo empty( $custom_model ) ? 'hidden' : ''; ?>>
+                                <label for="publion_custom_openai_model"><?php esc_html_e( 'Exacte model-ID', 'publion' ); ?></label>
+                                <input type="text" id="publion_custom_openai_model" value="<?php echo esc_attr( $custom_model ); ?>" placeholder="gpt-5.6-sol" maxlength="128" spellcheck="false" autocomplete="off" <?php disabled( empty( $custom_model ) ); ?>>
+                            </div>
+                            <p id="publion-model-help" class="description publion-model-help">
+                                <?php esc_html_e( 'Kies Terra voor de beste balans bij artikelen, Sol voor maximale kwaliteit of Luna voor veel snelle taken. Een eigen ID moet exact overeenkomen met een model dat voor jouw OpenAI API-project beschikbaar is.', 'publion' ); ?>
+                            </p>
+                            <div class="publion-model-actions">
+                                <button type="button" id="publion-save-model" class="button">
+                                    <?php esc_html_e( 'Model opslaan', 'publion' ); ?>
+                                </button>
+                                <span id="publion-model-status" class="publion-save-status" aria-live="polite"></span>
+                            </div>
+                        </div>
+
+                        <div class="publion-model-control publion-image-model-control" style="margin-top:12px;">
+                            <label for="publion_openai_image_model" style="display:block; font-weight:600; margin-bottom:6px;">
+                                <?php esc_html_e( 'OpenAI-afbeeldingsmodel', 'publion' ); ?>
+                            </label>
+                            <select id="publion_openai_image_model" aria-describedby="publion-image-model-help" style="width:100%; max-width:420px;">
+                                <?php foreach ( $image_model_options as $value => $label ) : ?>
+                                    <option value="<?php echo esc_attr( $value ); ?>" <?php selected( $image_model, $value ); ?>>
+                                        <?php echo esc_html( $label ); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                                <option value="__custom__" <?php selected( ! empty( $custom_image_model ) ); ?>><?php esc_html_e( 'Eigen afbeeldingsmodel-ID…', 'publion' ); ?></option>
+                            </select>
+                            <div id="publion-custom-image-model-wrap" class="publion-custom-model-wrap" <?php echo empty( $custom_image_model ) ? 'hidden' : ''; ?>>
+                                <label for="publion_custom_openai_image_model"><?php esc_html_e( 'Exacte afbeeldingsmodel-ID', 'publion' ); ?></label>
+                                <input type="text" id="publion_custom_openai_image_model" value="<?php echo esc_attr( $custom_image_model ); ?>" placeholder="gpt-image-2" maxlength="128" spellcheck="false" autocomplete="off" <?php disabled( empty( $custom_image_model ) ); ?>>
+                            </div>
+                            <p id="publion-image-model-help" class="description publion-model-help">
+                                <?php esc_html_e( 'GPT Image 2 is de aanbevolen keuze. Een eigen model-ID moet afbeeldingen via de OpenAI Images API kunnen genereren én beschikbaar zijn voor jouw API-project.', 'publion' ); ?>
+                            </p>
+                            <div class="publion-model-actions">
+                                <button type="button" id="publion-save-image-model" class="button">
+                                    <?php esc_html_e( 'Afbeeldingsmodel opslaan', 'publion' ); ?>
+                                </button>
+                                <span id="publion-image-model-status" class="publion-save-status" aria-live="polite"></span>
+                            </div>
                         </div>
                     </div>
 
@@ -824,7 +871,7 @@ class Publion_Admin {
                                 <li><?php esc_html_e( 'Klik op de OpenAI-pagina op "Create new secret key"', 'publion' ); ?></li>
                                 <li><?php esc_html_e( 'Voer een naam in, kies "Default Project", zet Permissions op All en klik op "Create secret key"', 'publion' ); ?></li>
                                 <li><?php esc_html_e( 'Kopieer de sleutel, kom terug, plak in het veld en klik op "Sleutel opslaan"', 'publion' ); ?></li>
-                                <li><strong><em><?php esc_html_e( 'Zorg dat facturatie is ingeschakeld en je OpenAI-account is opgewaardeerd, anders werkt je sleutel niet!', 'publion' ); ?></em></strong></li>
+                                <li><strong><em><?php esc_html_e( 'Zorg dat je API-project facturatie en tegoed heeft. Een ChatGPT Plus- of Pro-abonnement is niet hetzelfde als API-facturatie.', 'publion' ); ?></em></strong></li>
                             </ol>
                         </div>
                     </div>
@@ -895,7 +942,7 @@ class Publion_Admin {
             </div>
 
             <p style="margin-top: 40px; font-size: 12px; color: #666;">
-                <?php esc_html_e( 'Afbeeldingen in posts worden gegenereerd door OpenAI (gpt-image-1.5).', 'publion' ); ?>
+                <?php printf( esc_html__( 'Afbeeldingen in posts worden gegenereerd door OpenAI (%s).', 'publion' ), esc_html( $image_model ) ); ?>
                 <?php
                 $image_error = get_option( 'publion_last_image_error', '' );
                 if ( ! empty( $image_error ) ) {

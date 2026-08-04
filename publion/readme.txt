@@ -5,7 +5,7 @@ Tags: ai content, chatgpt, blog automatisering, post generatie, blogpost ai
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.6.0
+Stable tag: 1.9.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,7 @@ Genereer en verfijn blogposts met AI. Kies een categorie, krijg onderwerp-ideeen
 Publion is je persoonlijke content-assistent voor WordPress. Deze plugin is bedoeld voor bloggers, marketeers en ondernemers en laat je:
 
 * Slimme onderwerpvoorstellen genereren voor een geselecteerde categorie, inclusief dynamische SEO-brief met focus-keyword, zoekintentie, invalshoek en FAQ-vragen.
+* Voor iedere AI-run een actuele contentkaart van bestaande berichten gebruiken en nieuwe, te vergelijkbare concepten blokkeren.
 * Een content-wachtrij opbouwen en beheren.
 * Automatisch volledige blogposts (concepten) maken met ChatGPT.
 * 6 contextbewuste AI-afbeeldingen genereren (5 in de content en 1 uitgelichte afbeelding).
@@ -27,6 +28,9 @@ Publion is je persoonlijke content-assistent voor WordPress. Deze plugin is bedo
 * Optionele dynamische BlogPosting- en FAQ-structured data voor nieuwe Publion-artikelen.
 * De afbeeldingsafronding van alle Publion-afbeeldingen instellen; standaard 8px.
 * Thema-vriendelijke artikelweergave: volg de bestaande themastijl of kies een verfijnde leesstijl met instelbare accentkleur, leesbreedte en eigen gescopede CSS.
+* Actuele OpenAI-modelkeuze: GPT-5.6 Sol, Terra en Luna, GPT-5.4, Mini en Nano, met een gevalideerd veld voor een eigen model-ID.
+* Afzonderlijke keuze voor GPT Image 2, eerdere afbeeldingsmodellen of een eigen afbeeldingsmodel-ID.
+* API-sleutels worden na opslag niet meer in het instellingenformulier weergegeven; model- en API-fouten zijn duidelijker uitgelegd.
 * Optionele Rank Math integratie met een dynamisch focus-keyword en meta description.
 * Optioneel e-mailmeldingen ontvangen wanneer een nieuwe conceptpost is aangemaakt.
 
@@ -51,10 +55,16 @@ Nee. De plugin maakt concepten (op schema of op aanvraag) zodat je ze handmatig 
 Ja. Gebruik de knop **Nu maken** in de wachtrij.
 
 = Waar komen de afbeeldingen vandaan? =
-Publion genereert afbeeldingen met OpenAI (gpt-image-1.5). Als genereren faalt, wordt een placeholder gebruikt zodat je die later kunt vervangen.
+Publion genereert afbeeldingen met het gekozen OpenAI-afbeeldingsmodel. GPT Image 2 (`gpt-image-2`) is de standaard voor nieuwe installaties. Als genereren faalt, wordt een placeholder gebruikt zodat je die later kunt vervangen.
+
+= Kan ik zelf een afbeeldingsmodel invullen? =
+Ja. Kies **Eigen afbeeldingsmodel-ID…** onder OpenAI/ChatGPT instellingen en vul de exacte OpenAI API-model-ID in. Het model moet de Images API ondersteunen en beschikbaar zijn voor jouw API-project.
 
 = Kan ik de afgeronde hoeken van afbeeldingen aanpassen? =
 Ja. Ga naar **Instellingen voor postcreatie** en kies een waarde tussen 0 en 48px. Nieuwe en bestaande Publion-artikelen gebruiken standaard 8px.
+
+= Kan ik zelf een OpenAI-model invullen? =
+Ja. Kies **Eigen OpenAI model-ID…** onder OpenAI/ChatGPT instellingen en vul de exacte API-model-ID in. Publion controleert het formaat vooraf; OpenAI controleert vervolgens of dat model voor jouw API-project beschikbaar is.
 
 = Garandeert Publion een positie in Google of AI-antwoorden? =
 Nee. Publion maakt de inhoud technisch en redactioneel beter voorbereid, maar ranking hangt ook af van kwaliteit, autoriteit, concurrentie en technische SEO van de website.
@@ -70,6 +80,20 @@ Deze versie maakt standaard blogposts aan.
 4. Maak automatisch volledige conceptposts met AI-afbeeldingen.
 
 == Changelog ==
+
+= 1.9.0 =
+* Nieuwe afzonderlijke afbeeldingsmodelkiezer met GPT Image 2 als standaard, GPT Image 1.5, GPT Image 1 en een eigen model-ID.
+* Afbeeldingsfouten tonen nu ook het modelgerelateerde OpenAI-antwoord veilig in het dashboard.
+
+= 1.8.0 =
+* Onderwerp- en artikelgeneratie lezen nu eerst een actuele contentkaart van bestaande WordPress-berichten.
+* Dubbele of sterk vergelijkbare titels en inhoud worden lokaal geblokkeerd vóór er een WordPress-concept wordt aangemaakt.
+* De handleiding legt de contentkaart, foutmelding en noodzakelijke redactionele controle uit.
+
+= 1.7.0 =
+* De modelkiezer bevat GPT-5.6 Sol, Terra en Luna, GPT-5.4, GPT-5.4 Mini en GPT-5.4 Nano naast eerdere modellen.
+* Beheerders kunnen een eigen, gevalideerde OpenAI model-ID opslaan.
+* De API-sleutel wordt na opslag niet opnieuw in het dashboard getoond en AI-fouten melden nu concreet wat er gecontroleerd moet worden.
 
 = 1.6.0 =
 * Verbeterde alt-teksten voor content- en media-afbeeldingen, zonder keyword stuffing.
@@ -104,6 +128,6 @@ Eerste release - genereer AI-gedreven conceptposts volgens planning en keur ze g
 
 == Credits ==
 
-Afbeeldingen in posts worden gegenereerd met OpenAI (gpt-image-1.5).
+Afbeeldingen in posts worden gegenereerd met het gekozen OpenAI-afbeeldingsmodel (standaard: GPT Image 2).
 AI-content wordt gegenereerd met OpenAI (ChatGPT).
 Plugin ontwikkeld door Jaymian-Lee.

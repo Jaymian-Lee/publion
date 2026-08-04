@@ -523,6 +523,9 @@ function publion_normalize_seo_suggestions( $text ) {
 			if ( ! is_array( $item ) || empty( $item['title'] ) ) {
 				continue;
 			}
+			if ( function_exists( 'publion_find_existing_content_conflict' ) && publion_find_existing_content_conflict( $item['title'] ) ) {
+				continue;
+			}
 			$questions = isset( $item['faq_questions'] ) && is_array( $item['faq_questions'] ) ? $item['faq_questions'] : array();
 			$questions = array_slice( array_filter( array_map( 'sanitize_text_field', $questions ) ), 0, 4 );
 			$suggestions[] = array(
@@ -539,10 +542,10 @@ function publion_normalize_seo_suggestions( $text ) {
 	}
 
 	if ( empty( $suggestions ) ) {
-		foreach ( preg_split( '/\r\n|\n|\r/', $text ) as $line ) {
-			$line = trim( preg_replace( '/^\s*(?:[-*]+|\d+[\.\)])\s*/', '', $line ) );
-			if ( '' !== $line ) {
-				$suggestions[] = array( 'title' => sanitize_text_field( $line ), 'focus_keyword' => sanitize_text_field( $line ), 'search_intent' => 'informatief', 'angle' => '', 'faq_questions' => array() );
+	foreach ( preg_split( '/\r\n|\n|\r/', $text ) as $line ) {
+		$line = trim( preg_replace( '/^\s*(?:[-*]+|\d+[\.\)])\s*/', '', $line ) );
+		if ( '' !== $line && ( ! function_exists( 'publion_find_existing_content_conflict' ) || ! publion_find_existing_content_conflict( $line ) ) ) {
+			$suggestions[] = array( 'title' => sanitize_text_field( $line ), 'focus_keyword' => sanitize_text_field( $line ), 'search_intent' => 'informatief', 'angle' => '', 'faq_questions' => array() );
 			}
 			if ( count( $suggestions ) >= 5 ) {
 				break;
@@ -594,8 +597,11 @@ function publion_get_topics_callback() {
 		$avoid_section = "\n\nVermijd herhaling of suggesties die te veel lijken op deze eerder gebruikte onderwerpen:\n" . $list;
 	}
 
+	$content_map = publion_get_existing_content_map();
+
 	$full_prompt  = $pre_prompt . "\n\nOntwikkel 5 onderscheidende, behulpzame artikelkansen voor de categorie \"" . $category . "\"." . $avoid_section;
 	$full_prompt .= "\nKies onderwerpen met een duidelijke zoekvraag, niet alleen brede thema's. Vermijd keyword stuffing, vage titels, ongefundeerde claims en onderwerpen die niet echt bij de categorie passen. Denk vanuit organisch zoeken én citeerbaarheid in AI-antwoorden.";
+	$full_prompt .= "\n\nLees eerst de onderstaande actuele contentkaart van alle " . (int) $content_map['count'] . " bestaande WordPress-berichten. Maak uitsluitend onderwerpen die een nieuwe zoekvraag of aantoonbaar andere invalshoek behandelen. Hergebruik geen bestaande titel, koppenstructuur, FAQ of centrale uitleg. Zet in angle expliciet wat dit onderwerp uniek maakt ten opzichte van de kaart.\n\n=== ACTUELE CONTENTKAART ===\n" . $content_map['context'] . "\n=== EINDE CONTENTKAART ===";
 	$full_prompt .= "\n\nGeef exact één geldige JSON-array terug, zonder Markdown of toelichting. Elk object heeft uitsluitend: title (concrete titel), focus_keyword (één natuurlijke primaire zoekterm), search_intent (informatief, commercieel, transactioneel of navigerend), angle (de unieke praktische invalshoek) en faq_questions (array met 3 concrete vragen die lezers stellen).";
 
 	$model = publion_get_openai_model();
@@ -607,31 +613,35 @@ function publion_get_topics_callback() {
 				'Content-Type'  => 'application/json',
 			],
 			'body'    => wp_json_encode(
-				[
-					'model'       => $model,
-					'messages'    => [
-						[ 'role' => 'system', 'content' => 'Je bent een behulpzame assistent.' ],
-						[ 'role' => 'user', 'content' => $full_prompt ],
-					],
-					'temperature' => 0.7,
-					'max_tokens'  => 500,
-				]
+				publion_build_openai_chat_body(
+					$model,
+					array(
+						array( 'role' => 'system', 'content' => 'Je bent een behulpzame assistent.' ),
+						array( 'role' => 'user', 'content' => $full_prompt ),
+					),
+					500
+				)
 			),
-			'timeout' => 20,
+			'timeout' => 60,
 		]
 	);
 
-	if ( is_wp_error( $response ) ) {
-		wp_send_json_error( 'API-aanvraag mislukt.' );
+	if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+		$error = publion_get_openai_request_error( $response, $model );
+		update_option( 'publion_last_openai_error', $error );
+		wp_send_json_error( $error );
 	}
 
 	$body = json_decode( wp_remote_retrieve_body( $response ), true );
 	$text = $body['choices'][0]['message']['content'] ?? '';
 
 	if ( ! $text ) {
-		wp_send_json_error( 'Geen antwoord van ChatGPT.' );
+		$error = 'OpenAI gaf geen onderwerpvoorstellen terug. Probeer een ander model of verkort de voorprompt.';
+		update_option( 'publion_last_openai_error', $error );
+		wp_send_json_error( $error );
 	}
 
+	delete_option( 'publion_last_openai_error' );
 	wp_send_json_success( publion_normalize_seo_suggestions( $text ) );
 	return;
 
@@ -953,16 +963,48 @@ function publion_save_model_callback() {
 		wp_send_json_error( 'Niet geautoriseerd' );
 	}
 
-	$model  = sanitize_text_field( wp_unslash( $_POST['model'] ?? '' ) );
-	$models = publion_get_allowed_openai_models();
+	$model_choice = sanitize_text_field( wp_unslash( $_POST['model'] ?? '' ) );
+	$custom_model = publion_normalize_openai_model_id( wp_unslash( $_POST['custom_model'] ?? '' ) );
+	$models       = publion_get_allowed_openai_models();
+	$model        = '__custom__' === $model_choice ? $custom_model : publion_normalize_openai_model_id( $model_choice );
 
-	if ( empty( $model ) || ! isset( $models[ $model ] ) ) {
-		wp_send_json_error( 'Ongeldige modelkeuze.' );
+	if ( empty( $model ) ) {
+		wp_send_json_error( 'Vul een geldige OpenAI model-ID in. Gebruik alleen letters, cijfers, punten, underscores, dubbele punten en koppeltekens.' );
+	}
+
+	if ( '__custom__' !== $model_choice && ! isset( $models[ $model ] ) ) {
+		wp_send_json_error( 'Kies een model uit de lijst of gebruik de optie voor een eigen model-ID.' );
 	}
 
 	update_option( 'publion_openai_model', $model );
 
-	wp_send_json_success( [ 'message' => 'Model opgeslagen.' ] );
+	wp_send_json_success( [ 'message' => sprintf( 'Model %s opgeslagen. OpenAI controleert de beschikbaarheid bij de eerstvolgende aanvraag.', $model ) ] );
+}
+
+/* ===== Save Image Model ===== */
+add_action( 'wp_ajax_publion_save_image_model', 'publion_save_image_model_callback' );
+function publion_save_image_model_callback() {
+	check_ajax_referer( 'publion_nonce', 'nonce' );
+
+	if ( ! current_user_can( 'manage_options' ) ) {
+		wp_send_json_error( 'Niet geautoriseerd' );
+	}
+
+	$model_choice = sanitize_text_field( wp_unslash( $_POST['model'] ?? '' ) );
+	$custom_model = publion_normalize_openai_model_id( wp_unslash( $_POST['custom_model'] ?? '' ) );
+	$models       = publion_get_allowed_openai_image_models();
+	$model        = '__custom__' === $model_choice ? $custom_model : publion_normalize_openai_model_id( $model_choice );
+
+	if ( empty( $model ) ) {
+		wp_send_json_error( 'Vul een geldige afbeeldingsmodel-ID in. Gebruik alleen letters, cijfers, punten, underscores, dubbele punten en koppeltekens.' );
+	}
+
+	if ( '__custom__' !== $model_choice && ! isset( $models[ $model ] ) ) {
+		wp_send_json_error( 'Kies een afbeeldingsmodel uit de lijst of gebruik de optie voor een eigen model-ID.' );
+	}
+
+	update_option( 'publion_openai_image_model', $model );
+	wp_send_json_success( [ 'message' => sprintf( 'Afbeeldingsmodel %s opgeslagen. OpenAI controleert de beschikbaarheid bij de eerstvolgende afbeeldingsopdracht.', $model ) ] );
 }
 
 /* ===== Save Prompt ===== */
@@ -1212,7 +1254,7 @@ function publion_create_post_now() {
 	$seo_brief['focus_keyword'] = sanitize_text_field( $topic->focus_keyword ?? $topic->topic );
 	$post_html = publion_generate_chatgpt_html( $topic->topic, $topic->category_label, $seo_brief );
 	if ( is_wp_error( $post_html ) || ! $post_html ) {
-		wp_send_json_error( 'Genereren van content mislukt.' );
+		wp_send_json_error( is_wp_error( $post_html ) ? $post_html->get_error_message() : 'Genereren van content mislukt.' );
 	}
 
 	// Generate 6 context-aware AI images based on nearby text.

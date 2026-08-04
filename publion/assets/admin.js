@@ -120,6 +120,13 @@ jQuery(document).ready(function ($) {
 	// Refresh Suggestions button
 	function renderSuggestions(suggestions) {
 		const $list = $('#publion-suggestions').empty();
+		if (!suggestions.length) {
+			$list.append($('<li>', {
+				class: 'publion-suggestion publion-suggestion-empty',
+				text: 'Geen veilige nieuwe onderwerpen gevonden. De voorstellen overlapten met bestaande berichten; kies een andere categorie of verfijn je voorprompt.'
+			}));
+			return;
+		}
 		suggestions.forEach(function (suggestion) {
 			const title = suggestion.title || suggestion;
 			const brief = {
@@ -387,12 +394,17 @@ jQuery(document).ready(function ($) {
 	    e.preventDefault();
 
 	    const $status = $('#publion-api-key-status');
+	    const apiKey = $('#publion_api_key').val().trim();
+	    if (!apiKey) {
+	        $status.html('<span style="color:#475569; margin-left:5px;">Laat dit veld leeg om de huidige sleutel te behouden.</span>');
+	        return;
+	    }
 	    $status.html('<span class="spinner is-active" style="float:none;display:inline-block;"></span>');
 
 	    $.post(Publion.ajax_url, {
 	        action: 'publion_save_api_key',
 	        nonce: Publion.nonce,
-	        api_key: $('#publion_api_key').val()
+	        api_key: apiKey
 	    }, function (response) {
 	        if (response.success) {
 	            $status.html('<span style="color:green; margin-left:5px;">✅ Opgeslagen!</span>');
@@ -404,6 +416,32 @@ jQuery(document).ready(function ($) {
 	    });
 	});
 
+	function syncCustomModelInput() {
+	    const isCustom = $('#publion_openai_model').val() === '__custom__';
+	    const $wrap = $('#publion-custom-model-wrap');
+	    const $input = $('#publion_custom_openai_model');
+	    $wrap.prop('hidden', !isCustom).attr('aria-hidden', String(!isCustom));
+	    $input.prop('disabled', !isCustom);
+	    if (isCustom) {
+	        $input.trigger('focus');
+	    }
+	}
+
+	$('#publion_openai_model').on('change', syncCustomModelInput);
+
+	function syncCustomImageModelInput() {
+	    const isCustom = $('#publion_openai_image_model').val() === '__custom__';
+	    const $wrap = $('#publion-custom-image-model-wrap');
+	    const $input = $('#publion_custom_openai_image_model');
+	    $wrap.prop('hidden', !isCustom).attr('aria-hidden', String(!isCustom));
+	    $input.prop('disabled', !isCustom);
+	    if (isCustom) {
+	        $input.trigger('focus');
+	    }
+	}
+
+	$('#publion_openai_image_model').on('change', syncCustomImageModelInput);
+
 	// Save Model via AJAX
 	$('#publion-save-model').on('click', function (e) {
 	    e.preventDefault();
@@ -414,15 +452,38 @@ jQuery(document).ready(function ($) {
 	    $.post(Publion.ajax_url, {
 	        action: 'publion_save_model',
 	        nonce: Publion.nonce,
-	        model: $('#publion_openai_model').val()
+	        model: $('#publion_openai_model').val(),
+	        custom_model: $('#publion_custom_openai_model').val()
 	    }, function (response) {
 	        if (response.success) {
-	            $status.html('<span style="color:green; margin-left:5px;">✅ Opgeslagen!</span>');
+	            $status.text(response.data.message || 'Model opgeslagen.');
 	        } else {
-	            $status.html('<span style="color:red;">❌ Opslaan mislukt.</span>');
+	            $status.text(response.data || 'Opslaan mislukt.');
 	        }
 	    }).fail(function () {
-	        $status.html('<span style="color:red;">❌ AJAX error.</span>');
+	        $status.text('Opslaan mislukt door een netwerkfout.');
+	    });
+	});
+
+	$('#publion-save-image-model').on('click', function (e) {
+	    e.preventDefault();
+
+	    const $status = $('#publion-image-model-status');
+	    $status.html('<span class="spinner is-active" style="float:none;display:inline-block;"></span>');
+
+	    $.post(Publion.ajax_url, {
+	        action: 'publion_save_image_model',
+	        nonce: Publion.nonce,
+	        model: $('#publion_openai_image_model').val(),
+	        custom_model: $('#publion_custom_openai_image_model').val()
+	    }, function (response) {
+	        if (response.success) {
+	            $status.text(response.data.message || 'Afbeeldingsmodel opgeslagen.');
+	        } else {
+	            $status.text(response.data || 'Opslaan mislukt.');
+	        }
+	    }).fail(function () {
+	        $status.text('Opslaan mislukt door een netwerkfout.');
 	    });
 	});
 
