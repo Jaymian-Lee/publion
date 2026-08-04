@@ -15,18 +15,19 @@ class Publion_Admin {
     }
 
     public function add_admin_menu() {
-        add_submenu_page(
-            'edit.php', // parent slug = Posts
+        add_menu_page(
             __( 'Publion', 'publion' ),
             __( 'Publion', 'publion' ),
             'manage_options',
             'publion',
-            [ $this, 'render_admin_page' ]
+            [ $this, 'render_admin_page' ],
+            'dashicons-welcome-write-blog',
+            26
         );
     }
 
     public function enqueue_assets( $hook ) {
-        $is_publion_page = ( $hook === 'posts_page_publion' );
+        $is_publion_page = ( $hook === 'toplevel_page_publion' );
         if ( ! $is_publion_page ) {
             $page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
             $is_publion_page = ( $page === 'publion' );

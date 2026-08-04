@@ -143,7 +143,7 @@ def header_footer(canvas, doc):
     canvas.drawString(20 * mm, height - 10 * mm, "PUBLION  |  HANDLEIDING")
     canvas.setFont("Helvetica", 7.5)
     canvas.setFillColor(MUTED)
-    canvas.drawRightString(width - 20 * mm, 10 * mm, f"Versie 1.9.24  |  Pagina {doc.page}")
+    canvas.drawRightString(width - 20 * mm, 10 * mm, f"Versie 1.9.25  |  Pagina {doc.page}")
     canvas.restoreState()
 
 

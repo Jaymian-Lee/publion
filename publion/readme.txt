@@ -5,7 +5,7 @@ Tags: ai content, chatgpt, blog automatisering, post generatie, blogpost ai
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.9.24
+Stable tag: 1.9.25
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -80,6 +80,9 @@ Deze versie maakt standaard blogposts aan.
 4. Maak automatisch volledige conceptposts met AI-afbeeldingen.
 
 == Changelog ==
+
+= 1.9.25 =
+* Publion staat nu als zelfstandig hoofdmenu-item in het WordPress-beheermenu, in plaats van onder Berichten.
 
 = 1.9.24 =
 * De uitgebreide Rank Math-workflow bereidt nieuwe artikelen voor op de officiële contenttests: unieke focus-keyword, keyword-led metadata, korte URL, intro, koppen, relevante links, inhoudsopgave, vier of meer afbeeldingen en korte alinea's.
