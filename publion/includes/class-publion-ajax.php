@@ -954,14 +954,37 @@ function publion_save_queue() {
 	global $wpdb;
 	publion_register_table_on_wpdb();
 
-	$queue_raw = filter_input( INPUT_POST, 'queue', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY );
-	if ( ! is_array( $queue_raw ) ) {
-		$queue_raw = [];
+	// Prefer an explicit JSON payload. filter_input() is unreliable for nested
+	// arrays in several PHP/FastCGI configurations and could turn a valid UI
+	// selection into an empty queue. Keep the normal POST-array as a fallback
+	// for existing browser sessions.
+	$queue_raw  = array();
+	$queue_json = isset( $_POST['queue_json'] ) ? (string) wp_unslash( $_POST['queue_json'] ) : '';
+	if ( '' !== $queue_json ) {
+		$decoded = json_decode( $queue_json, true );
+		if ( JSON_ERROR_NONE !== json_last_error() || ! is_array( $decoded ) ) {
+			publion_send_error( 'validation', __( 'De geselecteerde onderwerpen konden niet veilig worden gelezen. Ververs de voorstellen en probeer het opnieuw.', 'publion' ) );
+		}
+		$queue_raw = $decoded;
+	} elseif ( isset( $_POST['queue'] ) && is_array( $_POST['queue'] ) ) {
+		$queue_raw = wp_unslash( $_POST['queue'] );
+	}
+
+	if ( empty( $queue_raw ) ) {
+		publion_send_error( 'validation', __( 'Er zijn geen onderwerpen ontvangen. Selecteer minimaal één voorstel en probeer het opnieuw.', 'publion' ) );
+	}
+	if ( count( $queue_raw ) > 25 ) {
+		publion_send_error( 'validation', __( 'Je kunt maximaal 25 onderwerpen tegelijk aan de wachtrij toevoegen.', 'publion' ) );
 	}
 
 	$queue = [];
 	$seen  = [];
+	$rejected = array();
 	foreach ( $queue_raw as $item_raw ) {
+		if ( ! is_array( $item_raw ) ) {
+			$rejected[] = __( 'Een onderwerp had een onleesbaar formaat.', 'publion' );
+			continue;
+		}
 		$topic_raw          = isset( $item_raw['topic'] ) ? (string) $item_raw['topic'] : '';
 		$topic_raw          = str_replace( '\"', '', $topic_raw );
 		$category_id_raw    = isset( $item_raw['category'] ) ? $item_raw['category'] : 0;
@@ -973,9 +996,14 @@ function publion_save_queue() {
 		// Never persist a malformed response from an old browser cache or a
 		// manipulated request, even when the client-side guard was bypassed.
 		if ( ! publion_is_safe_suggestion_title( $topic_clean ) ) {
+			$rejected[] = sprintf( __( '“%s” heeft geen geldige, volledige onderwerptitel.', 'publion' ), $topic_clean ?: __( 'Dit onderwerp', 'publion' ) );
 			continue;
 		}
 		$category_id = intval( $category_id_raw );
+		if ( ! $category_id || ! term_exists( $category_id, 'category' ) ) {
+			$rejected[] = sprintf( __( '“%s” heeft geen geldige categorie meer. Kies opnieuw een categorie.', 'publion' ), $topic_clean );
+			continue;
+		}
 		$key = mb_strtolower( $topic_clean ) . '|' . $category_id;
 		if ( isset( $seen[ $key ] ) ) {
 			continue;
@@ -995,7 +1023,14 @@ function publion_save_queue() {
 		];
 	}
 	if ( empty( $queue ) ) {
-		publion_send_error( 'validation', __( 'Er zijn geen geldige onderwerpen ontvangen. Vernieuw de voorstellen en kies daarna opnieuw een volledig onderwerp.', 'publion' ) );
+		publion_send_error(
+			'validation',
+			__( 'Geen van de geselecteerde onderwerpen kon worden gevalideerd.', 'publion' ),
+			array(
+				'next_step' => __( 'Ververs de voorstellen. Kies daarna opnieuw een categorie en voeg alleen complete onderwerpkaarten toe.', 'publion' ),
+				'invalid_items' => array_slice( $rejected, 0, 5 ),
+			)
+		);
 	}
 
 	$inserted = 0;
@@ -1047,6 +1082,8 @@ function publion_save_queue() {
 			'count'   => $inserted,
 			'skipped' => $skipped,
 			'failed'  => $failed,
+			'rejected' => count( $rejected ),
+			'rejected_items' => array_slice( $rejected, 0, 5 ),
 			'message' => $failed > 0
 				? __( 'Een deel van de onderwerpen kon niet worden opgeslagen. Controleer de wachtrij voordat je verdergaat.', 'publion' )
 				: __( 'De geldige onderwerpen zijn aan de wachtrij toegevoegd.', 'publion' ),

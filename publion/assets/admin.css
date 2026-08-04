@@ -184,6 +184,8 @@
 .publion-operation-error { margin-top: 10px; padding: 11px 12px; color: #991b1b; background: #fff7f7; border: 1px solid #fecaca; border-radius: 8px; text-align: left; }
 .publion-operation-error strong { display: block; font-size: 13px; }
 .publion-operation-error p { margin: 5px 0; font-size: 12px; line-height: 1.45; }
+.publion-operation-error-list { margin: 8px 0; padding-left: 18px; }
+.publion-operation-error-list li { margin: 3px 0; font-size: 12px; line-height: 1.4; }
 .publion-operation-error-next { color: #7f1d1d; font-weight: 600; }
 .publion-operation-error small { display: block; margin-top: 7px; color: #7f1d1d; font-size: 10px; }
 .publion-operation-error .button { margin-top: 9px; }

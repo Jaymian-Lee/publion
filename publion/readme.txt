@@ -5,7 +5,7 @@ Tags: ai content, chatgpt, blog automatisering, post generatie, blogpost ai
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.9.9
+Stable tag: 1.9.10
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -80,6 +80,11 @@ Deze versie maakt standaard blogposts aan.
 4. Maak automatisch volledige conceptposts met AI-afbeeldingen.
 
 == Changelog ==
+
+= 1.9.10 =
+* Herstelt een opslagfout waarbij geldige geselecteerde onderwerpkaarten op sommige PHP/FastCGI-servers als een lege wachtrij konden aankomen.
+* Wachtrijgegevens gebruiken nu een expliciet JSON-contract met veilige fallback voor bestaande browsersessies.
+* Bij een echte validatiefout toont Publion per afgekeurd onderwerp de concrete titel- of categoriereden.
 
 = 1.9.9 =
 * Uitgebreide foutafhandeling voor onderwerpvoorstellen, wachtrij, planning, instellingen, modellen, prompt en postcreatie.

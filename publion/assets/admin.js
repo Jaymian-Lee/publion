@@ -40,6 +40,7 @@ jQuery(document).ready(function ($) {
 			actionLabel: details.action_label || (sessionExpired ? t('refresh_queue', 'Ververs wachtrij') : ''),
 			actionTab: details.action_tab || (sessionExpired ? 'publion-queue' : ''),
 			reference: details.reference || '',
+			invalidItems: Array.isArray(details.invalid_items) ? details.invalid_items : [],
 			retryable: details.retryable !== false
 		};
 	}
@@ -51,6 +52,11 @@ jQuery(document).ready(function ($) {
 		$panel.append($('<p>', { text: details.message }));
 		if (!compact && details.nextStep) {
 			$panel.append($('<p>', { class: 'publion-operation-error-next', text: details.nextStep }));
+		}
+		if (details.invalidItems && details.invalidItems.length) {
+			const $list = $('<ul>', { class: 'publion-operation-error-list' });
+			details.invalidItems.forEach(function (item) { $list.append($('<li>', { text: item })); });
+			$panel.append($list);
 		}
 		if (details.reference) {
 			$panel.append($('<small>', { text: t('reference', 'Referentie') + ': ' + details.reference }));
@@ -347,7 +353,7 @@ jQuery(document).ready(function ($) {
 	    $.post(Publion.ajax_url, {
 	        action: 'publion_save_queue',
 	        nonce: Publion.nonce,
-	        queue: postQueue
+	        queue_json: JSON.stringify(postQueue)
 	    }, function (response) {
 	        if (response.success) {
 	            $status.html('<span style="color:green;">✅ Toegevoegd aan de wachtrij voor postcreatie!</span>');
