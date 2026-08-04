@@ -4,7 +4,7 @@
 
 Publion helpt redacties, marketeers en ondernemers om van een categorie naar een gecontroleerd artikelconcept te werken. De plugin maakt niet alleen tekst: hij bouwt eerst een contentbrief met zoekintentie, focus-keyword, invalshoek en FAQ-vragen. Daarna kun je onderwerpen plannen, artikelen als concept maken, afbeeldingen laten genereren en de resultaten volgen in je eigen analyticsomgeving.
 
-De huidige release is **1.9.15**. Download het WordPress-importpakket: [publion-wordpress-1.9.15.zip](publion-wordpress-1.9.15.zip). Het pakket bevat precies één hoofdmap: `publion/`. Dat is de vereiste WordPress-structuur en voorkomt dat WordPress een tweede, losstaande pluginmap maakt.
+De huidige release is **1.9.20**. Download het WordPress-importpakket: [publion-wordpress-1.9.20.zip](publion-wordpress-1.9.20.zip). Het pakket bevat precies één hoofdmap: `publion/`. Dat is de vereiste WordPress-structuur en voorkomt dat WordPress een tweede, losstaande pluginmap maakt.
 
 ## In één oogopslag
 
@@ -71,7 +71,7 @@ Nieuwe AI-onderwerpvoorstellen en artikelen volgen juist de **sitetaal**. Zo kan
 
 ### Installeren via WordPress
 
-1. Download [publion-wordpress-1.9.15.zip](publion-wordpress-1.9.15.zip).
+1. Download [publion-wordpress-1.9.20.zip](publion-wordpress-1.9.20.zip).
 2. Ga in WordPress naar **Plugins → Nieuwe plugin → Plugin uploaden**.
 3. Upload het zipbestand, installeer en activeer de plugin.
 4. Open **Berichten → Publion**.
@@ -129,7 +129,8 @@ Ga naar **Instellingen voor postcreatie** en kies:
 | Poststatus | Kies bij voorkeur **Concept**; zo blijft review verplicht. |
 | Standaardauteur | Koppelt automatisch gemaakte posts aan de juiste redacteur. |
 | Automatisch onderwerp | Voegt op vaste momenten een nieuwe contentkans toe. |
-| Externe voorkeurswebsite | Geeft de AI een prioriteitsdomein voor relevante externe links. |
+| Externe bronwebsite | Geeft de AI een betrouwbare externe bronwebsite. Publion gebruikt de HTTPS-homepage als veilige fallback. |
+| Geverifieerde externe bron-URL's | Zet één relevante HTTPS-URL per regel. Publion gebruikt precies één passende bron per artikel; zonder ingestelde bron verzint de plugin nooit een URL. |
 | Rank Math | Slaat focus-keyword, titel en metabeschrijving op wanneer Rank Math dit gebruikt. |
 | Structured data | Publiceert optioneel `BlogPosting`- en `FAQPage`-gegevens voor Publion-posts, tenzij Rank Math, Yoast of All in One SEO al articleschema beheert. |
 | Thema-integratie | Volgt standaard de bestaande themastijl; biedt optioneel een verfijnde leesstijl en gescoped Custom CSS. |
@@ -222,7 +223,7 @@ Bij **Nu maken** staat de actuele fase met het bijbehorende workflowpercentage i
 2. Laat een artikel schrijven met een directe beantwoording, semantische HTML, duidelijke `h2`/`h3`-structuur, voorbeelden en FAQ-sectie.
 3. Vraagt de AI om feitelijk te blijven, niet te herformuleren wat al bestaat en geen bronnen, citaten, cijfers of ervaringen te verzinnen.
 4. Vergelijkt titel en inhoud lokaal met alle bestaande berichten; bij een conflict wordt geen concept opgeslagen.
-5. Schoont de HTML op en verbetert relevante externe links en interne links.
+5. Schoont de HTML op, controleert externe links met een veilige HEAD/GET-fallback, bewaart ingestelde bron-URL's en verbetert interne links.
 6. Genereert vijf contextuele afbeeldingen voor de inhoud en één uitgelichte afbeelding.
 7. Voegt beschrijvende alt-tekst, lazy loading en de ingestelde border-radius toe.
 8. Maakt een WordPress-post als concept of gepubliceerd item, afhankelijk van de instelling.
@@ -248,7 +249,7 @@ Publion optimaliseert voor begrijpelijke, nuttige inhoud in plaats van keyword s
 - natuurlijke focus-term en duidelijke subonderwerpen;
 - scanbare koppen, korte alinea’s en alleen zinvolle lijsten of tabellen;
 - feitelijke, controleerbare inhoud;
-- relevante interne links en veilige externe links;
+- relevante interne links en veilige, verifieerbare externe links. Voor een gegarandeerde externe bron voeg je zelf minimaal één relevante HTTPS-URL toe in de postinstellingen;
 - FAQ-vragen die inhoudelijk in de pagina worden beantwoord.
 
 Als **Gestructureerde artikeldata** aan staat, genereert Publion op de frontend dynamische JSON-LD op basis van de definitieve post, auteur, datum, thumbnail en FAQ-inhoud. De data staat buiten de postcontent, zodat WordPress de JSON-LD niet tijdens opschonen verwijdert. Is Rank Math, Yoast of All in One SEO actief, dan geeft Publion de artikeldata aan die plugin uit: zo ontstaat er per artikel maar één schema-eigenaar.

@@ -5,7 +5,7 @@ Tags: ai content, chatgpt, blog automatisering, post generatie, blogpost ai
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.9.15
+Stable tag: 1.9.20
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -80,6 +80,27 @@ Deze versie maakt standaard blogposts aan.
 4. Maak automatisch volledige conceptposts met AI-afbeeldingen.
 
 == Changelog ==
+
+= 1.9.20 =
+* De bulkstatus toont nu tijdens het genereren het actuele batchnummer, bijvoorbeeld: â€œItem 2 van 4 wordt verwerkt.â€
+
+= 1.9.19 =
+* Betrouwbare externe links blijven behouden wanneer een bron een HEAD-controle blokkeert; Publion probeert dan veilig een kleine GET-controle voordat een link als kapot wordt aangemerkt.
+* Geverifieerde bron-URL's uit de instellingen worden nu hard en veilig toegepast: zodra er geen dergelijke bron in de AI-tekst staat, voegt Publion precies Ã©Ã©n ingestelde HTTPS-bron toe.
+* De instellingen maken expliciet dat Publion nooit een bron-URL verzint. Voeg minstens Ã©Ã©n relevante bron-URL toe om een externe link per artikel te garanderen.
+
+= 1.9.18 =
+* Herstelt een race condition waardoor één wachtrij-item soms meerdere posts kon aanmaken.
+* Elke generatie claimt nu atomair het wachtrij-item en gebruikt daarnaast een gedeelde titel-lock voor handmatige generatie en WP-Cron.
+* Extra duplicaatcontrole direct vóór het opslaan blokkeert een tweede, vergelijkbare post als een andere workflow intussen al iets heeft aangemaakt.
+
+= 1.9.17 =
+* Live voortgang is monotone: een vertraagde oudere serverreactie kan het percentage niet meer terugzetten.
+* Tijdens een generatie toont Publion een realistische bandbreedte voor de totale duur. Na minimaal drie geslaagde runs gebruikt die schatting de eigen, gemeten doorlooptijden van de site.
+
+= 1.9.16 =
+* Nieuwe actie Geschiedenis wissen bij Aangemaakte posts, met een expliciete bevestiging.
+* Wist uitsluitend Publion-wachtrijgeschiedenis; WordPress-posts, concepten en media blijven behouden.
 
 = 1.9.15 =
 * De rode annuleerknop is nu strikt verborgen zolang er geen actieve artikelgeneratie loopt.

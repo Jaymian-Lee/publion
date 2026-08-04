@@ -143,7 +143,7 @@ def header_footer(canvas, doc):
     canvas.drawString(20 * mm, height - 10 * mm, "PUBLION  |  HANDLEIDING")
     canvas.setFont("Helvetica", 7.5)
     canvas.setFillColor(MUTED)
-    canvas.drawRightString(width - 20 * mm, 10 * mm, f"Versie 1.9.15  |  Pagina {doc.page}")
+    canvas.drawRightString(width - 20 * mm, 10 * mm, f"Versie 1.9.20  |  Pagina {doc.page}")
     canvas.restoreState()
 
 
@@ -199,8 +199,8 @@ def build_story():
     story.append(PageBreak())
 
     story += section("4. Van wachtrij naar conceptartikel", "Gebruik Nu maken voor een direct concept of stel een vast ritme in via WordPress Cron. Voor productie is een echte servercron betrouwbaarder dan verkeer-afhankelijke WP-Cron.")
-    story += [p("De echte voortgang", "h2"), p("De knop Nu maken toont servergestuurde checkpoints: onderzoek, tekst genereren, tekst nakijken, afbeeldingen voorbereiden, afbeelding genereren, artikel samenstellen, concept opslaan, SEO en metadata en afronden. Het percentage hoort bij een feitelijk voltooid checkpoint; het is geen geschatte laadanimatie. Het kruisje naast de knop vraagt een veilige annulering aan. Publion stopt dan bij het eerstvolgende veilige servermoment en laat het onderwerp in de wachtrij staan.")]
-    story += [p("Kwaliteit van de artikeltekst", "h2"), bullet("Een volledig semantisch HTML-concept met directe antwoorden, h2/h3-koppen, korte alinea's en waar passend een lijst, tabel of stappenplan."), bullet("Een complete generatie in plaats van aan elkaar geplakte vervolgteksten. Dit beperkt herhalingen en ongesloten lijsten."), bullet("Lokale duplicate-check op titel en inhoud voordat een nieuw WordPress-concept wordt aangemaakt."), bullet("Alleen relevante, verifieerbare links. Externe links krijgen veilige rel-attributen.")]
+    story += [p("De echte voortgang", "h2"), p("De knop Nu maken toont servergestuurde checkpoints: onderzoek, tekst genereren, tekst nakijken, afbeeldingen voorbereiden, afbeelding genereren, artikel samenstellen, concept opslaan, SEO en metadata en afronden. Het percentage hoort bij een feitelijk voltooid checkpoint; het is geen geschatte laadanimatie. Het kruisje naast de knop vraagt een veilige annulering aan. Publion stopt dan bij het eerstvolgende veilige servermoment en laat het onderwerp in de wachtrij staan. Bij bulk genereren toont de status altijd de positie in de geselecteerde batch, bijvoorbeeld: Item 2 van 4 wordt verwerkt.")]
+    story += [p("Kwaliteit van de artikeltekst", "h2"), bullet("Een volledig semantisch HTML-concept met directe antwoorden, h2/h3-koppen, korte alinea's en waar passend een lijst, tabel of stappenplan."), bullet("Een complete generatie in plaats van aan elkaar geplakte vervolgteksten. Dit beperkt herhalingen en ongesloten lijsten."), bullet("Lokale duplicate-check op titel en inhoud voordat een nieuw WordPress-concept wordt aangemaakt."), bullet("Alleen relevante, verifieerbare links. Voeg in Postcreatie-instellingen minstens één gecontroleerde HTTPS-bron-URL toe om per artikel één externe bron te waarborgen; Publion verzint nooit een URL."), bullet("Externe links krijgen veilige rel-attributen. Een bron die HEAD-blokkades gebruikt, wordt met een kleine GET-controle opnieuw gecontroleerd voordat de link wordt verwijderd.")]
     story += [note("Publiceer niet blind", "AI kan onjuiste of verouderde informatie geven. Controleer elke feitelijke claim, bron, veiligheidsinstructie, prijs, juridische uitspraak en merkbelofte voordat een concept live gaat.", AMBER)]
     story.append(PageBreak())
 

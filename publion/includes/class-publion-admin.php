@@ -93,6 +93,16 @@ class Publion_Admin {
                     'complete'                    => __( 'Klaar', 'publion' ),
                     'draft_ready'                 => __( 'Het artikelconcept is aangemaakt en staat klaar voor controle.', 'publion' ),
                     'post_created'                => __( 'Post succesvol aangemaakt. De wachtrij wordt bijgewerkt.', 'publion' ),
+                    'clear_history_confirm'       => __( 'Wil je de volledige Publion-geschiedenis van aangemaakte posts wissen? De originele WordPress-posts blijven behouden.', 'publion' ),
+                    'clear_history_success'       => __( 'De Publion-geschiedenis is gewist. Je WordPress-posts zijn niet verwijderd.', 'publion' ),
+                    'clear_history_failed'        => __( 'De Publion-geschiedenis kon niet worden gewist. Er is niets verwijderd.', 'publion' ),
+                    'clear_history'               => __( 'Geschiedenis wissen', 'publion' ),
+                    'clearing_history'            => __( 'Geschiedenis wissen…', 'publion' ),
+                    'history_cleared'             => __( 'Geschiedenis gewist', 'publion' ),
+                    'estimated_generation_time'   => __( 'Verwachte generatietijd', 'publion' ),
+                    'minutes_short'               => __( 'min.', 'publion' ),
+                    'estimate_learning'           => __( 'wordt nauwkeuriger na voltooide generaties', 'publion' ),
+                    'estimate_based_on'           => __( 'op basis van eerdere generaties', 'publion' ),
                     'create_failed'               => __( 'Post aanmaken mislukt. Controleer de getoonde voortgang en probeer opnieuw.', 'publion' ),
                     'creation_failed'             => __( 'Maken mislukt', 'publion' ),
                     'create_now'                  => __( 'Nu maken', 'publion' ),
@@ -130,7 +140,7 @@ class Publion_Admin {
                     'bulk_progress_summary'       => __( '%d van %d verwerkt.', 'publion' ),
                     'bulk_success_summary'        => __( '%d geslaagd.', 'publion' ),
                     'refresh_queue'               => __( 'Ververs wachtrij', 'publion' ),
-                    'bulk_processing'             => __( 'Item %d wordt verwerkt.', 'publion' ),
+                    'bulk_processing'             => __( 'Item %d van %d wordt verwerkt.', 'publion' ),
                     'bulk_delete_processing'      => __( 'Geselecteerde items worden verwijderd.', 'publion' ),
                     'bulk_failed'                 => __( 'Een of meer items konden niet worden verwerkt.', 'publion' ),
                     'session_expired_title'       => __( 'Je WordPress-sessie is verlopen.', 'publion' ),
@@ -597,6 +607,10 @@ class Publion_Admin {
                   <span class="publion-accordion-arrow">▼</span>
                 </h2>
                 <div class="publion-accordion-body" style="display:none;">
+                    <div class="publion-created-history-toolbar">
+                        <p class="description"><?php esc_html_e( 'Wis alleen de Publion-historie. De originele WordPress-posts blijven altijd behouden.', 'publion' ); ?></p>
+                        <button type="button" id="publion-clear-created-history" class="button button-secondary"><?php esc_html_e( 'Geschiedenis wissen', 'publion' ); ?></button>
+                    </div>
                     <table class="widefat striped" id="publion-created-table">
                         <thead>
                             <tr>
@@ -733,22 +747,22 @@ class Publion_Admin {
                         </tr>
 
                         <tr>
-                            <th scope="row"><?php esc_html_e( 'Voorkeurswebsite voor externe links', 'publion' ); ?></th>
+                            <th scope="row"><?php esc_html_e( 'Externe bronwebsite', 'publion' ); ?></th>
                             <td>
                                 <input type="text" id="publion_preferred_external_domain" name="preferred_external_domain" style="width:320px;"
                                        value="<?php echo esc_attr( $settings['preferred_external_domain'] ?? '' ); ?>" placeholder="<?php esc_attr_e( 'Bijv. refacthor.nl', 'publion' ); ?>" />
                                 <p class="description" style="margin-top:6px; max-width: 600px;">
-                                    <?php esc_html_e( 'Deze website wordt altijd minimaal 1x gelinkt in elke post (prioriteit).', 'publion' ); ?>
+                                    <?php esc_html_e( 'Vul het domein van een betrouwbare externe bron in. Publion gebruikt de HTTPS-homepage als veilige bronlink wanneer je geen specifieke URL toevoegt.', 'publion' ); ?>
                                 </p>
                             </td>
                         </tr>
 
                         <tr>
-                            <th scope="row"><?php esc_html_e( 'Specifieke URL\'s (optioneel)', 'publion' ); ?></th>
+                            <th scope="row"><?php esc_html_e( 'Geverifieerde externe bron-URL\'s', 'publion' ); ?></th>
                             <td>
                                 <textarea id="publion_preferred_external_urls" name="preferred_external_urls" rows="4" style="width:100%; max-width:600px;"><?php echo esc_textarea( $settings['preferred_external_urls'] ?? '' ); ?></textarea>
                                 <p class="description" style="margin-top:6px; max-width: 600px;">
-                                    <?php esc_html_e( 'Zet elke URL op een nieuwe regel. AI gebruikt deze pagina\'s als voorkeur.', 'publion' ); ?>
+                                    <?php esc_html_e( 'Zet één veilige HTTPS-URL per regel. Publion gebruikt precies één passende URL per artikel en verzint nooit bronnen. Voeg hier minstens één relevante bron toe om een externe link in elk artikel te garanderen.', 'publion' ); ?>
                                 </p>
                             </td>
                         </tr>

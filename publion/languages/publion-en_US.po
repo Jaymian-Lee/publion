@@ -588,8 +588,8 @@ msgstr "%d of %d processed."
 msgid "%d geslaagd."
 msgstr "%d successful."
 
-msgid "Item %d wordt verwerkt."
-msgstr "Processing item %d."
+msgid "Item %d van %d wordt verwerkt."
+msgstr "Processing item %d of %d."
 
 msgid "Geselecteerde items worden verwijderd."
 msgstr "Selected items are being deleted."
@@ -643,3 +643,70 @@ msgstr "A selected topic is missing required data. Remove it and add the suggest
 
 msgid "OpenAI gaf niet op tijd een antwoord. Publion heeft de aanvraag automatisch opnieuw geprobeerd, maar kreeg nog geen reactie. Dit kan tijdelijk gebeuren bij een trage verbinding, firewall of drukte bij de dienst."
 msgstr "OpenAI did not respond in time. Publion retried the request automatically but still received no response. This can happen temporarily with a slow connection, firewall or service congestion."
+
+# Created-post history
+msgid "Wil je de volledige Publion-geschiedenis van aangemaakte posts wissen? De originele WordPress-posts blijven behouden."
+msgstr "Do you want to clear the complete Publion history of created posts? The original WordPress posts will be kept."
+
+msgid "De Publion-geschiedenis is gewist. Je WordPress-posts zijn niet verwijderd."
+msgstr "The Publion history was cleared. Your WordPress posts were not deleted."
+
+msgid "De Publion-geschiedenis kon niet worden gewist. Er is niets verwijderd."
+msgstr "The Publion history could not be cleared. Nothing was deleted."
+
+msgid "Geschiedenis wissen"
+msgstr "Clear history"
+
+msgid "Geschiedenis wissen…"
+msgstr "Clearing history…"
+
+msgid "Geschiedenis gewist"
+msgstr "History cleared"
+
+msgid "Wis alleen de Publion-historie. De originele WordPress-posts blijven altijd behouden."
+msgstr "Clear only the Publion history. The original WordPress posts are always retained."
+
+msgid "Je account mag de Publion-geschiedenis niet wissen."
+msgstr "Your account may not clear the Publion history."
+
+# Measured generation estimate
+msgid "Verwachte generatietijd"
+msgstr "Estimated generation time"
+
+msgid "min."
+msgstr "min."
+
+msgid "wordt nauwkeuriger na voltooide generaties"
+msgstr "becomes more accurate after completed generations"
+
+msgid "op basis van eerdere generaties"
+msgstr "based on earlier generations"
+
+# Idempotent post generation
+msgid "Dit wachtrij-item heeft al een WordPress-post. Er is geen tweede post aangemaakt."
+msgstr "This queue item already has a WordPress post. A second post was not created."
+
+msgid "Dit onderwerp wordt al verwerkt of is al afgerond. Wacht op de huidige generatie en ververs daarna de wachtrij."
+msgstr "This topic is already being processed or has already completed. Wait for the current generation and then refresh the queue."
+
+msgid "Tijdens de generatie is al een vergelijkbaar artikel aangemaakt. Er is geen tweede post opgeslagen."
+msgstr "A similar article was created during generation. A second post was not saved."
+
+# Verified external sources
+msgid "Externe bronwebsite"
+msgstr "External source website"
+
+msgid "Vul het domein van een betrouwbare externe bron in. Publion gebruikt de HTTPS-homepage als veilige bronlink wanneer je geen specifieke URL toevoegt."
+msgstr "Enter the domain of a trustworthy external source. Publion uses its HTTPS homepage as a safe source link when no specific URL is added."
+
+msgid "Geverifieerde externe bron-URL's"
+msgstr "Verified external source URLs"
+
+msgid "Zet één veilige HTTPS-URL per regel. Publion gebruikt precies één passende URL per artikel en verzint nooit bronnen. Voeg hier minstens één relevante bron toe om een externe link in elk artikel te garanderen."
+msgstr "Enter one safe HTTPS URL per line. Publion uses exactly one suitable URL per article and never invents sources. Add at least one relevant source here to guarantee an external link in every article."
+
+msgid "Meer achtergrondinformatie van %s"
+msgstr "More background information from %s"
+
+msgid "Bron en verdieping:"
+msgstr "Source and further reading:"

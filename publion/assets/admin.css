@@ -140,6 +140,8 @@
 .publion-queue-actions .publion-create-now.publion-create-is-failed { color: #991b1b; background: #fef2f2; border-color: #fecaca; }
 .publion-queue-actions .publion-create-now.publion-create-is-cancelled { color: #475569; background: #f1f5f9; border-color: #cbd5e1; }
 .publion-queue-actions .publion-create-spinner { float: none; margin-left: 4px; vertical-align: middle; }
+.publion-queue-actions .publion-create-estimate { display: block; margin: 0 5px 6px; color: var(--publion-muted); font-size: 10px; line-height: 1.35; white-space: normal; }
+.publion-queue-actions .publion-create-estimate[hidden] { display: none !important; }
 .publion-app-shell .publion-accordion-heading { display: flex; justify-content: space-between; align-items: center; margin: 26px 0 0; padding: 13px 0; border-bottom: 1px solid var(--publion-line); font-size: 16px; }
 .publion-app-shell .form-table th { color: var(--publion-ink); }
 .publion-app-shell .description { color: var(--publion-muted); }
@@ -182,6 +184,9 @@
 .publion-operation-error-next { color: #7f1d1d; font-weight: 600; }
 .publion-operation-error small { display: block; margin-top: 7px; color: #7f1d1d; font-size: 10px; }
 .publion-operation-error .button { margin-top: 9px; }
+.publion-created-history-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0 0 14px; padding: 10px 12px; background: #f8fafc; border: 1px solid var(--publion-line); border-radius: 8px; }
+.publion-created-history-toolbar .description { margin: 0; }
+.publion-created-history-toolbar .button { flex: 0 0 auto; }
 .publion-bulk-summary { display: grid; gap: 8px; min-width: min(100%, 520px); margin-top: 10px; padding: 12px; color: #1e293b; background: #f8fafc; border: 1px solid #dbe4f0; border-radius: 8px; }
 .publion-bulk-summary.is-error { color: #991b1b; background: #fff7f7; border-color: #fecaca; }
 .publion-bulk-summary ul { max-height: 180px; margin: 0; padding-left: 18px; overflow: auto; }

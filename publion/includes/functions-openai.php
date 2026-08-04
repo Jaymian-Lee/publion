@@ -313,6 +313,28 @@ function publion_find_existing_content_conflict( $candidate_title, $candidate_ht
     return false;
 }
 
+/**
+ * Reject a duplicate subject before any article or image request starts.
+ *
+ * The full-content validation still runs after generation; this inexpensive
+ * title validation prevents an already-known duplicate from consuming a slot.
+ */
+function publion_validate_topic_originality( $topic, $exclude_post_id = 0 ) {
+    $content_conflict = publion_find_existing_content_conflict( $topic, '', $exclude_post_id );
+    if ( ! $content_conflict ) {
+        return true;
+    }
+
+    $error = sprintf(
+        /* translators: 1: duplicate type, 2: existing post title. */
+        __( 'Concept overgeslagen: de nieuwe %1$s lijkt te veel op bestaand bericht “%2$s”. Kies een duidelijk andere zoekvraag of invalshoek.', 'publion' ),
+        __( 'titel', 'publion' ),
+        $content_conflict['title']
+    );
+
+    return new WP_Error( 'publion_duplicate_content', $error, array( 'conflict' => $content_conflict ) );
+}
+
 function publion_get_preferred_external_domain() {
     $settings = get_option( 'publion_post_settings', [] );
     $domain = sanitize_text_field( $settings['preferred_external_domain'] ?? '' );
@@ -327,6 +349,60 @@ function publion_get_preferred_external_urls() {
     }
     $urls = array_filter( array_map( 'trim', explode( "\n", str_replace( "\r", '', (string) $raw ) ) ) );
     return $urls;
+}
+
+/**
+ * Returns the editor-approved external sources that may be used in an article.
+ *
+ * A URL supplied by an editor is the only link Publion can guarantee without
+ * fabricating a source. The optional domain remains backwards compatible and
+ * is used as its HTTPS homepage when no more specific URL is supplied.
+ */
+function publion_get_configured_external_reference_urls() {
+    $urls   = publion_get_preferred_external_urls();
+    $domain = publion_get_preferred_external_domain();
+
+    if ( '' !== $domain ) {
+        $urls[] = preg_match( '/^https?:\/\//i', $domain ) ? $domain : 'https://' . $domain;
+    }
+
+    $site_host = (string) wp_parse_url( home_url(), PHP_URL_HOST );
+    $valid     = array();
+
+    foreach ( $urls as $url ) {
+        $url    = esc_url_raw( trim( (string) $url ), array( 'https' ) );
+        $scheme = strtolower( (string) wp_parse_url( $url, PHP_URL_SCHEME ) );
+        $host   = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
+
+        if ( '' === $url || 'https' !== $scheme || '' === $host || ( $site_host && 0 === strcasecmp( $site_host, $host ) ) ) {
+            continue;
+        }
+
+        $key = untrailingslashit( strtolower( $url ) );
+        if ( ! isset( $valid[ $key ] ) ) {
+            $valid[ $key ] = $url;
+        }
+    }
+
+    return array_values( $valid );
+}
+
+/**
+ * Checks whether a URL is one of the exact editor-approved source URLs.
+ */
+function publion_is_configured_external_reference_url( $url, $reference_urls = array() ) {
+    $candidate = untrailingslashit( strtolower( esc_url_raw( (string) $url, array( 'https' ) ) ) );
+    if ( '' === $candidate ) {
+        return false;
+    }
+
+    foreach ( $reference_urls as $reference_url ) {
+        if ( $candidate === untrailingslashit( strtolower( (string) $reference_url ) ) ) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 function publion_normalize_domain( $domain ) {
@@ -371,6 +447,12 @@ function publion_get_site_content_language() {
 }
 
 function publion_generate_chatgpt_html( $topic, $category_name, $seo_brief = array() ) {
+    $topic_validation = publion_validate_topic_originality( $topic );
+    if ( is_wp_error( $topic_validation ) ) {
+        update_option( 'publion_last_openai_error', $topic_validation->get_error_message() );
+        return $topic_validation;
+    }
+
     $api_key = get_option('publion_api_key', false);
     if (!$api_key) {
         $api_key = maybe_unserialize(get_option('publion_api_key'));
@@ -387,15 +469,12 @@ function publion_generate_chatgpt_html( $topic, $category_name, $seo_brief = arr
     $word_count = 0;
     $iteration = 0;
 
-    $preferred_domain = publion_get_preferred_external_domain();
-    $preferred_urls = publion_get_preferred_external_urls();
-    $preferred_note = '';
-    if ( ! empty( $preferred_domain ) ) {
-        $preferred_note = "\n\nGebruik in de externe links minimaal 1 link naar \"" . $preferred_domain . "\". Deze heeft prioriteit.";
-        if ( ! empty( $preferred_urls ) ) {
-            $preferred_note .= " Gebruik bij voorkeur deze URL's:\n- " . implode( "\n- ", $preferred_urls );
-        }
-        $preferred_note .= "\nAls je andere externe links toevoegt, kies dan alleen relevante, niet-concurrerende, betrouwbare bronnen.";
+    $reference_urls = publion_get_configured_external_reference_urls();
+    $external_link_instruction = "\n\nGebruik externe links alleen als ze inhoudelijk echt iets toevoegen. Verzin, gok of reconstrueer nooit een URL. Gebruik voor externe links target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\".";
+    if ( ! empty( $reference_urls ) ) {
+        $external_link_instruction .= " Voeg precies één relevante externe bronlink toe uit deze door de redacteur gecontroleerde URL's. Gebruik alleen een URL uit deze lijst, met duidelijke ankertekst, bij voorkeur in een korte slotparagraaf met de kop <h2>Bronnen en verdieping</h2>:\n- " . implode( "\n- ", $reference_urls );
+    } else {
+        $external_link_instruction .= " Voeg alleen een andere bron toe als je de exacte, relevante HTTPS-URL zeker weet. Als je die zekerheid niet hebt, laat de link weg; een redacteur kan in de instellingen geverifieerde bron-URL's toevoegen om voor elk artikel een externe link te waarborgen.";
     }
 
     $focus_keyword  = sanitize_text_field( $seo_brief['focus_keyword'] ?? $topic );
@@ -424,7 +503,7 @@ Wanneer de zoekintentie commercieel of transactioneel is, help de lezer eerlijk 
 
 Schrijf circa 1.200 tot 1.600 woorden, maar vermijd opvultekst en herhaling. Voeg geen paginamarkup toe zoals <!DOCTYPE html>, <head>, <body>, <header>, <footer>, <script> of <meta>. Maak de eerste kop een <h2>, geen <h1>. Gebruik uitsluitend semantische content-HTML: <p>, <h2>, <h3>, <ul>, <ol>, <strong>, <table> waar dat inhoudelijk helpt. Sluit elke HTML-tag. Plaats een kop, alinea, tabel of nieuw onderwerp nooit binnen een <ul> of <ol>; daarin staan uitsluitend <li>-elementen. Herhaal een kop, openingszin, woordgroep of FAQ-vraag niet.
 
-Neem alleen links op naar relevante, betrouwbare en verifieerbare bronnen. Gebruik voor externe links target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\". Plaats geen links die je niet met zekerheid passend kunt maken.$preferred_note$faq_instruction$originality_instruction
+Neem alleen links op naar relevante, betrouwbare en verifieerbare bronnen.$external_link_instruction$faq_instruction$originality_instruction
 
 Geef uitsluitend valide HTML-content terug, zonder uitleg, notities of Markdown.";
 
@@ -467,9 +546,9 @@ Geef uitsluitend valide HTML-content terug, zonder uitleg, notities of Markdown.
     // Clean & validate
     $html_output = publion_clean_html_output($html_output);
     $html_output = publion_normalize_article_html( $html_output );
-    $html_output = publion_validate_links_in_html($html_output);
+    $html_output = publion_validate_links_in_html( $html_output, $reference_urls );
     $html_output = publion_enhance_external_links($html_output);
-    $html_output = publion_ensure_preferred_domain_link( $html_output, $preferred_domain, $topic );
+    $html_output = publion_ensure_configured_external_reference( $html_output, $reference_urls, $topic );
 	$html_output = preg_replace('/<h1>(.*?)<\/h1>/i', '<h2>$1</h2>', $html_output, 1);
 	$html_output = str_ireplace(['<header>', '</header>'], '', $html_output);
 	$keywords = publion_extract_noun_keywords($html_output, $api_key, $model);
@@ -479,7 +558,7 @@ Geef uitsluitend valide HTML-content terug, zonder uitleg, notities of Markdown.
     if ( $content_conflict ) {
         $error = sprintf(
             /* translators: 1: duplicate type, 2: existing post title. */
-            __( 'Concept geblokkeerd: de nieuwe %1$s lijkt te veel op bestaand bericht “%2$s”. Kies een duidelijk andere zoekvraag of invalshoek.', 'publion' ),
+            __( 'Concept overgeslagen: de nieuwe %1$s lijkt te veel op bestaand bericht “%2$s”. Kies een duidelijk andere zoekvraag of invalshoek.', 'publion' ),
             'titel' === $content_conflict['reason'] ? __( 'titel', 'publion' ) : __( 'inhoud', 'publion' ),
             $content_conflict['title']
         );
@@ -656,7 +735,7 @@ $text";
     return is_array($keywords) ? $keywords : [];
 }
 
-function publion_validate_links_in_html($html) {
+function publion_validate_links_in_html( $html, $reference_urls = array() ) {
     if (empty($html)) return $html;
 
     // Match all <a href="...">...</a> links
@@ -669,16 +748,30 @@ function publion_validate_links_in_html($html) {
         // Skip invalid or non-http(s) links
         if (!preg_match('/^https?:\/\//i', $url)) continue;
 
-        // Keep preferred domain links even if HEAD fails.
-        $preferred_domain = publion_get_preferred_external_domain();
-        $preferred_host = publion_normalize_domain( $preferred_domain );
-        $link_host = wp_parse_url( $url, PHP_URL_HOST );
-        if ( $preferred_host && $link_host && strtolower( $link_host ) === $preferred_host ) {
+        // An editor-approved URL is intentionally retained even when its host
+        // blocks automated probes. Many reputable services reject HEAD calls.
+        if ( publion_is_configured_external_reference_url( $url, $reference_urls ) ) {
             continue;
         }
 
-        $response = wp_remote_head($url, ['timeout' => 5]);
+        $response = wp_remote_head( $url, array( 'timeout' => 5, 'redirection' => 3 ) );
         $code = wp_remote_retrieve_response_code($response);
+
+        // A number of reliable sites return 403/405 for HEAD while serving a
+        // normal page. Use a tiny ranged GET as a safe fallback before
+        // deciding that a generated source is broken.
+        if ( is_wp_error( $response ) || ! $code || $code >= 400 ) {
+            $response = wp_remote_get(
+                $url,
+                array(
+                    'timeout'             => 7,
+                    'redirection'         => 3,
+                    'limit_response_size' => 1024,
+                    'headers'             => array( 'Range' => 'bytes=0-1023' ),
+                )
+            );
+            $code = wp_remote_retrieve_response_code( $response );
+        }
 
         // If broken, remove the full anchor tag and keep only the anchor text
         if (!$code || $code >= 400) {
@@ -851,6 +944,37 @@ function publion_ensure_preferred_domain_link( $html, $preferred_domain, $topic 
     }
 
     return $html . '<p>' . $link_html . '</p>';
+}
+
+/**
+ * Guarantees one safe external source when the editor has configured one.
+ * The fallback never invents a source: it only uses an exact URL saved in the
+ * settings screen. It is called after generated links have been checked.
+ */
+function publion_ensure_configured_external_reference( $html, $reference_urls, $topic ) {
+    if ( empty( $html ) || empty( $reference_urls ) || ! is_array( $reference_urls ) ) {
+        return $html;
+    }
+
+    if ( preg_match_all( '/<a\b[^>]*href=["\'](https?:\/\/[^"\']+)["\'][^>]*>/i', $html, $links ) ) {
+        foreach ( $links[1] as $link ) {
+            if ( publion_is_configured_external_reference_url( $link, $reference_urls ) ) {
+                return $html;
+            }
+        }
+    }
+
+    $index = abs( (int) crc32( sanitize_title( (string) $topic ) ) ) % count( $reference_urls );
+    $url   = $reference_urls[ $index ];
+    $host  = (string) wp_parse_url( $url, PHP_URL_HOST );
+    $label = sprintf(
+        /* translators: %s: source website hostname. */
+        __( 'Meer achtergrondinformatie van %s', 'publion' ),
+        $host
+    );
+    $link_html = '<p class="publion-external-source"><strong>' . esc_html__( 'Bron en verdieping:', 'publion' ) . '</strong> <a href="' . esc_url( $url ) . '" target="_blank" rel="noopener noreferrer">' . esc_html( $label ) . '</a></p>';
+
+    return $html . $link_html;
 }
 
 function publion_get_allowed_openai_image_models() {

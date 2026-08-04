@@ -682,6 +682,31 @@ jQuery(document).ready(function ($) {
 	    loadQueueOrCreated('created');
 	});
 
+	$('#publion-clear-created-history').on('click', function () {
+		const $button = $(this);
+		if (!confirm(t('clear_history_confirm', 'Wil je de volledige Publion-geschiedenis van aangemaakte posts wissen? De originele WordPress-posts blijven behouden.'))) return;
+
+		$button.prop('disabled', true).text(t('clearing_history', 'Geschiedenis wissen…'));
+		$.post(Publion.ajax_url, {
+			action: 'publion_clear_created_history',
+			nonce: Publion.nonce
+		}, function (response) {
+			if (response && response.success) {
+				publionCreatedOffset = 0;
+				$('#publion-created-table tbody').empty();
+				$('#publion-load-more-created').hide();
+				showNotice('success', (response.data && response.data.message) || t('clear_history_success', 'De Publion-geschiedenis is gewist. Je WordPress-posts zijn niet verwijderd.'));
+				$button.prop('disabled', false).text(t('history_cleared', 'Geschiedenis gewist'));
+			} else {
+				$button.prop('disabled', false).text(t('clear_history', 'Geschiedenis wissen'));
+				showActionableError(response, t('clear_history_failed', 'De Publion-geschiedenis kon niet worden gewist. Er is niets verwijderd.'));
+			}
+		}).fail(function () {
+			$button.prop('disabled', false).text(t('clear_history', 'Geschiedenis wissen'));
+			showActionableError(null, t('clear_history_failed', 'De Publion-geschiedenis kon niet worden gewist. Er is niets verwijderd.'));
+		});
+	});
+
 	setTimeout(function () {
     const $queueTab = $('#publion-queue');
 	    if ($queueTab.is(':visible') && publionQueueOffset === 0) {
@@ -696,14 +721,33 @@ jQuery(document).ready(function ($) {
 	    }
 	}, 150);
 
+	function formatEstimateDuration(seconds) {
+		const minutes = Math.max(1, Math.round((parseInt(seconds, 10) || 0) / 60));
+		return minutes + ' ' + t('minutes_short', 'min.');
+	}
+
 	function renderCreationProgress($cell, progress) {
 		if (!$cell.length || !progress) return;
-		const percent = Math.max(0, Math.min(100, parseInt(progress.percent, 10) || 0));
+		let percent = Math.max(0, Math.min(100, parseInt(progress.percent, 10) || 0));
 		const state = progress.state || 'running';
 		const stage = progress.stage || t('working', 'Bezig');
 		const detail = progress.detail || t('server_processing', 'De server verwerkt deze stap.');
+		const updatedAt = parseInt(progress.updated_at, 10) || 0;
+		const previous = $cell.data('publion-creation-progress') || {};
+		if (previous.serverUpdatedAt && updatedAt && (updatedAt < previous.serverUpdatedAt || (previous.state !== 'running' && state === 'running' && updatedAt <= previous.serverUpdatedAt))) {
+			progress.state = previous.state;
+			progress.percent = previous.percent;
+			progress.stage = previous.stage;
+			progress.detail = previous.detail;
+			return previous;
+		}
+		if (state === 'running' && previous.state === 'running') percent = Math.max(percent, parseInt(previous.percent, 10) || 0);
+		progress.percent = percent;
+		const displayed = { state: state, percent: percent, stage: stage, detail: detail, serverUpdatedAt: updatedAt || previous.serverUpdatedAt || 0 };
+		$cell.data('publion-creation-progress', displayed);
 		const $button = $cell.find('.publion-create-now');
 		const $cancel = $cell.find('.publion-cancel-creation');
+		const $estimate = $cell.find('.publion-create-estimate');
 		const buttonText = state === 'running' ? stage + ' - ' + percent + '%' : stage;
 		$button.removeClass('publion-create-is-running publion-create-is-completed publion-create-is-failed publion-create-is-cancelled')
 			.addClass('publion-create-is-' + state)
@@ -711,6 +755,16 @@ jQuery(document).ready(function ($) {
 			.attr('aria-label', stage + ': ' + percent + '% — ' + detail)
 			.find('.button-text').text(buttonText);
 		$cancel.prop('hidden', state !== 'running');
+		const estimate = progress.estimate;
+		if (state === 'running' && estimate && estimate.lower_seconds && estimate.upper_seconds) {
+			let estimateText = t('estimated_generation_time', 'Verwachte generatietijd') + ': ' + formatEstimateDuration(estimate.lower_seconds) + '–' + formatEstimateDuration(estimate.upper_seconds);
+			if (estimate.source === 'baseline') estimateText += ' · ' + t('estimate_learning', 'wordt nauwkeuriger na voltooide generaties');
+			else if (estimate.sample_count) estimateText += ' · ' + t('estimate_based_on', 'op basis van eerdere generaties');
+			$estimate.text(estimateText).prop('hidden', false);
+		} else {
+			$estimate.empty().prop('hidden', true);
+		}
+		return displayed;
 	}
 
 	function pollCreationProgress(id, $cell, $button) {
@@ -735,6 +789,7 @@ jQuery(document).ready(function ($) {
 	    const $button = $(this);
 	    const id = $button.data('id');
 	    const $cell = $button.closest('.publion-queue-actions');
+	    $cell.removeData('publion-creation-progress');
 
 	    if (!confirm(t('create_now_confirm', 'Wil je nu een blogpost maken voor dit onderwerp? De status hieronder volgt de echte stappen op de server.'))) return;
 
@@ -978,7 +1033,7 @@ jQuery(document).ready(function ($) {
             return;
         }
         const id = ids[index];
-        setBulkStatus('<span class="spinner is-active" style="float:none;display:inline-block;"></span> ' + format(t('bulk_processing', 'Item %d wordt verwerkt.'), index + 1));
+        setBulkStatus('<span class="spinner is-active" style="float:none;display:inline-block;"></span> ' + format(t('bulk_processing', 'Item %d van %d wordt verwerkt.'), index + 1, ids.length));
         $.post(Publion.ajax_url, { action: 'publion_create_post_now', nonce: Publion.nonce, id: id }, function (res) {
             if (res && res.success) {
                 results.succeeded++;

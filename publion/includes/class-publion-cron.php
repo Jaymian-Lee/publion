@@ -255,6 +255,7 @@ class Publion_Cron {
 
 		// Invalidate cached "next topic" after write that may affect result set.
 		wp_cache_delete( $this->cache_key_next_topic, $this->cache_group );
+		publion_release_stale_processing_entries();
 
 		// Select next pending by lowest ID via cached helper (keeps call site WPCS-clean).
 		$topic = publion_db_get_row_cached_cron(
@@ -275,12 +276,58 @@ class Publion_Cron {
 			return;
 		}
 
+		$existing_post_id = publion_get_post_id_for_queue_entry( $topic );
+		if ( $existing_post_id ) {
+			$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->publion_queue,
+				array( 'status' => ( 'publish' === get_post_status( $existing_post_id ) ? 'published' : 'created' ), 'processing_started_at' => null ),
+				array( 'id' => (int) $topic->id )
+			);
+			wp_cache_delete( $this->cache_key_next_topic, $this->cache_group );
+			return $this->maybe_create_queued_post();
+		}
+		if ( ! publion_claim_queue_entry( (int) $topic->id, $topic->topic ) ) {
+			return;
+		}
+
+		// A duplicate title is a terminal outcome for this queue row, not a reason
+		// to keep it pending and block every later scheduled article.
+		$topic_validation = publion_validate_topic_originality( $topic->topic );
+		if ( is_wp_error( $topic_validation ) ) {
+			$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->publion_queue,
+				array( 'status' => 'blocked', 'processing_started_at' => null ),
+				array( 'id' => (int) $topic->id ),
+				array( '%s' ),
+				array( '%d' )
+			);
+			wp_cache_delete( $this->cache_key_next_topic, $this->cache_group );
+			publion_release_generation_lock( (int) $topic->id, $topic->topic );
+			error_log( '[Publion][PUBLION-DUPLICATE-CONTENT] Queue item #' . (int) $topic->id . ' skipped: ' . $topic_validation->get_error_message() );
+			// Continue with the next eligible item during this cron run.
+			return $this->maybe_create_queued_post();
+		}
+
 		// Generate HTML content.
 		$seo_brief = ! empty( $topic->seo_brief ) ? json_decode( $topic->seo_brief, true ) : array();
 		$seo_brief = is_array( $seo_brief ) ? $seo_brief : array();
 		$seo_brief['focus_keyword'] = sanitize_text_field( $topic->focus_keyword ?? $topic->topic );
 		$post_html = publion_generate_chatgpt_html( $topic->topic, $topic->category_label, $seo_brief );
+		if ( is_wp_error( $post_html ) && 'publion_duplicate_content' === $post_html->get_error_code() ) {
+			$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->publion_queue,
+				array( 'status' => 'blocked', 'processing_started_at' => null ),
+				array( 'id' => (int) $topic->id ),
+				array( '%s' ),
+				array( '%d' )
+			);
+			wp_cache_delete( $this->cache_key_next_topic, $this->cache_group );
+			publion_release_generation_lock( (int) $topic->id, $topic->topic );
+			error_log( '[Publion][PUBLION-DUPLICATE-CONTENT] Queue item #' . (int) $topic->id . ' skipped after generation: ' . $post_html->get_error_message() );
+			return $this->maybe_create_queued_post();
+		}
 		if ( is_wp_error( $post_html ) || ! $post_html ) {
+			publion_release_queue_claim( (int) $topic->id, $topic->topic, 'pending' );
 			return;
 		}
 
@@ -323,6 +370,14 @@ class Publion_Cron {
 		$post_html = publion_insert_images_into_content( $post_html, array_slice( $final_image_urls, 0, 5 ), array_slice( $image_layouts, 0, 5 ) );
 
 
+		// Check once more immediately before writing: another source may have
+		// created an equivalent article while this cron job generated images.
+		$final_conflict = publion_find_existing_content_conflict( $topic->topic, $post_html );
+		if ( $final_conflict ) {
+			publion_release_queue_claim( (int) $topic->id, $topic->topic, 'blocked' );
+			return;
+		}
+
 		// Create post.
 		$post_id = wp_insert_post( array(
 			'post_title'    => $topic->topic,
@@ -346,7 +401,8 @@ class Publion_Cron {
 			}
 		}
 		
-		if ( is_wp_error( $post_id ) ) {
+		if ( is_wp_error( $post_id ) || ! $post_id ) {
+			publion_release_queue_claim( (int) $topic->id, $topic->topic, 'pending' );
 			return;
 		}
 
@@ -361,6 +417,7 @@ class Publion_Cron {
 			$wpdb->publion_queue,
 			array(
 				'status'          => ( 'publish' === $post_status ? 'published' : 'created' ),
+				'processing_started_at' => null,
 				'post_created_at' => $now,
 				'published_at'    => ( 'publish' === $post_status ? $now : null ),
 			),
@@ -369,6 +426,7 @@ class Publion_Cron {
 			array( '%d' )
 		);
 		wp_cache_delete( $this->cache_key_next_topic, $this->cache_group );
+		publion_release_generation_lock( (int) $topic->id, $topic->topic );
 
 		update_option( 'publion_last_post_created_at', $now );
 
