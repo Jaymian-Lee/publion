@@ -57,7 +57,7 @@ class Publion_Admin {
                     'action_required'             => __( 'Actie nodig', 'publion' ),
                     'attention'                   => __( 'Let op', 'publion' ),
                     'success'                     => __( 'Gelukt', 'publion' ),
-                    'no_valid_suggestions'        => __( 'Geen volledig gevalideerde onderwerpvoorstellen ontvangen. Er is niets opgeslagen. Vernieuw de voorstellen; blijft dit gebeuren, kies een ondersteund model of controleer de voorprompt.', 'publion' ),
+                    'no_valid_suggestions'        => __( 'Geen volledig gevalideerde onderwerpvoorstellen ontvangen. Er is niets opgeslagen. Vernieuw de voorstellen; blijft dit gebeuren, kies een ondersteund model of controleer de Publion-prompt.', 'publion' ),
                     'add'                         => __( 'Toevoegen', 'publion' ),
                     'remove'                      => __( 'Verwijderen', 'publion' ),
                     'removing'                    => __( 'Verwijderen…', 'publion' ),
@@ -328,12 +328,12 @@ class Publion_Admin {
         if ( isset( $_POST['publion_save_prompt'] ) && check_admin_referer( 'publion_save_prompt' ) ) {
             $prompt = wp_kses_post( wp_unslash( $_POST['publion_prompt'] ?? '' ) );
             update_option( 'publion_prompt', $prompt );
-            add_settings_error( 'publion_messages', 'prompt_saved', __( 'Voorprompt opgeslagen.', 'publion' ), 'updated' );
+            add_settings_error( 'publion_messages', 'prompt_saved', __( 'Publion-prompt opgeslagen.', 'publion' ), 'updated' );
         }
 
         if ( isset( $_POST['publion_reset_prompt'] ) && check_admin_referer( 'publion_reset_prompt' ) ) {
             delete_option( 'publion_prompt' );
-            add_settings_error( 'publion_messages', 'prompt_reset', __( 'Voorprompt teruggezet naar standaard.', 'publion' ), 'updated' );
+            add_settings_error( 'publion_messages', 'prompt_reset', __( 'Publion-prompt teruggezet naar standaard.', 'publion' ), 'updated' );
         }
     }
 
@@ -350,7 +350,7 @@ class Publion_Admin {
         $image_model_options = publion_get_allowed_openai_image_models();
         $custom_image_model = array_key_exists( $image_model, $image_model_options ) ? '' : $image_model;
         $warning_display  = empty( $openai_api_key ) ? 'display:inline-block;' : 'display:none;';
-        $default_prompt   = "Je bent een expert in het schrijven van blogs en maakt hoogwaardige, SEO-geoptimaliseerde content voor [JOUW BEDRIJFSNAAM (INDIEN VAN TOEPASSING) EN WEBSITE-URL], [WAT JOUW BEDRIJF/WEBSITE BIEDT]. Het doel is [JOUW BEDRIJFS/WEBSITE-DOELEN]. Stem de toon af op het merk: [DE TOON DIE JE WILT UITSTRALEN - voorbeeld: professioneel maar benaderbaar, deskundig maar eenvoudig uit te leggen]. Elk onderwerp moet de missie van [JOUW BEDRIJFS/WEBSITE-NAAM] weerspiegelen om [BEDRIJVEN of MENSEN] te helpen met [HOE JE BEDRIJVEN of MENSEN HELPT].\n\n(Vervang deze prompt door je eigen tekst om je doelen beter te weerspiegelen.)";
+        $default_prompt   = "Je bent Publion, een expert in het schrijven van blogs. Je maakt hoogwaardige, SEO-geoptimaliseerde content voor [JOUW BEDRIJFSNAAM (INDIEN VAN TOEPASSING) EN WEBSITE-URL], [WAT JOUW BEDRIJF/WEBSITE BIEDT]. Het doel is [JOUW BEDRIJFS/WEBSITE-DOELEN]. Stem de toon af op het merk: [DE TOON DIE JE WILT UITSTRALEN - voorbeeld: professioneel maar benaderbaar, deskundig maar eenvoudig uit te leggen]. Elk onderwerp moet de missie van [JOUW BEDRIJFS/WEBSITE-NAAM] weerspiegelen om [BEDRIJVEN of MENSEN] te helpen met [HOE JE BEDRIJVEN of MENSEN HELPT].\n\n(Vervang deze Publion-prompt door je eigen tekst om je doelen beter te weerspiegelen.)";
         $openai_prompt    = get_option( 'publion_prompt', $default_prompt );
         $dashboard_settings = get_option( 'publion_post_settings', array() );
         $last_image_error   = get_option( 'publion_last_image_error', '' );
@@ -1103,29 +1103,29 @@ class Publion_Admin {
                 </div>
 
                 <h3 style="margin-bottom:4px; font-size:1.09em; margin-top:20px;">
-                    <?php esc_html_e( 'ChatGPT-voorprompt', 'publion' ); ?>
+                    <?php esc_html_e( 'Publion-prompt', 'publion' ); ?>
                     <?php if ( $openai_prompt === $default_prompt ) echo '(Standaard)'; ?>
                 </h3>
                 <p style="margin-top:0;">
                     <?php
-                    esc_html_e( 'Deze prompt helpt ChatGPT bij het genereren van onderwerp-ideeën en volledige postinhoud.', 'publion' );
+                    esc_html_e( 'De Publion-prompt is de centrale redactionele instructie voor onderwerpideeën en volledige artikelinhoud.', 'publion' );
                     echo '<br>';
-                    esc_html_e( 'Gebruik dit om het doel van je website of bedrijf te bepalen, plus tone-of-voice, doelgroep en merkpersoonlijkheid.', 'publion' );
+                    esc_html_e( 'Leg hier het doel van je website, doelgroep, expertise, tone of voice en merkpersoonlijkheid vast.', 'publion' );
                     echo '<br>';
                     ?>
-                    <em><strong><?php esc_html_e( 'Tip:', 'publion' ); ?></strong> <?php esc_html_e( 'Weet je niet wat je moet schrijven? Vraag ChatGPT om hulp, plak deze tekst in een chat en gebruik het resultaat.', 'publion' ); ?></em>
+                    <em><strong><?php esc_html_e( 'Tip:', 'publion' ); ?></strong> <?php esc_html_e( 'Maak de instructie concreet: benoem wat Publion wel en niet mag beweren, welke bronnen gewenst zijn en hoe een artikel moet klinken.', 'publion' ); ?></em>
                 </p>
 
                 <div style="width:600px; display:inline-block;">
                     <textarea name="publion_prompt" id="publion_prompt" style="width:100%;height:365px;"><?php echo esc_textarea( stripslashes( $openai_prompt ) ); ?></textarea>
-                    <button type="button" id="publion-save-prompt" class="button button-primary" style="margin-top:8px;"><?php esc_html_e( 'Prompt opslaan', 'publion' ); ?></button>
+                    <button type="button" id="publion-save-prompt" class="button button-primary" style="margin-top:8px;"><?php esc_html_e( 'Publion-prompt opslaan', 'publion' ); ?></button>
                     <span id="publion-prompt-status" class="publion-save-status" style="position:relative; top:8px;"></span>
                 </div>
 
                 <?php if ( $openai_prompt !== $default_prompt ) : ?>
                     <form method="post" style="display:inline;">
                         <?php wp_nonce_field( 'publion_reset_prompt' ); ?>
-                        <button type="submit" name="publion_reset_prompt" class="button"><?php esc_html_e( 'Terugzetten naar standaard', 'publion' ); ?></button>
+                        <button type="submit" name="publion_reset_prompt" class="button"><?php esc_html_e( 'Standaard Publion-prompt herstellen', 'publion' ); ?></button>
                     </form>
                 <?php endif; ?>
             </div>
@@ -1169,7 +1169,7 @@ class Publion_Admin {
                     <p class="publion-eyebrow"><?php esc_html_e( '01 - WERKWIJZE', 'publion' ); ?></p>
                     <h3><?php esc_html_e( 'Van categorie naar gecontroleerd concept', 'publion' ); ?></h3>
                     <div class="publion-guide-columns">
-                        <div><strong><?php esc_html_e( '1. Verbinden en kader stellen', 'publion' ); ?></strong><p><?php esc_html_e( 'Sla de OpenAI API-sleutel op, kies een tekst- en afbeeldingsmodel en beschrijf doelgroep, expertise en toon in de voorprompt. Deel nooit sleutels of vertrouwelijke klantinformatie.', 'publion' ); ?></p></div>
+                        <div><strong><?php esc_html_e( '1. Verbinden en kader stellen', 'publion' ); ?></strong><p><?php esc_html_e( 'Sla de OpenAI API-sleutel op, kies een tekst- en afbeeldingsmodel en beschrijf doelgroep, expertise en toon in de Publion-prompt. Deel nooit sleutels of vertrouwelijke klantinformatie.', 'publion' ); ?></p></div>
                         <div><strong><?php esc_html_e( '2. Plannen met een SEO-brief', 'publion' ); ?></strong><p><?php esc_html_e( 'Kies een categorie. Publion leest de actuele contentkaart en vraagt vijf nieuwe kansen op. Beoordeel titel, focus-keyword, intentie, unieke invalshoek en FAQ-vragen voordat je iets bewaart.', 'publion' ); ?></p></div>
                         <div><strong><?php esc_html_e( '3. Wachtrij en concept', 'publion' ); ?></strong><p><?php esc_html_e( 'Voeg alleen passende kansen toe. Kies bij voorkeur Concept als poststatus. Met Nu maken zie je de feitelijke stappen: onderzoek, tekst, beeld, SEO, opslaan en afronden.', 'publion' ); ?></p></div>
                         <div><strong><?php esc_html_e( '4. Redactionele review', 'publion' ); ?></strong><p><?php esc_html_e( 'Controleer feiten, bronnen, links, merktoon, auteursrecht, meta description, afbeeldingen en placeholders. Publicatie blijft altijd een menselijke beslissing.', 'publion' ); ?></p></div>
@@ -1206,7 +1206,7 @@ class Publion_Admin {
                     <h3><?php esc_html_e( 'Veilig problemen oplossen', 'publion' ); ?></h3>
                     <dl class="publion-troubleshooting-list publion-troubleshooting-list-wide">
                         <div><dt><?php esc_html_e( 'Lees een foutmelding stap voor stap', 'publion' ); ?></dt><dd><?php esc_html_e( 'Elke actuele fout noemt de actie, oorzaak, vervolgstap en foutreferentie. Gebruik de voorgestelde knop; deel bij ondersteuning alleen de referentie en nooit je API-sleutel.', 'publion' ); ?></dd></div>
-                        <div><dt><?php esc_html_e( 'JSON-fout bij voorstellen', 'publion' ); ?></dt><dd><?php esc_html_e( 'Er is niets opgeslagen. Vernieuw de voorstellen; kies eventueel een ondersteund model of verkort een extreem lange voorprompt.', 'publion' ); ?></dd></div>
+                        <div><dt><?php esc_html_e( 'JSON-fout bij voorstellen', 'publion' ); ?></dt><dd><?php esc_html_e( 'Er is niets opgeslagen. Vernieuw de voorstellen; kies eventueel een ondersteund model of verkort een extreem lange Publion-prompt.', 'publion' ); ?></dd></div>
                         <div><dt><?php esc_html_e( 'Afbeelding of tekst mislukt', 'publion' ); ?></dt><dd><?php esc_html_e( 'Controleer de veilige foutmelding, API-project, facturatie, netwerk en gekozen model. Vervang placeholders altijd voor publicatie.', 'publion' ); ?></dd></div>
                         <div><dt><?php esc_html_e( 'Planning komt niet op gang', 'publion' ); ?></dt><dd><?php esc_html_e( 'WordPress Cron draait bij bezoek. Controleer tijdzone en planning; gebruik voor een betrouwbare productieplanning een echte servercron.', 'publion' ); ?></dd></div>
                     </dl>
@@ -1224,7 +1224,9 @@ class Publion_Admin {
                 <?php
                 $image_error = get_option( 'publion_last_image_error', '' );
                 if ( ! empty( $image_error ) ) {
-                    echo '<br><span style="color:#b91c1c;">' . esc_html( $image_error ) . '</span>';
+                    echo '<div class="publion-inline-error" role="alert" style="margin-top:10px; max-width:760px; padding:10px 12px; border-left:3px solid #dc2626; border-radius:6px; background:#fef2f2; color:#991b1b;">';
+                    echo '<strong>' . esc_html__( 'Afbeelding heeft aandacht nodig', 'publion' ) . '</strong><br>' . esc_html( $image_error );
+                    echo '</div>';
                 }
                 ?>
             </p>

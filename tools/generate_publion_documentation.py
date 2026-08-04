@@ -143,7 +143,7 @@ def header_footer(canvas, doc):
     canvas.drawString(20 * mm, height - 10 * mm, "PUBLION  |  HANDLEIDING")
     canvas.setFont("Helvetica", 7.5)
     canvas.setFillColor(MUTED)
-    canvas.drawRightString(width - 20 * mm, 10 * mm, f"Versie 1.9.25  |  Pagina {doc.page}")
+    canvas.drawRightString(width - 20 * mm, 10 * mm, f"Versie 1.9.27  |  Pagina {doc.page}")
     canvas.restoreState()
 
 
@@ -162,7 +162,7 @@ def build_story():
 
     story += section("1. Start hier", "Publion helpt je om onderwerpen en conceptartikelen te maken, maar publicatie blijft een redactionele beslissing. Kies bij voorkeur Concept als poststatus en review ieder resultaat.")
     story += [p("Snelle route", "h2")]
-    story += [bullet("Ga naar Berichten > Publion > OpenAI/ChatGPT instellingen en sla je API-sleutel op."),
+    story += [bullet("Ga naar Publion > OpenAI/ChatGPT instellingen en sla je API-sleutel op."),
               bullet("Kies een tekstmodel en een afbeeldingsmodel. Gebruik een eigen model-ID alleen als jouw OpenAI-project die API-ID ondersteunt."),
               bullet("Open Content plannen, kies een categorie en vraag vijf onderwerpvoorstellen op."),
               bullet("Lees de SEO-briefs, voeg alleen passende onderwerpen toe aan de wachtrij en maak een concept."),
@@ -182,8 +182,9 @@ def build_story():
     story += [p("Tekstmodel", "h2"), p("De modelkiezer bevat GPT-5.6 Sol, Terra en Luna, GPT-5.4 varianten en GPT-4o. Terra is de praktische standaard voor reguliere long-form concepten. Kies Sol voor complexe inhoudelijke opdrachten en Luna voor snelle, afgebakende stappen. Beschikbaarheid en prijs worden door je OpenAI-project bepaald.")]
     story += [p("Afbeeldingsmodel", "h2"), p("GPT Image 2 is de standaard. Nieuwe artikelen wisselen brede beelden en vierkante beelden af. Bij GPT Image 2 kan Publion een echte 16:9-breedbeeldresolutie aanvragen; voor compatibele oudere modellen gebruikt het een veilig standaardformaat."),
               p("Gebruik alleen een eigen afbeeldingsmodel-ID als deze de OpenAI Images API ondersteunt. Test na een modelwissel eerst met een conceptartikel."),
-              note("Sleutelveiligheid", "Plaats een API-sleutel nooit in screenshots, berichten, GitHub of een voorprompt. Zie je een sleutel terug in een oud screenshot, trek die sleutel direct in en maak een nieuwe aan.", AMBER)]
-    story += [p("Voorprompt", "h2"), p("Beschrijf kort de website, doelgroep, expertise, tone of voice, grenzen en gewenste bronnen. Vermijd instructies die de AI vragen om feiten, offertes, statistieken of ervaringen te verzinnen.")]
+              p("Veiligheidsafwijzing", "h2"), p("Wanneer een afbeeldingsbeschrijving door de veiligheidscontrole wordt geblokkeerd, probeert Publion éénmaal een neutrale, niet-grafische redactionele variant zonder personen, dreiging, geweld, wapens, tekst of merknamen. Blijft deze afwijzing bestaan, dan gebruikt Publion een placeholder en toont het een korte, bruikbare melding. Vervang de placeholder vóór publicatie."),
+              note("Sleutelveiligheid", "Plaats een API-sleutel nooit in screenshots, berichten, GitHub of een Publion-prompt. Zie je een sleutel terug in een oud screenshot, trek die sleutel direct in en maak een nieuwe aan.", AMBER)]
+    story += [p("Publion-prompt", "h2"), p("De Publion-prompt is de centrale redactionele instructie van de plugin. Beschrijf kort de website, doelgroep, expertise, tone of voice, grenzen en gewenste bronnen. Vermijd instructies die de AI vragen om feiten, offertes, statistieken of ervaringen te verzinnen.")]
     story.append(PageBreak())
 
     story += section("3. Onderwerpvoorstellen die veilig de wachtrij in gaan", "Per aanvraag leest Publion de actuele contentkaart van bestaande berichten. Daardoor is de nieuwe zoekvraag of invalshoek bewust anders dan de al gepubliceerde en ingeplande inhoud.")
@@ -195,7 +196,7 @@ def build_story():
         ("FAQ-vragen", "Drie of vier concrete lezersvragen voor een nuttige FAQ-sectie."),
     ]), p("Kwaliteitsgrens", "h2"),
               p("Publion accepteert alleen een compleet JSON-object met precies vijf kaarten. Losse velden, afgebroken antwoorden, haakjes en JSON-sleutels worden geweigerd. Als de AI geen veilige set kan maken, verschijnt een duidelijke foutmelding en wordt niets opgeslagen."),
-              note("Als voorstellen blijven falen", "Controleer eerst de API-sleutel, facturatie en het gekozen model. Verkort daarna een extreem lange voorprompt en probeer opnieuw. Houd de contentkaart inhoudelijk scherp: sterk overlappende bestaande posts kunnen terecht tot minder bruikbare kansen leiden.", AMBER)]
+              note("Als voorstellen blijven falen", "Controleer eerst de API-sleutel, facturatie en het gekozen model. Verkort daarna een extreem lange Publion-prompt en probeer opnieuw. Houd de contentkaart inhoudelijk scherp: sterk overlappende bestaande posts kunnen terecht tot minder bruikbare kansen leiden.", AMBER)]
     story.append(PageBreak())
 
     story += section("4. Van wachtrij naar conceptartikel", "Gebruik Nu maken voor een direct concept of stel een vast ritme in via WordPress Cron. Voor productie is een echte servercron betrouwbaarder dan verkeer-afhankelijke WP-Cron.")
@@ -228,12 +229,12 @@ def build_story():
     story += [note("Foutmelding lezen", "Elke actuele foutmelding noemt de mislukte stap, de veilige oorzaak, een concrete vervolgstap en een referentie zoals PUBLION-OPENAI-MODEL. Gebruik de voorgestelde knop naar instellingen of diagnose. De referentie is veilig om met ondersteuning te delen; deel nooit een API-sleutel of ruwe providerrespons.", PALE)]
     story += [info_table([
         ("AI niet verbonden", "Voeg een geldige OpenAI API-sleutel toe en sla die op."),
-        ("Geen voorstellen", "Controleer model, facturatie, netwerk en voorprompt. Probeer daarna opnieuw met een categorie."),
-        ("JSON-fout bij voorstellen", "Er is niets opgeslagen. Vernieuw de voorstellen; kies eventueel een ondersteund model of verkort de voorprompt."),
+        ("Geen voorstellen", "Controleer model, facturatie, netwerk en Publion-prompt. Probeer daarna opnieuw met een categorie."),
+        ("JSON-fout bij voorstellen", "Er is niets opgeslagen. Vernieuw de voorstellen; kies eventueel een ondersteund model of verkort de Publion-prompt."),
         ("Afbeelding ontbreekt", "Een placeholder houdt het concept compleet. Vervang de placeholder voor publicatie en lees de afbeeldingsfout."),
         ("Geplande post komt niet", "Controleer de planning, WordPress-tijdzone en WP-Cron. Gebruik voor productie een servercron."),
         ("Geen resultaten", "Verbeter zoekintentie, titel en inhoud met Search Console-data. Vermijd bulkpublicatie van vergelijkbare stukken."),
-    ]), p("Privacy en verantwoordelijkheid", "h2"), p("Een onderwerp, voorprompt en artikelinhoud worden naar OpenAI gestuurd om generatie mogelijk te maken. Stuur geen geheimen, persoonsgegevens of vertrouwelijke klantinformatie mee. Controleer auteursrecht en gebruiksrechten van elk beeld en elke bron voordat je publiceert."),
+    ]), p("Privacy en verantwoordelijkheid", "h2"), p("Een onderwerp, Publion-prompt en artikelinhoud worden naar OpenAI gestuurd om generatie mogelijk te maken. Stuur geen geheimen, persoonsgegevens of vertrouwelijke klantinformatie mee. Controleer auteursrecht en gebruiksrechten van elk beeld en elke bron voordat je publiceert."),
               note("Ondersteuning", "Noteer bij een fout het gekozen model, de stap waar het misgaat en de veilige foutmelding. Deel nooit je API-sleutel. Raadpleeg ook README.md in de pluginrepository voor de volledige changelog en installatie-instructies.", PALE)]
     return story
 

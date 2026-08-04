@@ -790,7 +790,7 @@ Geef uitsluitend valide HTML-content terug, zonder uitleg, notities of Markdown.
         $new_html = $body['choices'][0]['message']['content'] ?? '';
 
         if (!$new_html) {
-            $error = __( 'OpenAI gaf geen bruikbare artikeltekst terug. Probeer een ander model of verkort de voorprompt.', 'publion' );
+            $error = __( 'OpenAI gaf geen bruikbare artikeltekst terug. Probeer een ander model of verkort de Publion-prompt.', 'publion' );
             update_option( 'publion_last_openai_error', $error );
             return new WP_Error( 'publion_openai_empty_response', $error );
         }
@@ -1583,6 +1583,63 @@ function publion_enhance_external_links( $html ) {
     );
 }
 
+/** Extract stable, support-safe fields from an Image API error response. */
+function publion_get_image_generation_error_data( $response ) {
+    if ( is_wp_error( $response ) ) {
+        return array();
+    }
+
+    $body    = json_decode( wp_remote_retrieve_body( $response ), true );
+    $error   = is_array( $body ) && isset( $body['error'] ) && is_array( $body['error'] ) ? $body['error'] : array();
+    $details = isset( $error['moderation_details'] ) && is_array( $error['moderation_details'] ) ? $error['moderation_details'] : array();
+    $request_id = wp_remote_retrieve_header( $response, 'x-request-id' );
+    if ( ! $request_id && ! empty( $body['request_id'] ) ) {
+        $request_id = $body['request_id'];
+    }
+
+    return array(
+        'code'       => sanitize_key( $error['code'] ?? '' ),
+        'type'       => sanitize_key( $error['type'] ?? '' ),
+        'request_id' => sanitize_text_field( (string) $request_id ),
+        'stage'      => sanitize_key( $details['moderation_stage'] ?? 'unknown' ),
+        'categories' => array_values( array_filter( array_map( 'sanitize_key', (array) ( $details['categories'] ?? array() ) ) ) ),
+    );
+}
+
+function publion_is_image_moderation_blocked( $response ) {
+    $error = publion_get_image_generation_error_data( $response );
+    return ( $error['code'] ?? '' ) === 'moderation_blocked';
+}
+
+/**
+ * Creates a genuinely different, neutral editorial brief after a moderation
+ * block. It removes high-risk incident terms instead of retrying the same
+ * request, while preserving only a broad practical subject.
+ */
+function publion_build_neutral_image_retry_prompt( $prompt ) {
+    $context = html_entity_decode( wp_strip_all_tags( (string) $prompt ), ENT_QUOTES, 'UTF-8' );
+    $context = preg_replace( '/\b(?:geweld|gewelddadig|wapen|wapens|bedreig\w*|inbraak\w*|inbreker\w*|aanval\w*|slachtoffer\w*|verwond\w*|bloed\w*|crime|weapon|violent|violence|threat\w*|injur\w*|blood\w*)\b/iu', 'praktische situatie', $context );
+    $context = preg_replace( '/\s+/', ' ', trim( $context ) );
+    $context = publion_trim_text_at_word_boundary( $context, 140 );
+
+    return 'Maak een neutrale, niet-grafische redactionele foto-illustratie voor een praktisch blogartikel. Toon een rustige woon- of onderhoudssituatie zonder personen, wapens, verwondingen, dreiging, geweld, misdaad, tekst, logo\'s of merken. Houd de compositie algemeen en informatief. Brede onderwerpcontext: ' . $context;
+}
+
+function publion_store_image_generation_error( $response, $image_model, $neutral_retry_attempted = false ) {
+    $error_data = publion_get_image_generation_error_data( $response );
+    if ( ( $error_data['code'] ?? '' ) === 'moderation_blocked' ) {
+        $message = $neutral_retry_attempted
+            ? __( 'OpenAI kon deze afbeelding na een veilige, neutrale herformulering niet genereren. Publion gebruikt een placeholder; vervang die afbeelding vóór publicatie door een neutrale, relevante afbeelding.', 'publion' )
+            : __( 'OpenAI kon deze afbeelding niet genereren vanwege veiligheidsregels. Publion gebruikt een placeholder; vervang die afbeelding vóór publicatie door een neutrale, relevante afbeelding.', 'publion' );
+    } else {
+        $message = publion_get_openai_request_error( $response, $image_model );
+    }
+
+    update_option( 'publion_last_image_error', $message );
+    update_option( 'publion_last_image_error_details', wp_json_encode( $error_data ) );
+    error_log( '[Publion][IMAGE] code=' . ( $error_data['code'] ?? 'unknown' ) . ' request_id=' . ( $error_data['request_id'] ?? 'unavailable' ) );
+}
+
 function publion_generate_image_base64s( $prompt, $api_key, $count = 1, $size = '1024x1024' ) {
     $prompt = trim( (string) $prompt );
     $api_key = trim( (string) $api_key );
@@ -1598,7 +1655,8 @@ function publion_generate_image_base64s( $prompt, $api_key, $count = 1, $size = 
     }
 
     $image_model = publion_get_openai_image_model();
-    $response = publion_openai_post(
+    $request_image = static function ( $image_prompt ) use ( $api_key, $image_model, $count, $size ) {
+        return publion_openai_post(
         'https://api.openai.com/v1/images/generations',
         [
             'headers' => [
@@ -1608,7 +1666,7 @@ function publion_generate_image_base64s( $prompt, $api_key, $count = 1, $size = 
             'body'    => wp_json_encode(
                 [
                     'model'         => $image_model,
-                    'prompt'        => $prompt,
+                    'prompt'        => $image_prompt,
                     'n'             => $count,
                     'size'          => $size,
                     'quality'       => 'medium',
@@ -1618,10 +1676,18 @@ function publion_generate_image_base64s( $prompt, $api_key, $count = 1, $size = 
             'timeout' => 180,
         ],
         'image'
-    );
+        );
+    };
+
+    $response                = $request_image( $prompt );
+    $neutral_retry_attempted = false;
+    if ( publion_is_image_moderation_blocked( $response ) ) {
+        $neutral_retry_attempted = true;
+        $response = $request_image( publion_build_neutral_image_retry_prompt( $prompt ) );
+    }
 
     if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
-        update_option( 'publion_last_image_error', publion_get_openai_request_error( $response, $image_model ) );
+        publion_store_image_generation_error( $response, $image_model, $neutral_retry_attempted );
         return [];
     }
 
@@ -1650,6 +1716,7 @@ function publion_generate_image_base64s( $prompt, $api_key, $count = 1, $size = 
     }
 
     delete_option( 'publion_last_image_error' );
+    delete_option( 'publion_last_image_error_details' );
     return $images;
 }
 

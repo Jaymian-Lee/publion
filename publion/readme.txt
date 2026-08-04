@@ -5,7 +5,7 @@ Tags: ai content, chatgpt, blog automatisering, post generatie, blogpost ai
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.9.25
+Stable tag: 1.9.27
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -80,6 +80,14 @@ Deze versie maakt standaard blogposts aan.
 4. Maak automatisch volledige conceptposts met AI-afbeeldingen.
 
 == Changelog ==
+
+= 1.9.27 =
+* De centrale schrijfinstructie heet overal Publion-prompt, met heldere uitleg over doelgroep, expertise, gewenste bronnen en redactionele grenzen.
+* Opslaan, herstellen, foutmeldingen, de ingebouwde handleiding en de GitHub-README gebruiken dezelfde herkenbare Publion-benaming.
+
+= 1.9.26 =
+* Afbeeldingsprompts die door de OpenAI-veiligheidscontrole worden geblokkeerd, krijgen één aangepaste neutrale herpoging zonder geweld, dreiging, personen of merknamen.
+* Na een tweede blokkade gebruikt Publion veilig een placeholder en toont het een begrijpelijke melding zonder technische API-tekst of sleutelinformatie.
 
 = 1.9.25 =
 * Publion staat nu als zelfstandig hoofdmenu-item in het WordPress-beheermenu, in plaats van onder Berichten.

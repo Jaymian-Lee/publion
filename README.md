@@ -4,7 +4,7 @@
 
 Publion helpt redacties, marketeers en ondernemers om van een categorie naar een gecontroleerd artikelconcept te werken. De plugin maakt niet alleen tekst: hij bouwt eerst een contentbrief met zoekintentie, focus-keyword, invalshoek en FAQ-vragen. Daarna kun je onderwerpen plannen, artikelen als concept maken, afbeeldingen laten genereren en de resultaten volgen in je eigen analyticsomgeving.
 
-De huidige release is **1.9.25**. Download het WordPress-importpakket: [publion-wordpress-1.9.25.zip](publion-wordpress-1.9.25.zip). Het pakket bevat precies één hoofdmap: `publion/`. Dat is de vereiste WordPress-structuur en voorkomt dat WordPress een tweede, losstaande pluginmap maakt.
+De huidige release is **1.9.27**. Download het WordPress-importpakket: [publion-wordpress-1.9.27.zip](publion-wordpress-1.9.27.zip). Het pakket bevat precies één hoofdmap: `publion/`. Dat is de vereiste WordPress-structuur en voorkomt dat WordPress een tweede, losstaande pluginmap maakt.
 
 ## In één oogopslag
 
@@ -71,7 +71,7 @@ Nieuwe AI-onderwerpvoorstellen en artikelen volgen juist de **sitetaal**. Zo kan
 
 ### Installeren via WordPress
 
-1. Download [publion-wordpress-1.9.25.zip](publion-wordpress-1.9.25.zip).
+1. Download [publion-wordpress-1.9.27.zip](publion-wordpress-1.9.27.zip).
 2. Ga in WordPress naar **Plugins → Nieuwe plugin → Plugin uploaden**.
 3. Upload het zipbestand, installeer en activeer de plugin.
 4. Open **Berichten → Publion**.
@@ -87,7 +87,7 @@ Nieuwe AI-onderwerpvoorstellen en artikelen volgen juist de **sitetaal**. Zo kan
 
 ### 1. OpenAI verbinden
 
-Ga naar **OpenAI/ChatGPT instellingen** en voeg de API-sleutel toe. Kies daarna het model en leg in de voorprompt vast:
+Ga naar **OpenAI/ChatGPT instellingen** en voeg de API-sleutel toe. Kies daarna het model en leg in de **Publion-prompt** vast:
 
 - voor welke organisatie of website je schrijft;
 - wie de doelgroep is;
@@ -195,7 +195,7 @@ Het dashboard toont bewust geen geschatte rankings, clicks of AI-verkeer. Die zo
 2. **Maak en review concepten.**
 3. **Meet resultaten en verbeter bestaande inhoud.**
 
-De volledige dashboardhandleiding staat als normale tekst in **Berichten > Publion > Handleiding & diagnose**. Dezelfde workflow is ook beschikbaar als [PDF-handleiding](publion/publion-documentation.pdf).
+De volledige dashboardhandleiding staat als normale tekst in **Publion > Handleiding & diagnose**. Dezelfde workflow is ook beschikbaar als [PDF-handleiding](publion/publion-documentation.pdf).
 
 ## Contentplanning en SEO-brief
 
@@ -324,7 +324,7 @@ De plugin behoudt bij een mislukte beeldgeneratie een placeholder, zodat de rest
 
 - Onderwerpen, wachtrijgegevens en postinstellingen worden in de WordPress-database opgeslagen.
 - De OpenAI API-sleutel wordt als WordPress-optie opgeslagen en nooit in deze repository opgenomen.
-- Bij genereren worden het onderwerp, de categorie, de SEO-brief, de geconfigureerde voorprompt en een lokale contentkaart (titels, koppen en inhoudsextracten van bestaande berichten) naar de OpenAI API gestuurd.
+- Bij genereren worden het onderwerp, de categorie, de SEO-brief, de geconfigureerde Publion-prompt en een lokale contentkaart (titels, koppen en inhoudsextracten van bestaande berichten) naar de OpenAI API gestuurd.
 - Google Search Console- en GA4-links zijn alleen opgeslagen URL’s; Publion haalt daarmee zelf geen analyticsdata op.
 - Verwijder of anonimiseer persoonsgegevens voordat je ze aan een AI-prompt toevoegt.
 

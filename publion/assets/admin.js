@@ -233,7 +233,7 @@ jQuery(document).ready(function ($) {
 		if (!validSuggestions.length) {
 			$list.append($('<li>', {
 				class: 'publion-suggestion publion-suggestion-empty',
-			text: t('no_valid_suggestions', 'Geen volledig gevalideerde onderwerpvoorstellen ontvangen. Er is niets opgeslagen. Vernieuw de voorstellen; blijft dit gebeuren, kies een ondersteund model of controleer de voorprompt.')
+			text: t('no_valid_suggestions', 'Geen volledig gevalideerde onderwerpvoorstellen ontvangen. Er is niets opgeslagen. Vernieuw de voorstellen; blijft dit gebeuren, kies een ondersteund model of controleer de Publion-prompt.')
 			}));
 			return;
 		}

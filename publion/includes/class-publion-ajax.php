@@ -194,7 +194,7 @@ function publion_build_error_payload( $code, $message, $overrides = array() ) {
 		),
 		'content_generation' => array(
 			'title'        => __( 'De artikelgeneratie is gestopt.', 'publion' ),
-			'next_step'    => __( 'Lees de oorzaak hieronder. Controleer daarna de API-sleutel, het model en de voorprompt voordat je opnieuw start.', 'publion' ),
+			'next_step'    => __( 'Lees de oorzaak hieronder. Controleer daarna de API-sleutel, het model en de Publion-prompt voordat je opnieuw start.', 'publion' ),
 			'action_label' => __( 'Controleer AI-instellingen', 'publion' ),
 			'action_tab'   => 'publion-settings',
 			'retryable'    => true,
@@ -995,7 +995,7 @@ function publion_get_topics_callback() {
 	}
 
 	if ( ! $text ) {
-		$error = 'OpenAI gaf geen onderwerpvoorstellen terug. Probeer een ander model of verkort de voorprompt.';
+		$error = 'OpenAI gaf geen onderwerpvoorstellen terug. Probeer een ander model of verkort de Publion-prompt.';
 		update_option( 'publion_last_openai_error', $error );
 		publion_send_error( 'content_generation', $error );
 	}
@@ -1500,15 +1500,15 @@ function publion_save_prompt_callback() {
 	check_ajax_referer( 'publion_nonce', 'nonce' );
 
 	if ( ! current_user_can( 'manage_options' ) ) {
-		publion_send_error( 'permission_denied', __( 'Je account mag de voorprompt niet wijzigen.', 'publion' ) );
+		publion_send_error( 'permission_denied', __( 'Je account mag de Publion-prompt niet wijzigen.', 'publion' ) );
 	}
 
 	$prompt = sanitize_textarea_field( wp_unslash( $_POST['prompt'] ?? '' ) );
 	if ( false === update_option( 'publion_prompt', $prompt ) && get_option( 'publion_prompt' ) !== $prompt ) {
-		publion_send_error( 'database', __( 'De voorprompt kon niet worden opgeslagen. Probeer het opnieuw.', 'publion' ) );
+		publion_send_error( 'database', __( 'De Publion-prompt kon niet worden opgeslagen. Probeer het opnieuw.', 'publion' ) );
 	}
 
-	wp_send_json_success( [ 'message' => __( 'Prompt opgeslagen.', 'publion' ) ] );
+	wp_send_json_success( [ 'message' => __( 'Publion-prompt opgeslagen.', 'publion' ) ] );
 }
 
 /* ===== Load Pending Queue Entries ===== */
