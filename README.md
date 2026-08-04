@@ -4,7 +4,7 @@
 
 Publion helpt redacties, marketeers en ondernemers om van een categorie naar een gecontroleerd artikelconcept te werken. De plugin maakt niet alleen tekst: hij bouwt eerst een contentbrief met zoekintentie, focus-keyword, invalshoek en FAQ-vragen. Daarna kun je onderwerpen plannen, artikelen als concept maken, afbeeldingen laten genereren en de resultaten volgen in je eigen analyticsomgeving.
 
-De huidige release is **1.9.10**. Download het WordPress-importpakket: [publion-wordpress-1.9.10.zip](publion-wordpress-1.9.10.zip). Het pakket bevat precies één hoofdmap: `publion/`. Dat is de vereiste WordPress-structuur en voorkomt dat WordPress een tweede, losstaande pluginmap maakt.
+De huidige release is **1.9.15**. Download het WordPress-importpakket: [publion-wordpress-1.9.15.zip](publion-wordpress-1.9.15.zip). Het pakket bevat precies één hoofdmap: `publion/`. Dat is de vereiste WordPress-structuur en voorkomt dat WordPress een tweede, losstaande pluginmap maakt.
 
 ## In één oogopslag
 
@@ -71,7 +71,7 @@ Nieuwe AI-onderwerpvoorstellen en artikelen volgen juist de **sitetaal**. Zo kan
 
 ### Installeren via WordPress
 
-1. Download [publion-wordpress-1.9.10.zip](publion-wordpress-1.9.10.zip).
+1. Download [publion-wordpress-1.9.15.zip](publion-wordpress-1.9.15.zip).
 2. Ga in WordPress naar **Plugins → Nieuwe plugin → Plugin uploaden**.
 3. Upload het zipbestand, installeer en activeer de plugin.
 4. Open **Berichten → Publion**.
@@ -215,6 +215,8 @@ Controleer deze brief voordat je iets in de wachtrij zet. Een goede brief past b
 ## Wat er gebeurt bij artikelgeneratie
 
 Wanneer je **Nu maken** gebruikt of een gepland item aan de beurt is, doorloopt Publion deze stappen:
+
+Bij **Nu maken** staat de actuele fase met het bijbehorende workflowpercentage in de knop zelf. Het kruisje ernaast vraagt een veilige annulering aan. Publion stopt dan bij het eerstvolgende veilige servermoment; het wachtrij-item blijft behouden en er wordt geen half artikel als voltooid opgeslagen.
 
 1. Leest het onderwerp, de categorie, de opgeslagen SEO-brief én de actuele contentkaart van bestaande berichten.
 2. Laat een artikel schrijven met een directe beantwoording, semantische HTML, duidelijke `h2`/`h3`-structuur, voorbeelden en FAQ-sectie.

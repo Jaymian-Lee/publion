@@ -5,7 +5,7 @@ Tags: ai content, chatgpt, blog automatisering, post generatie, blogpost ai
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.9.10
+Stable tag: 1.9.15
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -80,6 +80,28 @@ Deze versie maakt standaard blogposts aan.
 4. Maak automatisch volledige conceptposts met AI-afbeeldingen.
 
 == Changelog ==
+
+= 1.9.15 =
+* De rode annuleerknop is nu strikt verborgen zolang er geen actieve artikelgeneratie loopt.
+
+= 1.9.14 =
+* Herstelt een fout waarbij een zichtbaar geselecteerd onderwerp zonder titel of categorie naar de server kon worden verstuurd.
+* De wachtrij leest onderwerp, categorie en SEO-brief nu rechtstreeks uit de betrouwbare rijdata en valideert incomplete rijen al vóór het opslaan.
+
+= 1.9.13 =
+* Alle globale meldingen en foutpanelen hebben nu een toegankelijke sluitknop met kruisje.
+* Sluiten verbergt alleen de melding; wachtrijgegevens, foutreferenties in de logs en de lopende actie blijven intact.
+
+= 1.9.12 =
+* Herstelt onnodige cURL 28-time-outs bij lange artikelgeneratie: tekst-, beeld- en keywordaanvragen krijgen passende time-outs.
+* Tijdelijke transportfouten en serverfouten krijgen één begrensde retry met korte back-off; sleutel-, model- en tegoedfouten worden niet opnieuw verstuurd.
+* Grote contentkaarten behouden alle titels en koppen, maar gebruiken compactere inhoudsextracten voor een betrouwbaardere API-aanvraag.
+* Time-outmeldingen zijn nu menselijk leesbaar en tonen geen ruwe cURL-details of gevoelige gegevens.
+
+= 1.9.11 =
+* De live voortgang staat nu compact in de knop zelf; de losse voortgangskaart onder de knop is verwijderd.
+* Tijdens artikelgeneratie verschijnt een toegankelijke annuleerknop met kruisje naast de voortgangsknop.
+* Annuleren stopt de workflow bij een veilig servermoment, zonder het wachtrij-item te verwijderen of een half artikel als afgerond op te slaan.
 
 = 1.9.10 =
 * Herstelt een opslagfout waarbij geldige geselecteerde onderwerpkaarten op sommige PHP/FastCGI-servers als een lege wachtrij konden aankomen.

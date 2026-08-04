@@ -593,3 +593,53 @@ msgstr "Processing item %d."
 
 msgid "Geselecteerde items worden verwijderd."
 msgstr "Selected items are being deleted."
+
+# Compact live progress and cancellation
+msgid "Wil je nu een blogpost maken voor dit onderwerp? De knop toont de echte stappen op de server."
+msgstr "Do you want to create a blog post for this topic now? The button shows the actual server steps."
+
+msgid "Artikelgeneratie annuleren"
+msgstr "Cancel article generation"
+
+msgid "Wil je de artikelgeneratie annuleren? Publion stopt bij het eerstvolgende veilige servermoment."
+msgstr "Do you want to cancel article generation? Publion stops at the next safe server checkpoint."
+
+msgid "Annulering aangevraagd"
+msgstr "Cancellation requested"
+
+msgid "De server stopt bij het eerstvolgende veilige moment."
+msgstr "The server will stop at the next safe checkpoint."
+
+msgid "Annuleren is niet gelukt. De artikelgeneratie kan nog actief zijn."
+msgstr "Cancellation failed. Article generation may still be active."
+
+msgid "Annuleren kon niet worden bevestigd. Ververs de wachtrij om de actuele status te controleren."
+msgstr "Cancellation could not be confirmed. Refresh the queue to check the current status."
+
+msgid "Geannuleerd"
+msgstr "Cancelled"
+
+msgid "De artikelgeneratie is veilig gestopt. Het onderwerp blijft in de wachtrij staan."
+msgstr "Article generation stopped safely. The topic remains in the queue."
+
+msgid "De artikelgeneratie is geannuleerd. Er is geen nieuw artikel opgeslagen."
+msgstr "Article generation was cancelled. No new article was saved."
+
+msgid "Artikelgeneratie geannuleerd"
+msgstr "Article generation cancelled"
+
+msgid "Het onderwerp staat nog in de wachtrij. Start opnieuw wanneer je klaar bent."
+msgstr "The topic remains in the queue. Start again when you are ready."
+
+# Network resilience
+msgid "Melding sluiten"
+msgstr "Dismiss message"
+
+msgid "Een geselecteerd onderwerp"
+msgstr "A selected topic"
+
+msgid "Een geselecteerd onderwerp mist verplichte gegevens. Verwijder het onderwerp en voeg de voorstelkaart opnieuw toe."
+msgstr "A selected topic is missing required data. Remove it and add the suggestion card again."
+
+msgid "OpenAI gaf niet op tijd een antwoord. Publion heeft de aanvraag automatisch opnieuw geprobeerd, maar kreeg nog geen reactie. Dit kan tijdelijk gebeuren bij een trage verbinding, firewall of drukte bij de dienst."
+msgstr "OpenAI did not respond in time. Publion retried the request automatically but still received no response. This can happen temporarily with a slow connection, firewall or service congestion."

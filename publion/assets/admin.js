@@ -48,6 +48,13 @@ jQuery(document).ready(function ($) {
 	function appendErrorDetails($target, details, compact) {
 		if (!$target || !$target.length) return;
 		const $panel = $('<div>', { class: 'publion-operation-error', role: 'alert' });
+		$panel.append($('<button>', {
+			type: 'button',
+			class: 'publion-dismiss-notice',
+			'aria-label': t('dismiss_message', 'Melding sluiten'),
+			title: t('dismiss_message', 'Melding sluiten'),
+			text: '\u00d7'
+		}));
 		$panel.append($('<strong>', { text: details.title }));
 		$panel.append($('<p>', { text: details.message }));
 		if (!compact && details.nextStep) {
@@ -76,6 +83,13 @@ jQuery(document).ready(function ($) {
 		const $notice = $('#publion-global-notice');
 		if (!$notice.length) return;
 		$notice.removeClass('is-success is-warning is-error').addClass('is-' + type).empty();
+		$notice.append($('<button>', {
+			type: 'button',
+			class: 'publion-dismiss-notice',
+			'aria-label': t('dismiss_message', 'Melding sluiten'),
+			title: t('dismiss_message', 'Melding sluiten'),
+			text: '\u00d7'
+		}));
 		$notice.append($('<strong>', { text: type === 'error' ? t('action_required', 'Actie nodig') : type === 'warning' ? t('attention', 'Let op') : t('success', 'Gelukt') }));
 		$notice.append($('<span>', { text: message }));
 		if (details && details.actionLabel && details.actionTab) {
@@ -87,6 +101,15 @@ jQuery(document).ready(function ($) {
 		$notice.stop(true, true).slideDown(150);
 		if (type === 'success') setTimeout(function () { $notice.fadeOut(250); }, 4500);
 	}
+
+	$(document).on('click', '.publion-dismiss-notice', function () {
+		const $notice = $(this).closest('.publion-global-notice, .publion-operation-error');
+		if ($notice.hasClass('publion-global-notice')) {
+			$notice.stop(true, true).fadeOut(180, function () { $(this).empty(); });
+		} else {
+			$notice.stop(true, true).fadeOut(180, function () { $(this).remove(); });
+		}
+	});
 
 	function responseMessage(response, fallback) {
 		return errorDetails(response, fallback).message;
@@ -317,12 +340,21 @@ jQuery(document).ready(function ($) {
 	// Save queue for post creation
 	$('#publion-save-queue').on('click', function () {
 	    const postQueue = [];
+	    const invalidRows = [];
 
 	    $('#publion-ai-queue tbody tr').each(function () {
-	        const category = $(this).find('td[data-category]').data('category');
-	        const categoryLabel = $(this).find('td[data-category]').data('category-label');
-	        const topic = $(this).find('td[data-topic]').data('topic') || $(this).find('td[data-topic]').text();
-	        const seoBrief = $(this).data('seo-brief') || {};
+	        const $row = $(this);
+	        // Values are stored with jQuery .data() on the row. Querying a
+	        // [data-*] attribute loses them because .data() does not write it.
+	        const category = $row.data('category');
+	        const categoryLabel = $row.data('category-label') || $row.children('td').eq(1).text();
+	        const topic = typeof $row.data('topic') === 'string' ? $row.data('topic').trim() : '';
+	        const seoBrief = $row.data('seo-brief') || {};
+
+	        if (!topic || !category) {
+			invalidRows.push(topic || t('unknown_topic', 'Een geselecteerd onderwerp'));
+			return;
+	        }
 
 	        postQueue.push({
 	            category,
@@ -332,6 +364,11 @@ jQuery(document).ready(function ($) {
 	            seoBrief: seoBrief
 	        });
 	    });
+
+	    if (invalidRows.length) {
+	        showNotice('warning', t('queue_item_incomplete', 'Een geselecteerd onderwerp mist verplichte gegevens. Verwijder het onderwerp en voeg de voorstelkaart opnieuw toe.'));
+	        return;
+	    }
 
 	    if (postQueue.length === 0) {
 	        showNotice('warning', t('select_topic_first', 'Kies eerst minstens één onderwerp voordat je de wachtrij opslaat.'));
@@ -659,38 +696,24 @@ jQuery(document).ready(function ($) {
 	    }
 	}, 150);
 
-	function renderCreationProgress($progress, progress) {
-		if (!$progress.length || !progress) return;
+	function renderCreationProgress($cell, progress) {
+		if (!$cell.length || !progress) return;
 		const percent = Math.max(0, Math.min(100, parseInt(progress.percent, 10) || 0));
 		const state = progress.state || 'running';
 		const stage = progress.stage || t('working', 'Bezig');
 		const detail = progress.detail || t('server_processing', 'De server verwerkt deze stap.');
-		const error = progress.error && typeof progress.error === 'object' ? progress.error : null;
-		$progress.prop('hidden', false)
-			.removeClass('is-running is-completed is-failed')
-			.addClass('is-' + state);
-		$progress.find('.publion-create-progress-stage').text(stage);
-		$progress.find('.publion-create-progress-percent').text(percent + '%');
-		$progress.find('.publion-create-progress-detail').text(detail);
-		const $guidance = $progress.find('.publion-create-progress-guidance');
-		const $reference = $progress.find('.publion-create-progress-reference');
-		const $action = $progress.find('.publion-create-progress-action');
-		if (error) {
-			$guidance.text(error.next_step || '').prop('hidden', !error.next_step);
-			$reference.text(error.reference ? t('reference', 'Referentie') + ': ' + error.reference : '').prop('hidden', !error.reference);
-			$action.text(error.action_label || '').attr('data-publion-error-tab', error.action_tab || '').prop('hidden', !(error.action_label && error.action_tab));
-		} else {
-			$guidance.empty().prop('hidden', true);
-			$reference.empty().prop('hidden', true);
-			$action.empty().removeAttr('data-publion-error-tab').prop('hidden', true);
-		}
-		$progress.find('.publion-create-progress-bar').css('width', percent + '%');
-		$progress.find('.publion-create-progress-track')
-			.attr('aria-valuenow', percent)
-			.attr('aria-valuetext', stage + ': ' + percent + ' ' + t('percent', 'procent'));
+		const $button = $cell.find('.publion-create-now');
+		const $cancel = $cell.find('.publion-cancel-creation');
+		const buttonText = state === 'running' ? stage + ' - ' + percent + '%' : stage;
+		$button.removeClass('publion-create-is-running publion-create-is-completed publion-create-is-failed publion-create-is-cancelled')
+			.addClass('publion-create-is-' + state)
+			.attr('title', detail)
+			.attr('aria-label', stage + ': ' + percent + '% — ' + detail)
+			.find('.button-text').text(buttonText);
+		$cancel.prop('hidden', state !== 'running');
 	}
 
-	function pollCreationProgress(id, $progress, $button) {
+	function pollCreationProgress(id, $cell, $button) {
 		const poll = function () {
 			$.post(Publion.ajax_url, {
 				action: 'publion_get_creation_progress',
@@ -698,7 +721,7 @@ jQuery(document).ready(function ($) {
 				id: id
 			}, function (response) {
 				if (!response || !response.success || !response.data) return;
-				renderCreationProgress($progress, response.data);
+				renderCreationProgress($cell, response.data);
 				if (response.data.state === 'running') {
 					$button.find('.button-text').text((response.data.stage || t('working', 'Bezig')) + ' · ' + (response.data.percent || 0) + '%');
 				}
@@ -712,12 +735,11 @@ jQuery(document).ready(function ($) {
 	    const $button = $(this);
 	    const id = $button.data('id');
 	    const $cell = $button.closest('.publion-queue-actions');
-	    const $progress = $cell.find('.publion-create-progress');
 
 	    if (!confirm(t('create_now_confirm', 'Wil je nu een blogpost maken voor dit onderwerp? De status hieronder volgt de echte stappen op de server.'))) return;
 
 	    $button.prop('disabled', true).find('.button-text').text(t('request_sent', 'Aanvraag verstuurd'));
-	    renderCreationProgress($progress, {
+	    renderCreationProgress($cell, {
 			state: 'running',
 			percent: 1,
 			stage: t('request_started', 'Aanvraag gestart'),
@@ -725,7 +747,7 @@ jQuery(document).ready(function ($) {
 		});
 	    $button.siblings('.publion-create-spinner').addClass('is-active').show();
 	    $('.publion-delete[data-id="' + id + '"]').hide();
-	    const progressTimer = pollCreationProgress(id, $progress, $button);
+	    const progressTimer = pollCreationProgress(id, $cell, $button);
 
 	    $.post(Publion.ajax_url, {
 	        action: 'publion_create_post_now',
@@ -734,7 +756,7 @@ jQuery(document).ready(function ($) {
 	    }, function (res) {
 	        window.clearInterval(progressTimer);
 	        if (res && res.success) {
-				renderCreationProgress($progress, {
+				renderCreationProgress($cell, {
 					state: 'completed',
 					percent: 100,
 					stage: t('complete', 'Klaar'),
@@ -747,7 +769,7 @@ jQuery(document).ready(function ($) {
 				window.setTimeout(function () { location.reload(); }, 1100);
 			} else {
 				const error = showActionableError(res, t('create_failed', 'Post aanmaken mislukt. Controleer de getoonde voortgang en probeer opnieuw.'));
-				renderCreationProgress($progress, { state: 'failed', percent: 0, stage: error.title, detail: error.message, error: error });
+				renderCreationProgress($cell, { state: 'failed', percent: 0, stage: error.title, detail: error.message, error: error });
 	            $button.prop('disabled', false).find('.button-text').text(t('create_now', 'Nu maken'));
 	            $button.siblings('.publion-create-spinner').removeClass('is-active').hide();
 	            $('.publion-delete[data-id="' + id + '"]').show();
@@ -760,12 +782,41 @@ jQuery(document).ready(function ($) {
 			error.nextStep = t('connection_lost_next_step', 'Ververs eerst de wachtrij. Start alleen opnieuw als er nog geen concept is aangemaakt.');
 			error.actionLabel = t('open_queue', 'Open wachtrij');
 			error.actionTab = 'publion-queue';
-			renderCreationProgress($progress, { state: 'failed', percent: 0, stage: error.title, detail: error.message, error: error });
+			renderCreationProgress($cell, { state: 'failed', percent: 0, stage: error.title, detail: error.message, error: error });
 			showNotice('error', error.title + ': ' + error.message + ' ' + error.nextStep, error);
 			$button.prop('disabled', false).find('.button-text').text(t('create_now', 'Nu maken'));
 			$button.siblings('.publion-create-spinner').removeClass('is-active').hide();
 			$('.publion-delete[data-id="' + id + '"]').show();
 	    });
+	});
+
+	$(document).on('click', '.publion-cancel-creation', function () {
+		const $cancel = $(this);
+		const id = $cancel.data('id');
+		const $cell = $cancel.closest('.publion-queue-actions');
+		if (!confirm(t('cancel_creation_confirm', 'Wil je de artikelgeneratie annuleren? Publion stopt bij het eerstvolgende veilige servermoment.'))) return;
+
+		$cancel.prop('disabled', true);
+		$cell.data('publion-cancelled', true);
+		$.post(Publion.ajax_url, {
+			action: 'publion_cancel_post_creation',
+			nonce: Publion.nonce,
+			id: id
+		}, function (res) {
+			if (res && res.success) {
+				renderCreationProgress($cell, { state: 'cancelled', percent: 0, stage: t('cancel_requested', 'Annulering aangevraagd'), detail: res.data.message || t('cancel_pending', 'De server stopt bij het eerstvolgende veilige moment.') });
+				showNotice('success', res.data.message || t('cancel_pending', 'De server stopt bij het eerstvolgende veilige moment.'));
+				window.setTimeout(function () { location.reload(); }, 1300);
+			} else {
+				$cell.data('publion-cancelled', false);
+				$cancel.prop('disabled', false);
+				showActionableError(res, t('cancel_failed', 'Annuleren is niet gelukt. De artikelgeneratie kan nog actief zijn.'));
+			}
+		}).fail(function () {
+			$cell.data('publion-cancelled', false);
+			$cancel.prop('disabled', false);
+			showNotice('error', t('cancel_connection_lost', 'Annuleren kon niet worden bevestigd. Ververs de wachtrij om de actuele status te controleren.'));
+		});
 	});
 
 	$(document).on('click', '.publion-accordion-heading', function () {
@@ -1105,7 +1156,7 @@ function updateQueueVisibility() {
 
 	    $button.prop('disabled', true);
 
-	    const $row = $('<tr>').data('topic', rawTopic).data('category', category).data('seo-brief', seoBrief);
+	    const $row = $('<tr>').data('topic', rawTopic).data('category', category).data('category-label', categoryLabel).data('seo-brief', seoBrief);
 	    $row.append($('<td>').append($('<button>', { type: 'button', class: 'button remove-topic', text: t('remove', 'Verwijderen') }).data('restore-topic', rawTopic)));
 	    $row.append($('<td>').data('category', category).data('category-label', categoryLabel).text(categoryLabel));
 	    $row.append($('<td>').data('topic', rawTopic).text(rawTopic));

@@ -857,7 +857,7 @@ function publion_get_topics_callback() {
 		'body'    => wp_json_encode( $request_body ),
 		'timeout' => 90,
 	);
-	$response = wp_remote_post( 'https://api.openai.com/v1/chat/completions', $request_args );
+	$response = publion_openai_post( 'https://api.openai.com/v1/chat/completions', $request_args, 'topic_suggestions' );
 
 	// A manually entered legacy model might not support Structured Outputs.
 	// Keep JSON mode on in the compatibility retry: unstructured text must never
@@ -865,7 +865,7 @@ function publion_get_topics_callback() {
 	if ( ! is_wp_error( $response ) && 400 === (int) wp_remote_retrieve_response_code( $response ) ) {
 		$request_body['response_format'] = array( 'type' => 'json_object' );
 		$request_args['body'] = wp_json_encode( $request_body );
-		$response = wp_remote_post( 'https://api.openai.com/v1/chat/completions', $request_args );
+		$response = publion_openai_post( 'https://api.openai.com/v1/chat/completions', $request_args, 'topic_suggestions' );
 	}
 
 	if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
@@ -1398,12 +1398,8 @@ function publion_load_queue_entries_callback() {
 		// Actions column (create/delete for pending).
 		$row_html .= '<td class="publion-queue-actions" style="text-align: center; white-space: nowrap; padding: 0;">';
 		$row_html .= '<button class="publion-create-now button button-primary" data-id="' . esc_attr( $entry->id ) . '"><span class="button-text">' . esc_html__( 'Nu maken', 'publion' ) . '</span></button>';
+		$row_html .= '<button type="button" class="publion-cancel-creation button" data-id="' . esc_attr( $entry->id ) . '" aria-label="' . esc_attr__( 'Artikelgeneratie annuleren', 'publion' ) . '" title="' . esc_attr__( 'Artikelgeneratie annuleren', 'publion' ) . '" hidden><span aria-hidden="true">&times;</span><span class="screen-reader-text">' . esc_html__( 'Artikelgeneratie annuleren', 'publion' ) . '</span></button>';
 		$row_html .= '<span class="publion-create-spinner spinner" aria-hidden="true"></span>';
-		$row_html .= '<div class="publion-create-progress" data-id="' . esc_attr( $entry->id ) . '" role="status" aria-live="polite" hidden>';
-		$row_html .= '<div class="publion-create-progress-label"><span class="publion-create-progress-stage">' . esc_html__( 'Voorbereiden', 'publion' ) . '</span><strong class="publion-create-progress-percent">0%</strong></div>';
-		$row_html .= '<div class="publion-create-progress-track" role="progressbar" aria-label="' . esc_attr__( 'Voortgang artikel maken', 'publion' ) . '" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="publion-create-progress-bar"></span></div>';
-		$row_html .= '<small class="publion-create-progress-detail">' . esc_html__( 'De actuele serverstatus verschijnt hier.', 'publion' ) . '</small>';
-		$row_html .= '<p class="publion-create-progress-guidance" hidden></p><small class="publion-create-progress-reference" hidden></small><button type="button" class="button publion-create-progress-action" hidden></button></div>';
 		$row_html .= '<button class="publion-delete button" data-id="' . esc_attr( $entry->id ) . '" style="background-color:#cc0000; color:#fff; font-size:12px; padding:0 4px 2px 4px; margin:2px; line-height:1em; height:auto; vertical-align:middle; border-width:0px;">' . esc_html__( 'Verwijderen', 'publion' ) . '</button>';
 		$row_html .= '</td>';
 
@@ -1555,6 +1551,10 @@ function publion_creation_progress_key( $topic_id ) {
 	return 'publion_creation_progress_' . absint( $topic_id );
 }
 
+function publion_creation_cancellation_key( $topic_id ) {
+	return 'publion_creation_cancelled_' . absint( $topic_id );
+}
+
 /**
  * Persist the latest completed workflow checkpoint for a queue entry.
  * The percentage is stage-based, not a time estimate: it only moves when the
@@ -1569,7 +1569,7 @@ function publion_set_creation_progress( $topic_id, $state, $percent, $stage, $de
 	$progress = array_merge(
 		array(
 			'topic_id'   => $topic_id,
-			'state'      => in_array( $state, array( 'running', 'completed', 'failed' ), true ) ? $state : 'running',
+			'state'      => in_array( $state, array( 'running', 'completed', 'failed', 'cancelled' ), true ) ? $state : 'running',
 			'percent'    => max( 0, min( 100, absint( $percent ) ) ),
 			'stage'      => sanitize_text_field( $stage ),
 			'detail'     => sanitize_text_field( $detail ),
@@ -1579,6 +1579,53 @@ function publion_set_creation_progress( $topic_id, $state, $percent, $stage, $de
 	);
 
 	set_transient( publion_creation_progress_key( $topic_id ), $progress, HOUR_IN_SECONDS );
+}
+
+/** Stop at a safe checkpoint instead of leaving a partial article in the queue. */
+function publion_abort_if_creation_cancelled( $topic_id ) {
+	if ( ! get_transient( publion_creation_cancellation_key( $topic_id ) ) ) {
+		return;
+	}
+
+	delete_transient( publion_creation_cancellation_key( $topic_id ) );
+	publion_set_creation_progress(
+		$topic_id,
+		'cancelled',
+		0,
+		__( 'Geannuleerd', 'publion' ),
+		__( 'De artikelgeneratie is veilig gestopt. Het onderwerp blijft in de wachtrij staan.', 'publion' )
+	);
+	publion_send_error(
+		'operation_cancelled',
+		__( 'De artikelgeneratie is geannuleerd. Er is geen nieuw artikel opgeslagen.', 'publion' ),
+		array(
+			'title'        => __( 'Artikelgeneratie geannuleerd', 'publion' ),
+			'next_step'    => __( 'Het onderwerp staat nog in de wachtrij. Start opnieuw wanneer je klaar bent.', 'publion' ),
+			'action_label' => __( 'Open wachtrij', 'publion' ),
+			'action_tab'   => 'publion-queue',
+			'retryable'    => false,
+		)
+	);
+}
+
+add_action( 'wp_ajax_publion_cancel_post_creation', 'publion_cancel_post_creation' );
+function publion_cancel_post_creation() {
+	check_ajax_referer( 'publion_nonce', 'nonce' );
+	if ( ! current_user_can( 'manage_options' ) ) {
+		publion_send_error( 'permission_denied', __( 'Je account mag deze artikelgeneratie niet annuleren.', 'publion' ) );
+	}
+
+	$topic_id = absint( $_POST['id'] ?? 0 );
+	if ( ! $topic_id ) {
+		publion_send_error( 'validation', __( 'Er ontbreekt een geldig wachtrij-item om te annuleren.', 'publion' ) );
+	}
+
+	set_transient( publion_creation_cancellation_key( $topic_id ), 1, HOUR_IN_SECONDS );
+	wp_send_json_success(
+		array(
+			'message' => __( 'Annulering is aangevraagd. Publion stopt bij het eerstvolgende veilige servermoment.', 'publion' ),
+		)
+	);
 }
 
 function publion_fail_post_creation( $topic_id, $message, $code = 'content_generation' ) {
@@ -1644,6 +1691,7 @@ function publion_create_post_now() {
 	}
 
 	publion_set_creation_progress( $topic_id, 'running', 5, __( 'Voorbereiden', 'publion' ), __( 'Onderwerp, instellingen en SEO-brief worden gecontroleerd.', 'publion' ) );
+	delete_transient( publion_creation_cancellation_key( $topic_id ) );
 
 	$settings    = get_option( 'publion_post_settings', [] );
 	$post_status = sanitize_key( $settings['post_status'] ?? 'draft' );
@@ -1661,6 +1709,7 @@ function publion_create_post_now() {
 	if ( is_wp_error( $post_html ) || ! $post_html ) {
 		publion_fail_post_creation( $topic_id, is_wp_error( $post_html ) ? $post_html->get_error_message() : __( 'De artikeltekst is niet teruggekomen van OpenAI.', 'publion' ) );
 	}
+	publion_abort_if_creation_cancelled( $topic_id );
 	publion_set_creation_progress( $topic_id, 'running', 45, __( 'Tekst nakijken', 'publion' ), __( 'Artikeltekst is gegenereerd en wordt voorbereid voor afbeeldingen.', 'publion' ) );
 
 	// Generate 6 context-aware AI images based on nearby text.
@@ -1681,6 +1730,7 @@ function publion_create_post_now() {
 	publion_set_creation_progress( $topic_id, 'running', 50, __( 'Afbeeldingen voorbereiden', 'publion' ), sprintf( __( '%d beeldopdrachten worden samengesteld.', 'publion' ), count( $prompts ) ) );
 
 	foreach ( $prompts as $item ) {
+		publion_abort_if_creation_cancelled( $topic_id );
 		$image_index++;
 		$image_percent = 50 + (int) floor( ( ( $image_index - 1 ) / $total_images ) * 30 );
 		publion_set_creation_progress( $topic_id, 'running', $image_percent, __( 'Afbeelding genereren', 'publion' ), sprintf( __( 'Afbeelding %1$d van %2$d wordt gegenereerd en geüpload.', 'publion' ), $image_index, $total_images ) );
@@ -1689,6 +1739,7 @@ function publion_create_post_now() {
 		$image_layout = ( isset( $item['layout'] ) && 'square' === $item['layout'] ) ? 'square' : 'landscape';
 		$image_size   = ( isset( $item['size'] ) && in_array( $item['size'], array( '1024x1024', '1536x1024', '1024x1536', '1536x864' ), true ) ) ? $item['size'] : '1024x1024';
 		$image_result = publion_generate_and_upload_images( $prompt_text, 1, $context, $api_key, $image_size );
+		publion_abort_if_creation_cancelled( $topic_id );
 		$image_layouts[] = $image_layout;
 		if ( ! empty( $image_result['urls'][0] ) && ! empty( $image_result['ids'][0] ) ) {
 			$final_image_urls[] = $image_result['urls'][0];
@@ -1705,6 +1756,7 @@ function publion_create_post_now() {
 		$image_layouts[]    = 'landscape';
 	}
 	publion_set_creation_progress( $topic_id, 'running', 82, __( 'Artikel samenstellen', 'publion' ), __( 'Afbeeldingen en alt-teksten worden in het concept verwerkt.', 'publion' ) );
+	publion_abort_if_creation_cancelled( $topic_id );
 
 	// Insert 5 images into content.
 	$post_html = publion_insert_images_into_content( $post_html, array_slice( $final_image_urls, 0, 5 ), array_slice( $image_layouts, 0, 5 ) );

@@ -51,6 +51,10 @@ function publion_get_openai_model() {
  */
 function publion_get_openai_request_error( $response, $model = '' ) {
     if ( is_wp_error( $response ) ) {
+        $transport_error = strtolower( (string) $response->get_error_message() );
+        if ( false !== strpos( $transport_error, 'timed out' ) || false !== strpos( $transport_error, 'timeout' ) || false !== strpos( $transport_error, 'curl error 28' ) ) {
+            return __( 'OpenAI gaf niet op tijd een antwoord. Publion heeft de aanvraag automatisch opnieuw geprobeerd, maar kreeg nog geen reactie. Dit kan tijdelijk gebeuren bij een trage verbinding, firewall of drukte bij de dienst.', 'publion' );
+        }
         return sprintf(
             /* translators: %s: transport error returned by WordPress. */
             __( 'OpenAI is niet bereikbaar: %s', 'publion' ),
@@ -85,6 +89,48 @@ function publion_get_openai_request_error( $response, $model = '' ) {
         __( 'OpenAI gaf een onverwachte fout terug (HTTP %d).', 'publion' ),
         $status
     );
+}
+
+/** Decide whether an OpenAI request may be retried once. */
+function publion_should_retry_openai_response( $response ) {
+    if ( is_wp_error( $response ) ) {
+        $message = strtolower( (string) $response->get_error_message() );
+        foreach ( array( 'timed out', 'timeout', 'curl error 28', 'connection', 'could not resolve host', 'ssl' ) as $needle ) {
+            if ( false !== strpos( $message, $needle ) ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    $status = (int) wp_remote_retrieve_response_code( $response );
+    return 408 === $status || $status >= 500;
+}
+
+/**
+ * Send an OpenAI POST request with one bounded retry for transient transport
+ * failures. No WordPress post is created until the response passes all local
+ * validation and duplicate checks.
+ */
+function publion_openai_post( $url, $args, $operation = 'general' ) {
+    $args     = is_array( $args ) ? $args : array();
+    $attempts = max( 1, min( 2, (int) apply_filters( 'publion/openai_request_attempts', 2, $operation ) ) );
+    $response = null;
+
+    for ( $attempt = 1; $attempt <= $attempts; $attempt++ ) {
+        $response = wp_remote_post( $url, $args );
+        if ( ! publion_should_retry_openai_response( $response ) || $attempt === $attempts ) {
+            return $response;
+        }
+
+        // Short exponential backoff with jitter; never retry in a tight loop.
+        $delay_us = (int) apply_filters( 'publion/openai_retry_delay_microseconds', ( 500000 * $attempt ) + wp_rand( 0, 250000 ), $attempt, $operation, $response );
+        if ( $delay_us > 0 ) {
+            usleep( min( 2000000, $delay_us ) );
+        }
+    }
+
+    return $response;
 }
 
 /**
@@ -138,8 +184,10 @@ function publion_get_existing_content_map( $exclude_post_id = 0 ) {
         );
     }
 
-    $max_context_chars = (int) apply_filters( 'publion/content_map_max_chars', 300000 );
-    $excerpt_chars     = (int) apply_filters( 'publion/content_map_excerpt_chars', 3500 );
+    // Preserve every title and heading, but keep body extracts compact enough
+    // for a reliable API response on large editorial archives.
+    $max_context_chars = (int) apply_filters( 'publion/content_map_max_chars', 120000 );
+    $excerpt_chars     = (int) apply_filters( 'publion/content_map_excerpt_chars', 1200 );
     $context           = array();
     $used_chars        = 0;
 
@@ -386,14 +434,14 @@ Geef uitsluitend valide HTML-content terug, zonder uitleg, notities of Markdown.
     ];
 
     while ($word_count < $target_word_count && $iteration < $max_iterations) {
-        $response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
+        $response = publion_openai_post('https://api.openai.com/v1/chat/completions', [
             'headers' => [
                 'Content-Type'  => 'application/json',
                 'Authorization' => 'Bearer ' . $api_key,
             ],
             'body' => wp_json_encode( publion_build_openai_chat_body( $model, $messages, 4096 ) ),
-            'timeout' => 60
-        ]);
+            'timeout' => 135
+        ], 'article');
 
         if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
             $error = publion_get_openai_request_error( $response, $model );
@@ -568,7 +616,7 @@ function publion_extract_noun_keywords($text, $api_key, $model = '') {
 
 $text";
 
-    $response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
+    $response = publion_openai_post('https://api.openai.com/v1/chat/completions', [
         'headers' => [
             'Content-Type'  => 'application/json',
             'Authorization' => 'Bearer ' . $api_key,
@@ -582,8 +630,8 @@ $text";
             200,
             0.3
         ) ),
-        'timeout' => 30
-    ]);
+        'timeout' => 60
+    ], 'keywords');
 
     $body = json_decode(wp_remote_retrieve_body($response), true);
 	// Get raw response content
@@ -978,7 +1026,7 @@ function publion_generate_image_base64s( $prompt, $api_key, $count = 1, $size = 
     }
 
     $image_model = publion_get_openai_image_model();
-    $response = wp_remote_post(
+    $response = publion_openai_post(
         'https://api.openai.com/v1/images/generations',
         [
             'headers' => [
@@ -995,8 +1043,9 @@ function publion_generate_image_base64s( $prompt, $api_key, $count = 1, $size = 
                     'output_format' => 'jpeg',
                 ]
             ),
-            'timeout' => 120,
-        ]
+            'timeout' => 180,
+        ],
+        'image'
     );
 
     if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {

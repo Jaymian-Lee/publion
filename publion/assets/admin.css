@@ -132,24 +132,14 @@
 .publion-queue-brief { color: var(--publion-muted); font-size: 12px; }
 .publion-queue-actions { min-width: 196px; }
 .publion-queue-actions .publion-create-now { margin: 5px 2px 2px; }
+.publion-queue-actions .publion-cancel-creation { min-width: 32px; height: 32px; margin: 5px 2px 2px 0; padding: 0; color: #b42318; border-color: #fca5a5; font-size: 20px; line-height: 1; vertical-align: middle; }
+.publion-queue-actions .publion-cancel-creation[hidden] { display: none !important; }
+.publion-queue-actions .publion-cancel-creation:hover, .publion-queue-actions .publion-cancel-creation:focus { color: #fff; background: #dc2626; border-color: #dc2626; }
+.publion-queue-actions .publion-create-now.publion-create-is-running { min-width: 132px; color: #475569; background: #e2e8f0; border-color: #e2e8f0; }
+.publion-queue-actions .publion-create-now.publion-create-is-completed { color: #166534; background: #dcfce7; border-color: #bbf7d0; }
+.publion-queue-actions .publion-create-now.publion-create-is-failed { color: #991b1b; background: #fef2f2; border-color: #fecaca; }
+.publion-queue-actions .publion-create-now.publion-create-is-cancelled { color: #475569; background: #f1f5f9; border-color: #cbd5e1; }
 .publion-queue-actions .publion-create-spinner { float: none; margin-left: 4px; vertical-align: middle; }
-.publion-create-progress { width: min(188px, calc(100% - 8px)); margin: 5px auto 6px; padding: 8px; color: #334155; background: #f8fafc; border: 1px solid #dbe4f0; border-radius: 8px; box-sizing: border-box; text-align: left; white-space: normal; }
-.publion-create-progress[hidden] { display: none; }
-.publion-create-progress-label { display: flex; justify-content: space-between; align-items: baseline; gap: 7px; font-size: 11px; line-height: 1.25; }
-.publion-create-progress-stage { overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.publion-create-progress-percent { color: #4338ca; font-size: 11px; }
-.publion-create-progress-track { height: 5px; margin: 6px 0; overflow: hidden; background: #e2e8f0; border-radius: 999px; }
-.publion-create-progress-bar { display: block; width: 0; height: 100%; background: #635bff; border-radius: inherit; transition: width .28s ease; }
-.publion-create-progress-detail { display: -webkit-box; overflow: hidden; color: #64748b; font-size: 10px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
-.publion-create-progress-guidance { margin: 7px 0 0; font-size: 10px; line-height: 1.4; }
-.publion-create-progress-reference { display: block; margin-top: 5px; color: #64748b; font-size: 9px; }
-.publion-create-progress-action { margin-top: 8px !important; font-size: 11px !important; }
-.publion-create-progress.is-completed { color: #166534; background: #f0fdf4; border-color: #bbf7d0; }
-.publion-create-progress.is-completed .publion-create-progress-percent { color: #166534; }
-.publion-create-progress.is-completed .publion-create-progress-bar { background: #22c55e; }
-.publion-create-progress.is-failed { color: #991b1b; background: #fef2f2; border-color: #fecaca; }
-.publion-create-progress.is-failed .publion-create-progress-percent { color: #991b1b; }
-.publion-create-progress.is-failed .publion-create-progress-bar { background: #ef4444; }
 .publion-app-shell .publion-accordion-heading { display: flex; justify-content: space-between; align-items: center; margin: 26px 0 0; padding: 13px 0; border-bottom: 1px solid var(--publion-line); font-size: 16px; }
 .publion-app-shell .form-table th { color: var(--publion-ink); }
 .publion-app-shell .description { color: var(--publion-muted); }
@@ -173,7 +163,7 @@
 }
 
 /* Dashboard and guidance */
-.publion-global-notice { display: none; margin: 0 0 18px; padding: 12px 14px; border-left: 3px solid; border-radius: 8px; }
+.publion-global-notice { position: relative; display: none; margin: 0 0 18px; padding: 12px 46px 12px 14px; border-left: 3px solid; border-radius: 8px; }
 .publion-global-notice strong { display: block; margin-bottom: 2px; }
 .publion-global-notice span { font-size: 13px; }
 .publion-global-notice .publion-error-action { display: inline-block; margin: 9px 8px 0 0; }
@@ -181,7 +171,10 @@
 .publion-global-notice.is-success { color: #166534; background: #f0fdf4; border-color: #22c55e; }
 .publion-global-notice.is-warning { color: #92400e; background: #fffbeb; border-color: #f59e0b; }
 .publion-global-notice.is-error { color: #991b1b; background: #fef2f2; border-color: #ef4444; }
-.publion-operation-error { margin-top: 10px; padding: 11px 12px; color: #991b1b; background: #fff7f7; border: 1px solid #fecaca; border-radius: 8px; text-align: left; }
+.publion-operation-error { position: relative; margin-top: 10px; padding: 11px 42px 11px 12px; color: #991b1b; background: #fff7f7; border: 1px solid #fecaca; border-radius: 8px; text-align: left; }
+.publion-dismiss-notice { position: absolute; top: 8px; right: 9px; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; color: currentColor; background: transparent; border: 1px solid transparent; border-radius: 6px; cursor: pointer; font-size: 22px; font-weight: 400; line-height: 1; }
+.publion-dismiss-notice:hover { background: rgba(15, 23, 42, .08); border-color: currentColor; }
+.publion-dismiss-notice:focus { outline: 2px solid currentColor; outline-offset: 1px; }
 .publion-operation-error strong { display: block; font-size: 13px; }
 .publion-operation-error p { margin: 5px 0; font-size: 12px; line-height: 1.45; }
 .publion-operation-error-list { margin: 8px 0; padding-left: 18px; }
