@@ -1224,7 +1224,8 @@ class Publion_Admin {
                 <?php
                 $image_error = get_option( 'publion_last_image_error', '' );
                 if ( ! empty( $image_error ) ) {
-                    echo '<div class="publion-inline-error" role="alert" style="margin-top:10px; max-width:760px; padding:10px 12px; border-left:3px solid #dc2626; border-radius:6px; background:#fef2f2; color:#991b1b;">';
+                    echo '<div class="publion-inline-error publion-operation-error" role="alert" style="margin-top:10px; max-width:760px; border-left:3px solid #dc2626;">';
+                    echo '<button type="button" class="publion-dismiss-notice" aria-label="' . esc_attr__( 'Melding sluiten', 'publion' ) . '" title="' . esc_attr__( 'Melding sluiten', 'publion' ) . '">&times;</button>';
                     echo '<strong>' . esc_html__( 'Afbeelding heeft aandacht nodig', 'publion' ) . '</strong><br>' . esc_html( $image_error );
                     echo '</div>';
                 }
