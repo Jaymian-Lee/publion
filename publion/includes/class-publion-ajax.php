@@ -1074,6 +1074,390 @@ function publion_get_topics_callback() {
 	wp_send_json_success( $topics );
 }
 
+/**
+ * Return a compact map of the current taxonomy. This complements the content
+ * map used for article ideas: category suggestions must expand the site's
+ * actual editorial territory rather than merely inventing keyword buckets.
+ */
+function publion_get_category_taxonomy_map() {
+	$categories = get_categories(
+		array(
+			'hide_empty' => false,
+			'taxonomy'   => 'category',
+		)
+	);
+	$rows = array();
+	foreach ( $categories as $category ) {
+		if ( 0 === strcasecmp( (string) $category->name, 'uncategorized' ) ) {
+			continue;
+		}
+		$parent = $category->parent ? get_category( $category->parent ) : null;
+		$rows[] = sprintf(
+			'CAT #%d: %s%s — %d bericht(en)%s',
+			(int) $category->term_id,
+			sanitize_text_field( $category->name ),
+			$parent ? ' (onder ' . sanitize_text_field( $parent->name ) . ')' : '',
+			(int) $category->count,
+			$category->description ? ' — ' . sanitize_text_field( $category->description ) : ''
+		);
+	}
+
+	return empty( $rows ) ? __( 'Er zijn nog geen bruikbare WordPress-categorieën.', 'publion' ) : implode( "\n", $rows );
+}
+
+/**
+ * Structured output contract for the manual category strategy. The category
+ * itself stays deliberately high-level; article ideas are shown only to make
+ * its scope reviewable before the editor creates anything in WordPress.
+ */
+function publion_get_category_suggestions_response_format() {
+	$item_schema = array(
+		'type'                 => 'object',
+		'properties'           => array(
+			'name'             => array( 'type' => 'string' ),
+			'slug'             => array( 'type' => 'string' ),
+			'category_level'   => array( 'type' => 'string', 'enum' => array( 'hoofd', 'subcategorie' ) ),
+			'parent_name'      => array( 'type' => 'string' ),
+			'focus_keyword'    => array( 'type' => 'string' ),
+			'search_intent'    => array( 'type' => 'string', 'enum' => array( 'informatief', 'commercieel', 'transactioneel' ) ),
+			'description'      => array( 'type' => 'string' ),
+			'seo_title'        => array( 'type' => 'string' ),
+			'meta_description' => array( 'type' => 'string' ),
+			'geo_summary'      => array( 'type' => 'string' ),
+			'rationale'        => array( 'type' => 'string' ),
+			'example_topics'   => array( 'type' => 'array', 'items' => array( 'type' => 'string' ), 'minItems' => 3, 'maxItems' => 3 ),
+		),
+		'required'             => array( 'name', 'slug', 'category_level', 'parent_name', 'focus_keyword', 'search_intent', 'description', 'seo_title', 'meta_description', 'geo_summary', 'rationale', 'example_topics' ),
+		'additionalProperties' => false,
+	);
+
+	return array(
+		'type'        => 'json_schema',
+		'json_schema' => array(
+			'name'   => 'publion_category_suggestions',
+			'strict' => true,
+			'schema' => array(
+				'type'                 => 'object',
+				'properties'           => array(
+					'suggestions' => array( 'type' => 'array', 'items' => $item_schema, 'minItems' => 5, 'maxItems' => 5 ),
+				),
+				'required'             => array( 'suggestions' ),
+				'additionalProperties' => false,
+			),
+		),
+	);
+}
+
+function publion_category_text_length( $value ) {
+	return function_exists( 'mb_strlen' ) ? mb_strlen( (string) $value, 'UTF-8' ) : strlen( (string) $value );
+}
+
+/**
+ * Keep the machine-suggested focus phrase visibly consistent with the fields
+ * a visitor and a search engine can actually read. This is a relevance check,
+ * not a ranking guarantee.
+ */
+function publion_category_field_contains_focus_keyword( $field, $focus_keyword ) {
+	$field         = trim( (string) $field );
+	$focus_keyword = trim( (string) $focus_keyword );
+	if ( '' === $field || '' === $focus_keyword ) {
+		return false;
+	}
+	if ( function_exists( 'mb_stripos' ) ) {
+		return false !== mb_stripos( $field, $focus_keyword, 0, 'UTF-8' );
+	}
+	return false !== stripos( $field, $focus_keyword );
+}
+
+function publion_normalize_category_suggestions( $text, &$is_valid_json ) {
+	$is_valid_json = false;
+	$decoded       = json_decode( (string) $text, true );
+	$items         = is_array( $decoded['suggestions'] ?? null ) ? $decoded['suggestions'] : array();
+	$suggestions   = array();
+	$seen          = array();
+
+	foreach ( $items as $item ) {
+		if ( ! is_array( $item ) ) {
+			continue;
+		}
+		$name             = publion_normalize_title( $item['name'] ?? '' );
+		$slug             = sanitize_title( $item['slug'] ?? '' );
+		$level            = sanitize_key( $item['category_level'] ?? '' );
+		$parent_name      = publion_normalize_title( $item['parent_name'] ?? '' );
+		$focus_keyword    = publion_normalize_title( $item['focus_keyword'] ?? '' );
+		$intent           = sanitize_key( $item['search_intent'] ?? '' );
+		$description      = sanitize_textarea_field( $item['description'] ?? '' );
+		$seo_title        = sanitize_text_field( $item['seo_title'] ?? '' );
+		$meta_description = sanitize_text_field( $item['meta_description'] ?? '' );
+		$geo_summary      = sanitize_textarea_field( $item['geo_summary'] ?? '' );
+		$rationale        = sanitize_text_field( $item['rationale'] ?? '' );
+		$topics           = array_values( array_filter( array_map( 'publion_normalize_title', (array) ( $item['example_topics'] ?? array() ) ) ) );
+		$key              = strtolower( $name );
+
+		if (
+			publion_category_text_length( $name ) < 3 || publion_category_text_length( $name ) > 70 || preg_match( '/[\r\n\[\]{}]/', $name ) ||
+			publion_category_text_length( $slug ) < 3 || publion_category_text_length( $slug ) > 80 ||
+			! in_array( $level, array( 'hoofd', 'subcategorie' ), true ) || ( 'hoofd' === $level && '' !== $parent_name ) || ( 'subcategorie' === $level && '' === $parent_name ) ||
+			publion_category_text_length( $focus_keyword ) < 2 || publion_category_text_length( $focus_keyword ) > 100 ||
+			! in_array( $intent, array( 'informatief', 'commercieel', 'transactioneel' ), true ) ||
+			publion_category_text_length( $description ) < 140 || publion_category_text_length( $description ) > 600 ||
+			publion_category_text_length( $seo_title ) < 25 || publion_category_text_length( $seo_title ) > 70 ||
+			publion_category_text_length( $meta_description ) < 110 || publion_category_text_length( $meta_description ) > 180 ||
+			publion_category_text_length( $geo_summary ) < 70 || publion_category_text_length( $geo_summary ) > 300 ||
+			publion_category_text_length( $rationale ) < 30 || publion_category_text_length( $rationale ) > 360 ||
+			count( $topics ) !== 3 || isset( $seen[ $key ] ) ||
+			! publion_category_field_contains_focus_keyword( $description, $focus_keyword ) ||
+			! publion_category_field_contains_focus_keyword( $seo_title, $focus_keyword ) ||
+			! publion_category_field_contains_focus_keyword( $meta_description, $focus_keyword )
+		) {
+			continue;
+		}
+		$topics = array_filter(
+			$topics,
+			static function ( $topic ) {
+				return publion_category_text_length( $topic ) >= 12 && publion_category_text_length( $topic ) <= 140;
+			}
+		);
+		if ( 3 !== count( $topics ) ) {
+			continue;
+		}
+		$seen[ $key ] = true;
+		$suggestions[] = array(
+			'name'             => $name,
+			'slug'             => $slug,
+			'category_level'   => $level,
+			'parent_name'      => $parent_name,
+			'focus_keyword'    => $focus_keyword,
+			'search_intent'    => $intent,
+			'description'      => $description,
+			'seo_title'        => $seo_title,
+			'meta_description' => $meta_description,
+			'geo_summary'      => $geo_summary,
+			'rationale'        => $rationale,
+			'example_topics'   => array_values( $topics ),
+		);
+	}
+
+	$known_parents = array();
+	foreach ( get_categories( array( 'hide_empty' => false ) ) as $category ) {
+		$known_parents[ strtolower( publion_normalize_title( $category->name ) ) ] = true;
+	}
+	$main_count = 0;
+	$sub_count  = 0;
+	foreach ( $suggestions as $suggestion ) {
+		if ( 'hoofd' === $suggestion['category_level'] ) {
+			$main_count++;
+			$known_parents[ strtolower( $suggestion['name'] ) ] = true;
+		}
+	}
+	foreach ( $suggestions as $suggestion ) {
+		if ( 'subcategorie' === $suggestion['category_level'] ) {
+			$sub_count++;
+			if ( ! isset( $known_parents[ strtolower( $suggestion['parent_name'] ) ] ) ) {
+				return array();
+			}
+		}
+	}
+
+	$is_valid_json = 5 === count( $suggestions ) && $main_count >= 2 && $sub_count >= 2;
+	return $suggestions;
+}
+
+add_action( 'wp_ajax_publion_get_category_suggestions', 'publion_get_category_suggestions_callback' );
+function publion_get_category_suggestions_callback() {
+	check_ajax_referer( 'publion_nonce', 'nonce' );
+	if ( ! current_user_can( 'manage_categories' ) ) {
+		publion_send_error( 'permission_denied', __( 'Je account mag geen categorieën maken of voorstellen.', 'publion' ) );
+	}
+
+	$requested_intent = sanitize_key( wp_unslash( $_POST['strategy_intent'] ?? 'gemengd' ) );
+	$allowed_intents  = array( 'gemengd', 'informatief', 'commercieel', 'transactioneel' );
+	if ( ! in_array( $requested_intent, $allowed_intents, true ) ) {
+		publion_send_error( 'validation', __( 'Kies een geldige categorie-intentie.', 'publion' ) );
+	}
+	$additional_context = sanitize_textarea_field( wp_unslash( $_POST['additional_context'] ?? '' ) );
+	$additional_context = function_exists( 'mb_substr' ) ? mb_substr( $additional_context, 0, 1200, 'UTF-8' ) : substr( $additional_context, 0, 1200 );
+	$api_key            = get_option( 'publion_api_key' );
+	if ( ! is_string( $api_key ) || '' === trim( $api_key ) ) {
+		publion_send_error( 'api_key_missing', __( 'Er is geen OpenAI API-sleutel opgeslagen.', 'publion' ) );
+	}
+
+	$content_language = function_exists( 'publion_get_site_content_language' ) ? publion_get_site_content_language() : get_locale();
+	// Categories describe the website as a whole. Include normal site pages
+	// (for example service and landing pages) as well as blog posts; plugins
+	// can extend this deliberately without pulling in arbitrary private types.
+	$category_post_types = apply_filters( 'publion/category_strategy_post_types', array( 'post', 'page' ) );
+	$content_map         = publion_get_existing_content_map( 0, $category_post_types );
+	$taxonomy_map     = publion_get_category_taxonomy_map();
+	$pre_prompt       = get_option( 'publion_prompt', '' );
+	$intent_note      = 'gemengd' === $requested_intent
+		? 'Maak een gezonde mix van informatieve, commerciële en transactionele kansen.'
+		: 'Alle vijf voorstellen moeten de primaire intentie “' . $requested_intent . '” hebben.';
+
+	$prompt  = $pre_prompt . "\n\nJe maakt nu een handmatige categorie-strategie voor deze WordPress-website. " . $intent_note;
+	$prompt .= " Gebruik uitsluitend de onderstaande bestaande sitecontent (berichten en pagina's), huidige categorieën en optionele redactionele context. Verzin geen diensten, doelgroepen, locaties, producten, claims of expertise die niet in die informatie voorkomen.";
+	$prompt .= "\n\nOntwerp een bruikbare WordPress-categoriehiërarchie. Een hoofdcategorie is een duurzame, brede hoofdcluster; een subcategorie is een duidelijke, smallere tak daarbinnen. Geen los artikelonderwerp, geen categorie die vrijwel gelijk is aan een bestaande categorie en geen keyword-stuffing. Geef precies 5 voorstellen: minstens 2 hoofdcategorieën en minstens 2 subcategorieën. Voor een hoofdcategorie is parent_name een lege string. Voor een subcategorie is parent_name exact de naam van een voorgestelde hoofdcategorie of een bestaande categorie uit de kaart.";
+	$prompt .= "\nVul elk WordPress- en SEO-veld volledig in: name is beschrijvend, slug is kort en URL-vriendelijk met alleen kleine letters, cijfers en koppeltekens, description is een unieke leesbare categorieomschrijving waarin het volledige focus keyword natuurlijk voorkomt, seo_title is een heldere SERP-titel waarin het volledige focus keyword staat, meta_description vat de categorie aantrekkelijk samen zonder ongefundeerde claims en bevat eveneens het volledige focus keyword, en geo_summary is een direct, feitelijk antwoord dat een AI-zoekmachine veilig kan begrijpen en citeren. Vermijd garanties over ranking, verkeer of AI-vermeldingen.";
+	$prompt .= "\nDe velden name, parent_name, focus_keyword, description, seo_title, meta_description, geo_summary, rationale en example_topics moeten uitsluitend in " . $content_language . " staan. category_level blijft exact hoofd of subcategorie. search_intent blijft exact informatief, commercieel of transactioneel.";
+	$prompt .= "\n\n=== HUIDIGE CATEGORIEËN ===\n" . $taxonomy_map;
+	$prompt .= "\n=== BESTAANDE CONTENTKAART (" . (int) $content_map['count'] . " berichten) ===\n" . $content_map['context'];
+	$prompt .= "\n=== EXTRA REDACTIONELE CONTEXT ===\n" . ( $additional_context ?: __( 'Geen extra context opgegeven.', 'publion' ) );
+	$prompt .= "\n=== EINDE CONTEXT ===";
+	$prompt .= "\n\nGeef exact één volledig JSON-object terug zonder Markdown of toelichting. Het object heeft uitsluitend suggestions met exact 5 objecten. Elk object heeft uitsluitend name (3-70 tekens), slug (3-80 tekens), category_level (hoofd of subcategorie), parent_name (lege string voor hoofd), focus_keyword, search_intent, description (140-600 tekens), seo_title (25-70 tekens), meta_description (110-180 tekens), geo_summary (70-300 tekens), rationale en example_topics (exact 3 concrete toekomstige artikelonderwerpen).";
+
+	$model        = publion_get_openai_model();
+	$request_body = publion_build_openai_chat_body(
+		$model,
+		array(
+			array( 'role' => 'system', 'content' => 'Je bent een zorgvuldige SEO-strateeg. Geef altijd een volledig, strikt JSON-object terug en verzin geen websitefeiten.' ),
+			array( 'role' => 'user', 'content' => $prompt ),
+		),
+		3000
+	);
+	$request_body['response_format'] = publion_get_category_suggestions_response_format();
+	$request_args = array(
+		'headers' => array( 'Authorization' => 'Bearer ' . $api_key, 'Content-Type' => 'application/json' ),
+		'body'    => wp_json_encode( $request_body ),
+		'timeout' => 90,
+	);
+	$response = publion_openai_post( 'https://api.openai.com/v1/chat/completions', $request_args, 'category_suggestions' );
+	if ( ! is_wp_error( $response ) && 400 === (int) wp_remote_retrieve_response_code( $response ) ) {
+		$request_body['response_format'] = array( 'type' => 'json_object' );
+		$request_args['body']            = wp_json_encode( $request_body );
+		$response                        = publion_openai_post( 'https://api.openai.com/v1/chat/completions', $request_args, 'category_suggestions' );
+	}
+	if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+		$error = publion_get_openai_request_error( $response, $model );
+		update_option( 'publion_last_openai_error', $error );
+		publion_send_error( publion_guess_error_code( $error, 'content_generation' ), $error );
+	}
+	$body        = json_decode( wp_remote_retrieve_body( $response ), true );
+	$text        = $body['choices'][0]['message']['content'] ?? '';
+	$is_valid    = false;
+	$suggestions = publion_normalize_category_suggestions( $text, $is_valid );
+	if ( ! $is_valid ) {
+		$error = __( 'OpenAI gaf geen volledig geldig antwoord voor de categorie-strategie. Er is niets aangemaakt; probeer de voorstellen opnieuw.', 'publion' );
+		update_option( 'publion_last_openai_error', $error );
+		publion_send_error( 'content_generation', $error );
+	}
+	delete_option( 'publion_last_openai_error' );
+	wp_send_json_success( $suggestions );
+}
+
+add_action( 'wp_ajax_publion_create_category', 'publion_create_category_callback' );
+function publion_create_category_callback() {
+	check_ajax_referer( 'publion_nonce', 'nonce' );
+	if ( ! current_user_can( 'manage_categories' ) ) {
+		publion_send_error( 'permission_denied', __( 'Je account mag geen categorieën aanmaken.', 'publion' ) );
+	}
+
+	$name             = publion_normalize_title( wp_unslash( $_POST['name'] ?? '' ) );
+	$slug             = sanitize_title( wp_unslash( $_POST['slug'] ?? '' ) );
+	$level            = sanitize_key( wp_unslash( $_POST['category_level'] ?? '' ) );
+	$parent_name      = publion_normalize_title( wp_unslash( $_POST['parent_name'] ?? '' ) );
+	$focus_keyword    = publion_normalize_title( wp_unslash( $_POST['focus_keyword'] ?? '' ) );
+	$intent           = sanitize_key( wp_unslash( $_POST['search_intent'] ?? '' ) );
+	$description      = sanitize_textarea_field( wp_unslash( $_POST['description'] ?? '' ) );
+	$seo_title        = sanitize_text_field( wp_unslash( $_POST['seo_title'] ?? '' ) );
+	$meta_description = sanitize_text_field( wp_unslash( $_POST['meta_description'] ?? '' ) );
+	$geo_summary      = sanitize_textarea_field( wp_unslash( $_POST['geo_summary'] ?? '' ) );
+	$rationale        = sanitize_text_field( wp_unslash( $_POST['rationale'] ?? '' ) );
+	$topics           = array_values( array_filter( array_map( 'publion_normalize_title', (array) ( $_POST['example_topics'] ?? array() ) ) ) );
+	if (
+		publion_category_text_length( $name ) < 3 || publion_category_text_length( $name ) > 70 || preg_match( '/[\r\n\[\]{}]/', $name ) ||
+		publion_category_text_length( $slug ) < 3 || publion_category_text_length( $slug ) > 80 ||
+		! in_array( $level, array( 'hoofd', 'subcategorie' ), true ) || ( 'hoofd' === $level && '' !== $parent_name ) || ( 'subcategorie' === $level && '' === $parent_name ) ||
+		publion_category_text_length( $focus_keyword ) < 2 || publion_category_text_length( $focus_keyword ) > 100 ||
+		! in_array( $intent, array( 'informatief', 'commercieel', 'transactioneel' ), true ) ||
+		publion_category_text_length( $description ) < 140 || publion_category_text_length( $description ) > 600 ||
+		publion_category_text_length( $seo_title ) < 25 || publion_category_text_length( $seo_title ) > 70 ||
+		publion_category_text_length( $meta_description ) < 110 || publion_category_text_length( $meta_description ) > 180 ||
+		publion_category_text_length( $geo_summary ) < 70 || publion_category_text_length( $geo_summary ) > 300 ||
+		publion_category_text_length( $rationale ) < 30 || publion_category_text_length( $rationale ) > 360 || count( $topics ) !== 3 ||
+		! publion_category_field_contains_focus_keyword( $description, $focus_keyword ) ||
+		! publion_category_field_contains_focus_keyword( $seo_title, $focus_keyword ) ||
+		! publion_category_field_contains_focus_keyword( $meta_description, $focus_keyword )
+	) {
+		publion_send_error( 'validation', __( 'Dit categorievoorstel is onvolledig of ongeldig. Vernieuw de voorstellen en kies opnieuw.', 'publion' ) );
+	}
+	foreach ( $topics as $topic ) {
+		if ( publion_category_text_length( $topic ) < 12 || publion_category_text_length( $topic ) > 140 ) {
+			publion_send_error( 'validation', __( 'Dit categorievoorstel bevat ongeldige voorbeeldonderwerpen. Vernieuw de voorstellen en kies opnieuw.', 'publion' ) );
+		}
+	}
+	$existing = term_exists( $name, 'category' );
+	if ( $existing ) {
+		$term_id = is_array( $existing ) ? (int) $existing['term_id'] : (int) $existing;
+		publion_send_error( 'duplicate_category', sprintf( __( 'De categorie “%s” bestaat al. Er is niets gewijzigd.', 'publion' ), $name ), array( 'retryable' => false, 'action_label' => __( 'Plan artikelen', 'publion' ), 'action_tab' => 'publion-generate', 'term_id' => $term_id ) );
+	}
+	$existing_slug = get_term_by( 'slug', $slug, 'category' );
+	if ( $existing_slug && ! is_wp_error( $existing_slug ) ) {
+		publion_send_error( 'duplicate_category', sprintf( __( 'De slug “%1$s” is al in gebruik door categorie “%2$s”. Kies een unieke URL-slug.', 'publion' ), $slug, $existing_slug->name ), array( 'retryable' => false ) );
+	}
+	foreach ( get_categories( array( 'hide_empty' => false ) ) as $category ) {
+		similar_text( strtolower( $name ), strtolower( (string) $category->name ), $score );
+		if ( $score >= 88 ) {
+			publion_send_error( 'duplicate_category', sprintf( __( 'De categorie “%1$s” lijkt te veel op bestaande categorie “%2$s”. Kies een duidelijk andere hoofdindeling.', 'publion' ), $name, $category->name ), array( 'retryable' => false ) );
+		}
+	}
+	$parent_id = 0;
+	if ( 'subcategorie' === $level ) {
+		$parent = get_term_by( 'name', $parent_name, 'category' );
+		if ( ! $parent || is_wp_error( $parent ) ) {
+			publion_send_error(
+				'parent_category_missing',
+				sprintf( __( 'Maak eerst de hoofdcategorie “%s” aan voordat je deze subcategorie toevoegt.', 'publion' ), $parent_name ),
+				array( 'retryable' => true, 'action_label' => __( 'Bekijk categorievoorstellen', 'publion' ), 'action_tab' => 'publion-generate' )
+			);
+		}
+		if ( ! empty( $parent->parent ) ) {
+			publion_send_error( 'parent_category_invalid', sprintf( __( '“%s” is zelf een subcategorie. Kies voor deze strategie een hoofdcategorie als bovenliggende categorie.', 'publion' ), $parent_name ), array( 'retryable' => false ) );
+		}
+		$parent_id = (int) $parent->term_id;
+	}
+	$term_id = wp_insert_category(
+		array(
+			'cat_name'             => $name,
+			'category_nicename'   => $slug,
+			'category_description' => $description,
+			'category_parent'      => $parent_id,
+		),
+		true
+	);
+	if ( is_wp_error( $term_id ) || ! $term_id ) {
+		$error_message = is_wp_error( $term_id ) ? $term_id->get_error_message() : __( 'De categorie kon niet in WordPress worden aangemaakt. Controleer je rechten en probeer opnieuw.', 'publion' );
+		publion_send_error( 'database', $error_message );
+	}
+	update_term_meta( (int) $term_id, 'publion_category_level', $level );
+	update_term_meta( (int) $term_id, 'publion_category_parent_name', $parent_name );
+	update_term_meta( (int) $term_id, 'publion_category_intent', $intent );
+	update_term_meta( (int) $term_id, 'publion_category_focus_keyword', $focus_keyword );
+	update_term_meta( (int) $term_id, 'publion_category_seo_title', $seo_title );
+	update_term_meta( (int) $term_id, 'publion_category_meta_description', $meta_description );
+	update_term_meta( (int) $term_id, 'publion_category_geo_summary', $geo_summary );
+	update_term_meta( (int) $term_id, 'publion_category_rationale', $rationale );
+	update_term_meta( (int) $term_id, 'publion_category_example_topics', array_values( $topics ) );
+	update_term_meta( (int) $term_id, 'publion_category_slug', $slug );
+	update_term_meta( (int) $term_id, 'publion_category_strategy_source', 'manual_ai_reviewed' );
+	if ( defined( 'RANK_MATH_VERSION' ) ) {
+		update_term_meta( (int) $term_id, 'rank_math_focus_keyword', $focus_keyword );
+		update_term_meta( (int) $term_id, 'rank_math_title', $seo_title );
+		update_term_meta( (int) $term_id, 'rank_math_description', $meta_description );
+	}
+	$edit_url    = get_edit_term_link( (int) $term_id, 'category', 'post' );
+	$archive_url = get_term_link( (int) $term_id, 'category' );
+	wp_send_json_success(
+		array(
+			'term_id'     => (int) $term_id,
+			'name'        => $name,
+			'parent_name' => $parent_name,
+			'edit_url'    => $edit_url ? esc_url_raw( $edit_url ) : '',
+			'archive_url' => is_wp_error( $archive_url ) ? '' : esc_url_raw( $archive_url ),
+			'message'     => sprintf( __( 'Categorie “%s” is volledig aangemaakt. Je kunt er nu onderwerpen voor plannen.', 'publion' ), $name ),
+		)
+	);
+}
+
 /* ===== Save Queue ===== */
 add_action( 'wp_ajax_publion_save_queue', 'publion_save_queue' );
 function publion_save_queue() {

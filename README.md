@@ -4,13 +4,14 @@
 
 Publion helpt redacties, marketeers en ondernemers om van een categorie naar een gecontroleerd artikelconcept te werken. De plugin maakt niet alleen tekst: hij bouwt eerst een contentbrief met zoekintentie, focus-keyword, invalshoek en FAQ-vragen. Daarna kun je onderwerpen plannen, artikelen als concept maken, afbeeldingen laten genereren en de resultaten volgen in je eigen analyticsomgeving.
 
-De huidige release is **1.9.28**. Download het WordPress-importpakket: [publion-wordpress-1.9.28.zip](publion-wordpress-1.9.28.zip). Het pakket bevat precies één hoofdmap: `publion/`. Dat is de vereiste WordPress-structuur en voorkomt dat WordPress een tweede, losstaande pluginmap maakt.
+De huidige release is **1.9.31**. Download het WordPress-importpakket: [publion-wordpress-1.9.31.zip](publion-wordpress-1.9.31.zip). Het pakket bevat precies één hoofdmap: `publion/`. Dat is de vereiste WordPress-structuur en voorkomt dat WordPress een tweede, losstaande pluginmap maakt.
 
 ## In één oogopslag
 
 | Onderdeel | Wat Publion doet |
 | --- | --- |
 | Contentplanning | Leest de bestaande contentkaart en genereert vijf relevante, afwijkende artikelkansen per categorie. |
+| Categorie-strategie | Ontwerpt en laat je controleren: vijf volledig ingevulde hoofd- en subcategorieën uit bestaande content en taxonomie, afgestemd op informatie, leads of conversie. |
 | SEO-brief | Geeft elk voorstel een focus-keyword, zoekintentie, invalshoek en FAQ-vragen. |
 | Artikelproductie | Schrijft een semantisch HTML-concept van minimaal 1.500 woorden. |
 | Afbeeldingen | Maakt vijf contextuele afbeeldingen in de inhoud en één uitgelichte afbeelding. |
@@ -71,7 +72,7 @@ Nieuwe AI-onderwerpvoorstellen en artikelen volgen juist de **sitetaal**. Zo kan
 
 ### Installeren via WordPress
 
-1. Download [publion-wordpress-1.9.28.zip](publion-wordpress-1.9.28.zip).
+1. Download [publion-wordpress-1.9.31.zip](publion-wordpress-1.9.31.zip).
 2. Ga in WordPress naar **Plugins → Nieuwe plugin → Plugin uploaden**.
 3. Upload het zipbestand, installeer en activeer de plugin.
 4. Open **Berichten → Publion**.
@@ -199,6 +200,14 @@ De volledige dashboardhandleiding staat als normale tekst in **Publion > Handlei
 
 ## Contentplanning en SEO-brief
 
+### Eerst: categorieën strategisch uitbreiden
+
+Onder **Content plannen** staat boven de onderwerpkeuze de handmatige **Categorie-strategie**. Kies een primair doel: een gebalanceerde mix, informatief bereik, commerciële leadgeneratie of transactionele conversie. Eventueel kun je een tijdelijk redactioneel kader toevoegen.
+
+Bij elke aanvraag leest Publion de actuele contentkaart van alle WordPress-berichten én gewone pagina’s, plus de bestaande categorieën. Het resultaat is een echte structuur met minstens twee hoofdcategorieën en twee subcategorieën. Ieder voorstel vult direct alle WordPress-velden uit je screenshot: **naam**, **slug**, **hoofdcategorie** en een unieke **beschrijving**. Daarnaast toont Publion focus-keyword, SEO-titel, meta description, GEO-samenvatting, onderbouwing en drie voorbeeldartikelen.
+
+Er wordt nooit iets aangemaakt of ingepland zonder jouw bevestiging. Beoordeel eerst elke kaart; de status laat zien of een subcategorie nog op haar hoofdcategorie wacht. Je kunt afzonderlijk aanmaken of bewust kiezen voor **Volledige hiërarchie aanmaken**. In die bevestigde actie werkt Publion altijd eerst hoofdcategorieën en daarna subcategorieën af. Publion blokkeert exacte, sterk gelijkende en slugconflicterende namen, bewaakt de ouderrelatie en selecteert een nieuwe categorie direct voor de onderwerpworkflow. Elke gemaakte kaart biedt daarna links naar Bewerken in WordPress en het categoriearchief. De WordPress-categorie behoudt een eigen beschrijving; de aanvullende SEO/GEO-gegevens blijven als termmeta beschikbaar. Is Rank Math actief, dan worden focus-keyword, SEO-titel en meta description ook op de categoriearchiefpagina opgeslagen.
+
 Kies onder **Content plannen** een WordPress-categorie en vraag voorstellen op. Publion vraagt de AI om exact vijf afzonderlijke kansen. Per kans zie je:
 
 | Veld | Betekenis |
@@ -324,7 +333,7 @@ De plugin behoudt bij een mislukte beeldgeneratie een placeholder, zodat de rest
 
 - Onderwerpen, wachtrijgegevens en postinstellingen worden in de WordPress-database opgeslagen.
 - De OpenAI API-sleutel wordt als WordPress-optie opgeslagen en nooit in deze repository opgenomen.
-- Bij genereren worden het onderwerp, de categorie, de SEO-brief, de geconfigureerde Publion-prompt en een lokale contentkaart (titels, koppen en inhoudsextracten van bestaande berichten) naar de OpenAI API gestuurd.
+- Bij genereren worden het onderwerp, de categorie, de SEO-brief, de geconfigureerde Publion-prompt en een lokale contentkaart (titels, koppen en inhoudsextracten van bestaande berichten) naar de OpenAI API gestuurd. Bij de handmatige categorie-strategie gaan daarnaast gewone WordPress-pagina’s, de bestaande categorienamen, aantallen, hiërarchie en categorieomschrijvingen mee, plus uitsluitend het extra kader dat de beheerder zelf invult.
 - Google Search Console- en GA4-links zijn alleen opgeslagen URL’s; Publion haalt daarmee zelf geen analyticsdata op.
 - Verwijder of anonimiseer persoonsgegevens voordat je ze aan een AI-prompt toevoegt.
 

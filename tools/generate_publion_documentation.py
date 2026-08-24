@@ -143,7 +143,7 @@ def header_footer(canvas, doc):
     canvas.drawString(20 * mm, height - 10 * mm, "PUBLION  |  HANDLEIDING")
     canvas.setFont("Helvetica", 7.5)
     canvas.setFillColor(MUTED)
-    canvas.drawRightString(width - 20 * mm, 10 * mm, f"Versie 1.9.28  |  Pagina {doc.page}")
+    canvas.drawRightString(width - 20 * mm, 10 * mm, f"Versie 1.9.31  |  Pagina {doc.page}")
     canvas.restoreState()
 
 
@@ -152,7 +152,7 @@ def build_story():
 
     story += [Spacer(1, 42 * mm), p("CONTENT ENGINE", "cover_kicker"), p("Publion", "cover_title")]
     story += [p("Handleiding voor betrouwbare contentplanning, AI-artikelproductie en review in WordPress.", "cover_subtitle"), Spacer(1, 15 * mm)]
-    cover = Table([[p("<b>Van zoekintentie naar een controleerbaar concept.</b><br/>Inclusief onderwerpvalidatie, anti-duplicatie, SEO, SEA, GEO/AEO, beeldopmaak, analytics en diagnose.", "note")]], colWidths=[140 * mm])
+    cover = Table([[p("<b>Van categoriestrategie en zoekintentie naar een controleerbaar concept.</b><br/>Inclusief handmatige categorieanalyse, onderwerpvalidatie, anti-duplicatie, SEO, SEA, GEO/AEO, beeldopmaak, analytics en diagnose.", "note")]], colWidths=[140 * mm])
     cover.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), PALE), ("BOX", (0, 0), (-1, -1), 0.6, LINE),
         ("LEFTPADDING", (0, 0), (-1, -1), 14), ("RIGHTPADDING", (0, 0), (-1, -1), 14),
@@ -164,6 +164,7 @@ def build_story():
     story += [p("Snelle route", "h2")]
     story += [bullet("Ga naar Publion > OpenAI/ChatGPT instellingen en sla je API-sleutel op."),
               bullet("Kies een tekstmodel en een afbeeldingsmodel. Gebruik een eigen model-ID alleen als jouw OpenAI-project die API-ID ondersteunt."),
+              bullet("Gebruik optioneel eerst Categorie-strategie om vijf passende hoofd- en subcategorieën te onderzoeken. Kies een doel, beoordeel elk volledig voorstel en maak afzonderlijk of in één bevestigde, veilige hiërarchische volgorde aan."),
               bullet("Open Content plannen, kies een categorie en vraag vijf onderwerpvoorstellen op."),
               bullet("Lees de SEO-briefs, voeg alleen passende onderwerpen toe aan de wachtrij en maak een concept."),
               bullet("Controleer feiten, bronnen, toon, beelden, meta description en interne links voordat je publiceert.")]
@@ -171,7 +172,7 @@ def build_story():
     story += [p("Taal", "h2"), p("De beheerinterface volgt de persoonlijke WordPress-taal van de ingelogde gebruiker. Zonder specifieke taalvertaling gebruikt Publion buiten het Nederlands een Engelse basisinterface. Nieuwe onderwerpen en artikelen volgen altijd de WordPress-sitetaal, zodat de publieke content niet per ongeluk verandert wanneer een beheerder een andere profieltaal gebruikt.")]
     story += [p("Wat je in het dashboard ziet", "h2"), info_table([
         ("Overzicht", "Operationele status, openstaande acties, foutmeldingen en verwijzingen naar performancebronnen."),
-        ("Content plannen", "Categorie, AI-voorstellen, focus-keyword, zoekintentie, unieke invalshoek en FAQ-vragen."),
+        ("Content plannen", "Handmatige categorie-strategie, categorie, AI-voorstellen, focus-keyword, zoekintentie, unieke invalshoek en FAQ-vragen."),
         ("Postcreatie", "Wachtrij, planning, direct maken, voortgang en gemaakte concepten."),
         ("Instellingen", "Poststatus, auteur, planning, Rank Math, structured data, beeldradius en artikelstijl."),
         ("Handleiding & diagnose", "Kwaliteitscheck, foutuitleg en veilige volgende stappen."),
@@ -188,7 +189,7 @@ def build_story():
     story.append(PageBreak())
 
     story += section("3. Onderwerpvoorstellen die veilig de wachtrij in gaan", "Per aanvraag leest Publion de actuele contentkaart van bestaande berichten. Daardoor is de nieuwe zoekvraag of invalshoek bewust anders dan de al gepubliceerde en ingeplande inhoud.")
-    story += [p("Elke kaart bevat", "h2"), info_table([
+    story += [p("Eerst: handmatige categorie-strategie", "h2"), p("Boven de onderwerpkeuze kun je Categorie-strategie openen. Kies een gebalanceerde mix, informatief bereik, commerciële leads of transactionele conversie. Publion leest daarvoor de actuele contentkaart van berichten en gewone pagina's, én de bestaande WordPress-categorieën. Een optioneel extra kader mag een tijdelijke commerciële focus verduidelijken."), p("De AI stelt precies vijf passende categorieën voor: minstens twee hoofdcategorieën en twee subcategorieën. Elk voorstel vult de WordPress-velden naam, slug, hoofdcategorie en beschrijving volledig in. Daarnaast toont Publion focus-keyword, SEO-titel, meta description, GEO-samenvatting, onderbouwing en drie mogelijke toekomstige artikelen. Het focus-keyword moet natuurlijk terugkomen in beschrijving, SEO-titel en meta description. Het mag geen los artikelonderwerp zijn, geen sterk gelijkende bestaande categorie en geen verzonnen dienst of expertise. Controleer ieder voorstel zelf."), note("Handmatig, met veilige volgorde", "Categorieën worden nooit automatisch aangemaakt of ingepland. De reviewpagina toont per kaart of deze klaar is, wacht op een hoofdcategorie of al is aangemaakt. Je kunt afzonderlijk goedkeuren of de volledige hiërarchie in één bevestigde actie aanmaken; Publion verwerkt dan altijd eerst hoofdcategorieën en daarna subcategorieën. Slugconflicten, ongeldige ouders en WordPress-fouten worden expliciet gemeld. Elke gemaakte kaart biedt een link naar Bewerken in WordPress en naar het categoriearchief. Bij een actieve Rank Math-installatie worden SEO-titel, meta description en focus-keyword ook als categoriearchief-meta opgeslagen.", GREEN), p("Elke onderwerpskaart bevat", "h2"), info_table([
         ("Titel", "Een concrete zoekvraag voor een zelfstandig artikel."),
         ("Focus-keyword", "Een natuurlijke primaire zoekterm. Gebruik hem waar inhoudelijk logisch is, niet geforceerd."),
         ("Zoekintentie", "Informatief, commercieel, transactioneel of navigerend. Dit stuurt structuur en volgende stap."),
@@ -197,13 +198,11 @@ def build_story():
     ]), p("Kwaliteitsgrens", "h2"),
               p("Publion accepteert alleen een compleet JSON-object met precies vijf kaarten. Losse velden, afgebroken antwoorden, haakjes en JSON-sleutels worden geweigerd. Als de AI geen veilige set kan maken, verschijnt een duidelijke foutmelding en wordt niets opgeslagen."),
               note("Als voorstellen blijven falen", "Controleer eerst de API-sleutel, facturatie en het gekozen model. Verkort daarna een extreem lange Publion-prompt en probeer opnieuw. Houd de contentkaart inhoudelijk scherp: sterk overlappende bestaande posts kunnen terecht tot minder bruikbare kansen leiden.", AMBER)]
-    story.append(PageBreak())
 
     story += section("4. Van wachtrij naar conceptartikel", "Gebruik Nu maken voor een direct concept of stel een vast ritme in via WordPress Cron. Voor productie is een echte servercron betrouwbaarder dan verkeer-afhankelijke WP-Cron.")
     story += [p("De echte voortgang", "h2"), p("De knop Nu maken toont servergestuurde checkpoints: onderzoek, tekst genereren, tekst nakijken, afbeeldingen voorbereiden, afbeelding genereren, artikel samenstellen, concept opslaan, SEO en metadata en afronden. Het percentage hoort bij een feitelijk voltooid checkpoint; het is geen geschatte laadanimatie. Het kruisje naast de knop vraagt een veilige annulering aan. Publion stopt dan bij het eerstvolgende veilige servermoment en laat het onderwerp in de wachtrij staan. Bij bulk genereren toont de status altijd de positie in de geselecteerde batch, bijvoorbeeld: Item 2 van 4 wordt verwerkt.")]
     story += [p("Kwaliteit van de artikeltekst", "h2"), bullet("Een volledig semantisch HTML-concept met directe antwoorden, h2/h3-koppen, korte alinea's en waar passend een lijst, tabel of stappenplan."), bullet("Een complete generatie in plaats van aan elkaar geplakte vervolgteksten. Dit beperkt herhalingen en ongesloten lijsten."), bullet("Lokale duplicate-check op titel, inhoud en focus-keyword voordat een nieuw WordPress-concept wordt aangemaakt."), bullet("Bij ingeschakelde Rank Math-integratie maakt Publion een keyword-led SEO-titel en meta description, een korte URL en een natuurlijke focus-keyword in de intro, inhoud, een kop en de eerste relevante afbeelding. De generator vraagt dan circa 2.500 tot 2.800 woorden om de volledige Rank Math-lengtecontrole voor te bereiden."), bullet("Rank Math's inhoudsopgaveblok wordt toegevoegd wanneer Rank Math actief is. De generator maakt vijf inhoudsafbeeldingen en één uitgelichte afbeelding; korte alinea's en minstens vier media-items bereiden de leesbaarheidstests voor."), bullet("Wanneer je een Publion-artikel in de WordPress-editor opent, laat Publion Rank Math zijn eigen titel- en contentanalyse opnieuw uitvoeren. De score zelf komt uitsluitend van Rank Math; Publion simuleert of bewaart geen score."), bullet("Alleen relevante, verifieerbare links. Voeg in Postcreatie-instellingen minstens één gecontroleerde HTTPS-bron-URL toe om per artikel één externe bron te waarborgen; Publion verzint nooit een URL."), bullet("Live brononderzoek is optioneel: OpenAI web search levert uitsluitend daadwerkelijk gevonden HTTPS-bronnen. Kies model, 1 tot 5 bronnen, onderzoeksdiepte, live toegang, domeinbeleid en foutgedrag in de instellingen."), bullet("Als de klikbare bronnenlijst aan staat, plaatst Publion alleen werkelijk teruggegeven webbronnen onder het artikel. Onderzoek dat verplicht is ingesteld stopt de generatie veilig wanneer geen bruikbare bron terugkomt."), bullet("Een groen of zelfs 100/100-contentresultaat is geen garantie op een positie: inhoudelijke juistheid, concurrentie, autoriteit en technische SEO blijven bepalend.")]
     story += [note("Publiceer niet blind", "AI kan onjuiste of verouderde informatie geven. Controleer elke feitelijke claim, bron, veiligheidsinstructie, prijs, juridische uitspraak en merkbelofte voordat een concept live gaat.", AMBER)]
-    story.append(PageBreak())
 
     story += section("5. Beelden, styling en toegankelijkheid", "Publion genereert vijf beelden in de inhoud en een uitgelichte afbeelding. Ieder beeld heeft een contextuele alt-tekst en lazy loading.")
     story += [p("Beeldritme", "h2"), p("Nieuwe artikelen gebruiken semantische figure-blokken. De inhoud wisselt brede 16:9-beelden af met compacte 1:1-beelden. Dat leest rustiger dan de oude float-opmaak en werkt beter op mobiel."),

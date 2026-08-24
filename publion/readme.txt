@@ -5,7 +5,7 @@ Tags: ai content, chatgpt, blog automatisering, post generatie, blogpost ai
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.9.28
+Stable tag: 1.9.31
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,7 @@ Genereer en verfijn blogposts met AI. Kies een categorie, krijg onderwerp-ideeen
 Publion is je persoonlijke content-assistent voor WordPress. Deze plugin is bedoeld voor bloggers, marketeers en ondernemers en laat je:
 
 * Slimme onderwerpvoorstellen genereren voor een geselecteerde categorie, inclusief dynamische SEO-brief met focus-keyword, zoekintentie, invalshoek en FAQ-vragen.
+* Handmatig een SEO- en GEO-geschikte hiërarchie van hoofd- en subcategorieën onderzoeken op basis van bestaande berichten, pagina’s en categorieën, met een gekozen doel, volledig ingevulde WordPress-velden, duidelijke reviewstatus en expliciete aanmaak per categorie of in veilige hiërarchische volgorde.
 * Voor iedere AI-run een actuele contentkaart van bestaande berichten gebruiken en nieuwe, te vergelijkbare concepten blokkeren.
 * Een content-wachtrij opbouwen en beheren.
 * Automatisch volledige blogposts (concepten) maken met ChatGPT.
@@ -80,6 +81,22 @@ Deze versie maakt standaard blogposts aan.
 4. Maak automatisch volledige conceptposts met AI-afbeeldingen.
 
 == Changelog ==
+
+= 1.9.31 =
+* De Categorie-strategie is uitgewerkt als toegankelijke driestaps-review: onderzoek, beoordeling en veilige aanmaak. Elke kaart toont een status en subcategorieën wachten zichtbaar op de benodigde hoofdcategorie.
+* Voeg een volledig beoordeelde hiërarchie desgewenst in één bevestigde actie toe. Publion werkt dan altijd eerst de hoofdcategorieën af en daarna de subcategorieën; bij een fout blijft duidelijk wat wel en niet is aangemaakt.
+* Nieuwe categorieën krijgen directe links naar Bewerken in WordPress en naar het categoriearchief. Slugconflicten, een subcategorie als ouder en WordPress-fouten worden expliciet geblokkeerd of gemeld.
+* De focus-keywordcontrole is aangescherpt: het focus-keyword moet natuurlijk terugkomen in de categorieomschrijving, SEO-titel en meta description.
+
+= 1.9.30 =
+* Categorie-strategie maakt nu een echte hiërarchie van hoofd- en subcategorieën. Maak eerst een hoofdcategorie en daarna de gekoppelde subcategorie; Publion bewaakt deze relatie.
+* Elk voorstel vult de WordPress-velden naam, SEO-slug, hoofdcategorie en unieke categorieomschrijving, plus focus-keyword, SEO-titel, meta description en GEO-samenvatting.
+* Als Rank Math actief is, bewaart Publion de SEO-titel, meta description en focus-keyword ook als categorie-meta voor de categoriearchiefpagina.
+
+= 1.9.29 =
+* Nieuwe handmatige Categorie-strategie in Content plannen: Publion analyseert de bestaande contentkaart en taxonomie om vijf passende hoofdcategorieën voor te stellen.
+* Kies een informatief, commercieel, transactioneel of gemengd doel, controleer per voorstel de onderbouwing en drie toekomstige artikelkansen, en maak alleen de afzonderlijk goedgekeurde categorie in WordPress aan.
+* Nieuwe categorieën worden nooit automatisch ingepland, worden als top-level categorie gemaakt en staan direct klaar voor de bestaande onderwerpworkflow.
 
 = 1.9.28 =
 * De melding over een afgewezen of mislukte afbeeldingsgeneratie heeft nu een toegankelijke sluitknop met kruisje.

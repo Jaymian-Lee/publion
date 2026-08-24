@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Publion 1.9.8\\n"
+"Project-Id-Version: Publion 1.9.31\\n"
 "Report-Msgid-Bugs-To: https://jaymian-lee.nl/publion\\n"
 "POT-Creation-Date: 2026-08-04 00:00+0000\\n"
 "PO-Revision-Date: 2026-08-04 00:00+0000\\n"
@@ -857,3 +857,213 @@ msgstr "The Publion prompt could not be saved. Please try again."
 
 msgid "OpenAI gaf geen bruikbare artikeltekst terug. Probeer een ander model of verkort de Publion-prompt."
 msgstr "OpenAI did not return usable article text. Try another model or shorten the Publion prompt."
+
+# Manual category strategy
+msgid "VOORAF — CATEGORIESTRATEGIE"
+msgstr "FIRST — CATEGORY STRATEGY"
+
+msgid "Vind nieuwe hoofdcategorieën die bij je website passen"
+msgstr "Find new main categories that fit your website"
+
+msgid "Handmatig en op aanvraag. Publion leest je bestaande berichten én categorieën, waarna je elk voorstel afzonderlijk beoordeelt en alleen met jouw klik als WordPress-categorie aanmaakt."
+msgstr "Manual and on demand. Publion reads your existing posts and categories, then you review each suggestion separately and only create it as a WordPress category with your click."
+
+msgid "Geen automatische planning"
+msgstr "No automatic scheduling"
+
+msgid "Primair doel"
+msgstr "Primary goal"
+
+msgid "Gebalanceerde mix"
+msgstr "Balanced mix"
+
+msgid "Informatief — expertise en bereik"
+msgstr "Informational — expertise and reach"
+
+msgid "Commercieel — leads en overweging"
+msgstr "Commercial — leads and consideration"
+
+msgid "Transactioneel — conversie of verkoop"
+msgstr "Transactional — conversion or sales"
+
+msgid "Extra kader (optioneel)"
+msgstr "Additional context (optional)"
+
+msgid "Bijvoorbeeld: focus dit kwartaal op MKB-leads in webdesign."
+msgstr "For example: focus on small-business web design leads this quarter."
+
+msgid "Categorieën onderzoeken"
+msgstr "Research categories"
+
+msgid "Voorstellen zijn hoofdclusters, geen losse blogtitels. Controleer doel, onderbouwing en de drie voorbeeldartikelen voordat je een categorie maakt."
+msgstr "Suggestions are main clusters, not individual blog titles. Check the goal, rationale, and three example articles before creating a category."
+
+msgid "Websitecontent en categorieën worden geanalyseerd…"
+msgstr "Website content and categories are being analysed…"
+
+msgid "Geen volledig gevalideerde categorievoorstellen ontvangen. Er is niets aangemaakt; probeer het opnieuw."
+msgstr "No fully validated category suggestions were received. Nothing was created; please try again."
+
+msgid "Categorievoorstellen konden niet worden gemaakt. Controleer je API-sleutel en probeer opnieuw."
+msgstr "Category suggestions could not be created. Check your API key and try again."
+
+msgid "Categorie aanmaken"
+msgstr "Create category"
+
+msgid "Categorie wordt aangemaakt…"
+msgstr "Creating category…"
+
+msgid "Categorie aangemaakt"
+msgstr "Category created"
+
+msgid "Categorie aangemaakt. Je kunt er nu onderwerpen voor plannen."
+msgstr "Category created. You can now plan topics for it."
+
+msgid "De categorie kon niet worden aangemaakt. Vernieuw de pagina en probeer opnieuw."
+msgstr "The category could not be created. Refresh the page and try again."
+
+msgid "Mogelijke artikelen"
+msgstr "Possible articles"
+
+msgid "Er zijn nog geen bruikbare WordPress-categorieën."
+msgstr "There are no usable WordPress categories yet."
+
+msgid "Je account mag geen categorieën maken of voorstellen."
+msgstr "Your account may not create or suggest categories."
+
+msgid "Je account mag geen categorieën aanmaken."
+msgstr "Your account may not create categories."
+
+msgid "Kies een geldige categorie-intentie."
+msgstr "Choose a valid category intent."
+
+msgid "Geen extra context opgegeven."
+msgstr "No additional context provided."
+
+msgid "OpenAI gaf geen volledig geldig antwoord voor de categorie-strategie. Er is niets aangemaakt; probeer de voorstellen opnieuw."
+msgstr "OpenAI did not return a fully valid response for the category strategy. Nothing was created; request the suggestions again."
+
+msgid "Dit categorievoorstel is onvolledig of ongeldig. Vernieuw de voorstellen en kies opnieuw."
+msgstr "This category suggestion is incomplete or invalid. Refresh the suggestions and choose again."
+
+msgid "Dit categorievoorstel bevat ongeldige voorbeeldonderwerpen. Vernieuw de voorstellen en kies opnieuw."
+msgstr "This category suggestion contains invalid example topics. Refresh the suggestions and choose again."
+
+msgid "De categorie “%s” bestaat al. Er is niets gewijzigd."
+msgstr "The category “%s” already exists. Nothing was changed."
+
+msgid "De categorie “%1$s” lijkt te veel op bestaande categorie “%2$s”. Kies een duidelijk andere hoofdindeling."
+msgstr "The category “%1$s” is too similar to the existing category “%2$s”. Choose a clearly different top-level grouping."
+
+msgid "De categorie kon niet in WordPress worden aangemaakt. Controleer je rechten en probeer opnieuw."
+msgstr "The category could not be created in WordPress. Check your permissions and try again."
+
+msgid "Categorie “%s” is aangemaakt. Je kunt er nu onderwerpen voor plannen."
+msgstr "Category “%s” was created. You can now plan topics for it."
+
+# Category hierarchy and archive SEO
+msgid "Bouw een complete categoriehiërarchie voor je website"
+msgstr "Build a complete category hierarchy for your website"
+
+msgid "Handmatig en op aanvraag. Publion leest je bestaande berichten, pagina’s en categorieën en maakt voorstellen voor hoofd- én subcategorieën. Elk voorstel bevat alle WordPress-, SEO- en GEO-velden; jij beoordeelt en bevestigt de aanmaak."
+msgstr "Manual and on demand. Publion reads your existing posts, pages, and categories and suggests main categories and subcategories. Every suggestion includes all WordPress, SEO, and GEO fields; you review and confirm creation."
+
+msgid "Voorstellen zijn hoofdclusters of gerichte subclusters, geen losse blogtitels. De tool slaat niets op totdat je dit zelf per categorie of voor de hele hiërarchie bevestigt. Bestaande categorieën worden nooit automatisch overschreven."
+msgstr "Suggestions are main clusters or focused subclusters, not individual blog titles. The tool saves nothing until you confirm it per category or for the entire hierarchy. Existing categories are never overwritten automatically."
+
+msgid "Hoofdcategorie"
+msgstr "Main category"
+
+msgid "Subcategorie"
+msgstr "Subcategory"
+
+msgid "Slug"
+msgstr "Slug"
+
+msgid "SEO-titel"
+msgstr "SEO title"
+
+msgid "Meta description"
+msgstr "Meta description"
+
+msgid "GEO-samenvatting"
+msgstr "GEO summary"
+
+msgid "Maak eerst de hoofdcategorie “%s” aan voordat je deze subcategorie toevoegt."
+msgstr "Create the main category “%s” before adding this subcategory."
+
+msgid "Bekijk categorievoorstellen"
+msgstr "View category suggestions"
+
+msgid "Categorie “%s” is volledig aangemaakt. Je kunt er nu onderwerpen voor plannen."
+msgstr "Category “%s” was created with all fields. You can now plan topics for it."
+
+# Category strategy review workflow
+msgid "Werkwijze categorie-strategie"
+msgstr "Category strategy workflow"
+
+msgid "Onderzoek"
+msgstr "Research"
+
+msgid "Analyseer actuele pagina’s, berichten en categorieën."
+msgstr "Analyse current pages, posts, and categories."
+
+msgid "Beoordeel"
+msgstr "Review"
+
+msgid "Controleer hiërarchie, beschrijving, intentie en metadata."
+msgstr "Check the hierarchy, description, intent, and metadata."
+
+msgid "Maak veilig aan"
+msgstr "Create safely"
+
+msgid "Hoofdcategorieën worden vóór subcategorieën aangemaakt."
+msgstr "Main categories are created before subcategories."
+
+msgid "Categorievoorstellen klaar voor review"
+msgstr "Category suggestions ready for review"
+
+msgid "Volledige hiërarchie aanmaken"
+msgstr "Create complete hierarchy"
+
+msgid "Voorstellen wissen"
+msgstr "Clear suggestions"
+
+msgid "Klaar om aan te maken"
+msgstr "Ready to create"
+
+msgid "Wacht op hoofdcategorie: %s"
+msgstr "Waiting for main category: %s"
+
+msgid "Aangemaakt"
+msgstr "Created"
+
+msgid "%d van %d categorieën aangemaakt."
+msgstr "%d of %d categories created."
+
+msgid "Hiërarchie wordt aangemaakt…"
+msgstr "Creating hierarchy…"
+
+msgid "Wil je alle getoonde categorieën aanmaken? Publion maakt eerst hoofdcategorieën en daarna subcategorieën. Bestaande categorieën worden niet gewijzigd."
+msgstr "Do you want to create all displayed categories? Publion creates main categories first and then subcategories. Existing categories are not changed."
+
+msgid "Categoriehiërarchie aangemaakt. Controleer daarna de categoriepagina’s en voeg interne links toe."
+msgstr "Category hierarchy created. Then check the category pages and add internal links."
+
+msgid "De hiërarchie is gestopt bij een categorie die aandacht nodig heeft. Eerder aangemaakte categorieën blijven bestaan."
+msgstr "The hierarchy stopped at a category that needs attention. Previously created categories remain in place."
+
+msgid "Bewerk in WordPress"
+msgstr "Edit in WordPress"
+
+msgid "Bekijk categorie"
+msgstr "View category"
+
+msgid "Waarom deze categorie"
+msgstr "Why this category"
+
+msgid "De slug “%1$s” is al in gebruik door categorie “%2$s”. Kies een unieke URL-slug."
+msgstr "The slug “%1$s” is already used by category “%2$s”. Choose a unique URL slug."
+
+msgid "“%s” is zelf een subcategorie. Kies voor deze strategie een hoofdcategorie als bovenliggende categorie."
+msgstr "“%s” is itself a subcategory. Choose a main category as the parent for this strategy."

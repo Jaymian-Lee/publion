@@ -6,8 +6,8 @@ jQuery(document).ready(function ($) {
 	function format(message) {
 		const values = Array.prototype.slice.call(arguments, 1);
 		let index = 0;
-		return String(message).replace(/%d/g, function () {
-			return index < values.length ? values[index++] : '%d';
+		return String(message).replace(/%[ds]/g, function (token) {
+			return index < values.length ? values[index++] : token;
 		});
 	}
 
@@ -261,6 +261,262 @@ jQuery(document).ready(function ($) {
 			$list.append($li);
 		});
 	}
+
+	function isSafeCategorySuggestion(suggestion) {
+		if (!suggestion || typeof suggestion !== 'object') return false;
+		const name = typeof suggestion.name === 'string' ? suggestion.name.trim() : '';
+		const slug = typeof suggestion.slug === 'string' ? suggestion.slug.trim() : '';
+		const level = suggestion.category_level;
+		const parentName = typeof suggestion.parent_name === 'string' ? suggestion.parent_name.trim() : '';
+		const focusKeyword = typeof suggestion.focus_keyword === 'string' ? suggestion.focus_keyword.trim() : '';
+		const intent = suggestion.search_intent;
+		const description = typeof suggestion.description === 'string' ? suggestion.description.trim() : '';
+		const seoTitle = typeof suggestion.seo_title === 'string' ? suggestion.seo_title.trim() : '';
+		const metaDescription = typeof suggestion.meta_description === 'string' ? suggestion.meta_description.trim() : '';
+		const geoSummary = typeof suggestion.geo_summary === 'string' ? suggestion.geo_summary.trim() : '';
+		const rationale = typeof suggestion.rationale === 'string' ? suggestion.rationale.trim() : '';
+		if (name.length < 3 || name.length > 70 || /[\[\]{}\r\n]/.test(name)) return false;
+		if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 80) return false;
+		if (!['hoofd', 'subcategorie'].includes(level) || (level === 'hoofd' && parentName) || (level === 'subcategorie' && !parentName)) return false;
+		if (focusKeyword.length < 2 || focusKeyword.length > 100) return false;
+		if (!['informatief', 'commercieel', 'transactioneel'].includes(intent)) return false;
+		if (description.length < 140 || description.length > 600 || seoTitle.length < 25 || seoTitle.length > 70 || metaDescription.length < 110 || metaDescription.length > 180 || geoSummary.length < 70 || geoSummary.length > 300 || rationale.length < 30) return false;
+		const focus = focusKeyword.toLocaleLowerCase();
+		if (!description.toLocaleLowerCase().includes(focus) || !seoTitle.toLocaleLowerCase().includes(focus) || !metaDescription.toLocaleLowerCase().includes(focus)) return false;
+		return Array.isArray(suggestion.example_topics) && suggestion.example_topics.length === 3 && suggestion.example_topics.every(function (topic) {
+			return typeof topic === 'string' && topic.trim().length >= 12 && topic.trim().length <= 140;
+		});
+	}
+
+	function categoryNameKey(name) {
+		return String(name || '').trim().toLocaleLowerCase();
+	}
+
+	function getKnownCategoryNames() {
+		const names = {};
+		$('#publion-category option[data-publion-category-name]').each(function () {
+			const name = categoryNameKey($(this).attr('data-publion-category-name'));
+			if (name) names[name] = true;
+		});
+		$('.publion-category-card[data-publion-term-id]').each(function () {
+			const suggestion = $(this).data('category-suggestion') || {};
+			const name = categoryNameKey(suggestion.name);
+			if (name) names[name] = true;
+		});
+		return names;
+	}
+
+	function updateCategoryResultsStatus() {
+		const $cards = $('.publion-category-card');
+		const total = $cards.length;
+		const created = $cards.filter('[data-publion-term-id]').length;
+		$('#publion-category-results-status').text(total ? format(t('category_results_status', '%d van %d categorieën aangemaakt.'), created, total) : '');
+		const $createAll = $('#publion-create-category-hierarchy');
+		if ($createAll.hasClass('is-busy')) return;
+		$createAll.prop('disabled', !total || created === total);
+		if (created === total && total) $createAll.text(t('category_created_status', 'Aangemaakt'));
+	}
+
+	function refreshCategoryCardStates() {
+		const knownNames = getKnownCategoryNames();
+		$('.publion-category-card').each(function () {
+			const $card = $(this);
+			const suggestion = $card.data('category-suggestion') || {};
+			const $button = $card.find('.publion-create-category');
+			const $state = $card.find('.publion-category-card-state');
+			if ($card.attr('data-publion-term-id')) {
+				$card.removeClass('is-waiting is-ready').addClass('is-created');
+				$state.text(t('category_created_status', 'Aangemaakt'));
+				$button.prop('disabled', true).text(t('category_created', 'Categorie aangemaakt'));
+				return;
+			}
+
+			const parentIsReady = suggestion.category_level !== 'subcategorie' || !!knownNames[categoryNameKey(suggestion.parent_name)];
+			$card.toggleClass('is-waiting', !parentIsReady).toggleClass('is-ready', parentIsReady).removeClass('is-created');
+			if (parentIsReady) {
+				$button.prop('disabled', false).removeAttr('aria-disabled').text(t('create_category', 'Categorie aanmaken'));
+				$state.text(t('category_ready', 'Klaar om aan te maken'));
+			} else {
+				$button.prop('disabled', true).attr('aria-disabled', 'true').text(t('create_category', 'Categorie aanmaken'));
+				$state.text(format(t('category_waiting_for_parent', 'Wacht op hoofdcategorie: %s'), suggestion.parent_name));
+			}
+		});
+		updateCategoryResultsStatus();
+	}
+
+	function addCreatedCategoryLinks($card, data) {
+		const $links = $('<p>', { class: 'publion-category-card-links' });
+		if (data.edit_url) {
+			$links.append($('<a>', { class: 'button button-small', href: data.edit_url, text: t('edit_category', 'Bewerk in WordPress') }));
+		}
+		if (data.archive_url) {
+			$links.append($('<a>', { class: 'button button-small', href: data.archive_url, target: '_blank', rel: 'noopener noreferrer', text: t('view_category', 'Bekijk categorie') }));
+		}
+		if ($links.children().length) $card.find('.publion-category-card-actions').prepend($links);
+	}
+
+	function renderCategorySuggestions(suggestions) {
+		const $list = $('#publion-category-suggestions').empty();
+		const validSuggestions = Array.isArray(suggestions) ? suggestions.filter(isSafeCategorySuggestion) : [];
+		$('#publion-category-results-toolbar').prop('hidden', !validSuggestions.length);
+		if (!validSuggestions.length) {
+			$list.append($('<p>', { class: 'publion-suggestion-empty', text: t('no_valid_category_suggestions', 'Geen volledig gevalideerde categorievoorstellen ontvangen. Er is niets aangemaakt; probeer het opnieuw.') }));
+			return;
+		}
+		validSuggestions.sort(function (a, b) { return (a.category_level === 'hoofd' ? 0 : 1) - (b.category_level === 'hoofd' ? 0 : 1); }).forEach(function (suggestion, index) {
+			const $card = $('<article>', { class: 'publion-category-card' }).data('category-suggestion', suggestion);
+			const cardId = 'publion-category-card-' + index;
+			$card.attr('id', cardId);
+			const $header = $('<div>', { class: 'publion-category-card-header' });
+			$header.append($('<div>').append($('<h4>', { text: suggestion.name }), $('<span>', { class: 'publion-category-card-state', 'aria-live': 'polite' })));
+			$header.append($('<span>', { class: 'publion-seo-tag', text: (suggestion.category_level === 'hoofd' ? t('main_category', 'Hoofdcategorie') : t('sub_category', 'Subcategorie')) + ' · ' + suggestion.search_intent }));
+			$card.append($header);
+			if (suggestion.parent_name) $card.append($('<p>', { class: 'publion-category-parent', text: t('parent_category', 'Hoofdcategorie') + ': ' + suggestion.parent_name }));
+			$card.append($('<p>', { class: 'publion-category-slug', text: t('slug', 'Slug') + ': /' + suggestion.slug + '/' }));
+			$card.append($('<p>', { class: 'publion-category-purpose', text: suggestion.description }));
+			$card.append($('<p>', { class: 'publion-category-rationale' }).append($('<strong>', { text: t('strategy_reason', 'Waarom deze categorie') + ': ' }), document.createTextNode(suggestion.rationale)));
+			const $seo = $('<dl>', { class: 'publion-category-seo-fields' });
+			$seo.append($('<dt>', { text: t('focus', 'Focus') }), $('<dd>', { text: suggestion.focus_keyword }));
+			$seo.append($('<dt>', { text: t('seo_title', 'SEO-titel') }), $('<dd>', { text: suggestion.seo_title }));
+			$seo.append($('<dt>', { text: t('meta_description', 'Meta description') }), $('<dd>', { text: suggestion.meta_description }));
+			$seo.append($('<dt>', { text: t('geo_summary', 'GEO-samenvatting') }), $('<dd>', { text: suggestion.geo_summary }));
+			$card.append($seo);
+			const $topics = $('<ul>', { class: 'publion-category-example-topics' });
+			suggestion.example_topics.forEach(function (topic) { $topics.append($('<li>', { text: topic })); });
+			$card.append($('<strong>', { text: t('example_articles', 'Mogelijke artikelen') }), $topics);
+			const $actions = $('<div>', { class: 'publion-category-card-actions' });
+			$actions.append($('<button>', { type: 'button', class: 'button button-primary publion-create-category', text: t('create_category', 'Categorie aanmaken') }));
+			$card.append($actions);
+			$list.append($card);
+		});
+		refreshCategoryCardStates();
+		$list.trigger('focus');
+	}
+
+	function categoryRequestData(suggestion) {
+		return {
+			action: 'publion_create_category',
+			nonce: Publion.nonce,
+			name: suggestion.name,
+			slug: suggestion.slug,
+			category_level: suggestion.category_level,
+			parent_name: suggestion.parent_name,
+			focus_keyword: suggestion.focus_keyword,
+			search_intent: suggestion.search_intent,
+			description: suggestion.description,
+			seo_title: suggestion.seo_title,
+			meta_description: suggestion.meta_description,
+			geo_summary: suggestion.geo_summary,
+			rationale: suggestion.rationale,
+			example_topics: suggestion.example_topics
+		};
+	}
+
+	function createCategoryFromCard($card, options) {
+		const $button = $card.find('.publion-create-category');
+		const suggestion = $card.data('category-suggestion');
+		const settings = options || {};
+		if (!isSafeCategorySuggestion(suggestion) || $button.prop('disabled') || $card.attr('data-publion-term-id')) return $.Deferred().resolve(false).promise();
+		$button.prop('disabled', true).text(t('creating_category', 'Categorie wordt aangemaakt…'));
+		return $.post(Publion.ajax_url, categoryRequestData(suggestion)).then(function (response) {
+			if (!response || !response.success || !response.data) {
+				if (!settings.silent) showActionableError(response, t('create_category_failed', 'De categorie kon niet worden aangemaakt. Vernieuw de pagina en probeer opnieuw.'), $card.find('.publion-category-card-actions'));
+				$button.prop('disabled', false).text(t('create_category', 'Categorie aanmaken'));
+				return false;
+			}
+			const termId = parseInt(response.data.term_id, 10);
+			const name = String(response.data.name || suggestion.name).trim();
+			const parentName = String(response.data.parent_name || '').trim();
+			const optionLabel = parentName ? parentName + ' → ' + name : name;
+			if (termId && name) {
+				const $categorySelect = $('#publion-category');
+				if (!$categorySelect.find('option[value="' + termId + '"]').length) {
+					$categorySelect.append($('<option>', { value: termId, text: optionLabel, 'data-publion-category-name': name }));
+				}
+				$categorySelect.val(String(termId)).trigger('change');
+			}
+			$card.attr('data-publion-term-id', String(termId || 'created'));
+			addCreatedCategoryLinks($card, response.data);
+			refreshCategoryCardStates();
+			if (!settings.silent) showNotice('success', response.data.message || t('category_created_message', 'Categorie aangemaakt. Je kunt er nu onderwerpen voor plannen.'));
+			return true;
+		}, function (response) {
+			if (!settings.silent) showActionableError(response, t('create_category_failed', 'De categorie kon niet worden aangemaakt. Vernieuw de pagina en probeer opnieuw.'), $card.find('.publion-category-card-actions'));
+			$button.prop('disabled', false).text(t('create_category', 'Categorie aanmaken'));
+			return false;
+		});
+	}
+
+	$('#publion-suggest-categories').on('click', function () {
+		const $button = $(this);
+		$button.prop('disabled', true);
+		$('#publion-category-strategy').attr('aria-busy', 'true');
+		$('#publion-category-strategy-loading').css('display', 'flex');
+		$('#publion-category-suggestions').attr('aria-busy', 'true').empty();
+		$.post(Publion.ajax_url, {
+			action: 'publion_get_category_suggestions',
+			nonce: Publion.nonce,
+			strategy_intent: $('#publion-category-intent').val(),
+			additional_context: $('#publion-category-context').val()
+		}, function (response) {
+			if (response && response.success) {
+				renderCategorySuggestions(response.data || []);
+			} else {
+				showActionableError(response, t('category_suggestions_failed', 'Categorievoorstellen konden niet worden gemaakt. Controleer je API-sleutel en probeer opnieuw.'));
+			}
+		}).fail(function () {
+			showActionableError(null, t('connection_interrupted', 'De verbinding met WordPress of OpenAI is onderbroken. Controleer je internetverbinding en probeer opnieuw.'));
+		}).always(function () {
+			$('#publion-category-strategy-loading').hide();
+			$('#publion-category-strategy').attr('aria-busy', 'false');
+			$('#publion-category-suggestions').attr('aria-busy', 'false');
+			$button.prop('disabled', false);
+		});
+	});
+
+	$(document).on('click', '.publion-create-category', function () {
+		if ($('#publion-create-category-hierarchy').hasClass('is-busy')) return;
+		createCategoryFromCard($(this).closest('.publion-category-card'));
+	});
+
+	$('#publion-create-category-hierarchy').on('click', function () {
+		const $button = $(this);
+		if ($button.prop('disabled') || !window.confirm(t('create_hierarchy_confirm', 'Wil je alle getoonde categorieën aanmaken? Publion maakt eerst hoofdcategorieën en daarna subcategorieën. Bestaande categorieën worden niet gewijzigd.'))) return;
+		const cards = $('#publion-category-suggestions .publion-category-card').toArray();
+		let index = 0;
+		let failed = false;
+		$button.addClass('is-busy').prop('disabled', true).text(t('creating_hierarchy', 'Hiërarchie wordt aangemaakt…'));
+		function next() {
+			if (index >= cards.length) {
+				refreshCategoryCardStates();
+				if (failed) {
+					showNotice('warning', t('hierarchy_stopped', 'De hiërarchie is gestopt bij een categorie die aandacht nodig heeft. Eerder aangemaakte categorieën blijven bestaan.'));
+					$button.removeClass('is-busy').text(t('create_hierarchy', 'Volledige hiërarchie aanmaken')).prop('disabled', false);
+				} else {
+					showNotice('success', t('hierarchy_created', 'Categoriehiërarchie aangemaakt. Controleer daarna de categoriepagina’s en voeg interne links toe.'));
+					$button.removeClass('is-busy');
+					updateCategoryResultsStatus();
+				}
+				return;
+			}
+			const $card = $(cards[index++]);
+			if ($card.attr('data-publion-term-id')) return next();
+			refreshCategoryCardStates();
+			createCategoryFromCard($card, { silent: true }).then(function (success) {
+				if (!success) {
+					failed = true;
+					return next();
+				}
+				next();
+			});
+		}
+		next();
+	});
+
+	$('#publion-clear-category-suggestions').on('click', function () {
+		$('#publion-category-suggestions').empty();
+		$('#publion-category-results-toolbar').prop('hidden', true);
+	});
 
 	$('#publion-refresh').on('click', function () {
 	    const category = $('#publion-category').val();

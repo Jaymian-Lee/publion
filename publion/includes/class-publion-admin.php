@@ -65,6 +65,35 @@ class Publion_Admin {
                     'intent'                      => __( 'Intentie', 'publion' ),
                     'faq'                         => __( 'FAQ', 'publion' ),
                     'informational'               => __( 'informatief', 'publion' ),
+                    'no_valid_category_suggestions' => __( 'Geen volledig gevalideerde categorievoorstellen ontvangen. Er is niets aangemaakt; probeer het opnieuw.', 'publion' ),
+                    'category_suggestions_failed' => __( 'Categorievoorstellen konden niet worden gemaakt. Controleer je API-sleutel en probeer opnieuw.', 'publion' ),
+                    'create_category'             => __( 'Categorie aanmaken', 'publion' ),
+                    'creating_category'           => __( 'Categorie wordt aangemaakt…', 'publion' ),
+                    'category_created'            => __( 'Categorie aangemaakt', 'publion' ),
+                    'category_created_message'    => __( 'Categorie aangemaakt. Je kunt er nu onderwerpen voor plannen.', 'publion' ),
+                    'create_category_failed'      => __( 'De categorie kon niet worden aangemaakt. Vernieuw de pagina en probeer opnieuw.', 'publion' ),
+                    'example_articles'            => __( 'Mogelijke artikelen', 'publion' ),
+                    'main_category'               => __( 'Hoofdcategorie', 'publion' ),
+                    'sub_category'                => __( 'Subcategorie', 'publion' ),
+                    'parent_category'             => __( 'Hoofdcategorie', 'publion' ),
+                    'slug'                        => __( 'Slug', 'publion' ),
+                    'seo_title'                   => __( 'SEO-titel', 'publion' ),
+                    'meta_description'            => __( 'Meta description', 'publion' ),
+                    'geo_summary'                 => __( 'GEO-samenvatting', 'publion' ),
+                    'category_ready'              => __( 'Klaar om aan te maken', 'publion' ),
+                    'category_waiting_for_parent' => __( 'Wacht op hoofdcategorie: %s', 'publion' ),
+                    'category_created_status'     => __( 'Aangemaakt', 'publion' ),
+                    'category_results_status'     => __( '%d van %d categorieën aangemaakt.', 'publion' ),
+                    'create_hierarchy'            => __( 'Volledige hiërarchie aanmaken', 'publion' ),
+                    'creating_hierarchy'          => __( 'Hiërarchie wordt aangemaakt…', 'publion' ),
+                    'create_hierarchy_confirm'    => __( 'Wil je alle getoonde categorieën aanmaken? Publion maakt eerst hoofdcategorieën en daarna subcategorieën. Bestaande categorieën worden niet gewijzigd.', 'publion' ),
+                    'hierarchy_created'           => __( 'Categoriehiërarchie aangemaakt. Controleer daarna de categoriepagina’s en voeg interne links toe.', 'publion' ),
+                    'hierarchy_stopped'           => __( 'De hiërarchie is gestopt bij een categorie die aandacht nodig heeft. Eerder aangemaakte categorieën blijven bestaan.', 'publion' ),
+                    'clear_category_suggestions'  => __( 'Voorstellen wissen', 'publion' ),
+                    'edit_category'               => __( 'Bewerk in WordPress', 'publion' ),
+                    'view_category'               => __( 'Bekijk categorie', 'publion' ),
+                    'wordpress_fields'            => __( 'WordPress-velden', 'publion' ),
+                    'strategy_reason'             => __( 'Waarom deze categorie', 'publion' ),
                     'select_category_first'       => __( 'Selecteer eerst een categorie om relevante onderwerpvoorstellen te maken.', 'publion' ),
                     'refresh_failed'              => __( 'Vernieuwen van voorstellen mislukt. Controleer je API-sleutel en probeer opnieuw.', 'publion' ),
                     'connection_interrupted'       => __( 'De verbinding met WordPress of OpenAI is onderbroken. Controleer je internetverbinding en probeer opnieuw.', 'publion' ),
@@ -515,6 +544,47 @@ class Publion_Admin {
                     <h2><?php esc_html_e( 'Kies een categorie. Publion bouwt vervolgens een SEO-brief per artikel.', 'publion' ); ?></h2>
                     <p><?php esc_html_e( 'Elke suggestie bevat een dynamisch focus-keyword, zoekintentie, invalshoek en FAQ-vragen.', 'publion' ); ?></p>
                 </div>
+                <section id="publion-category-strategy" class="publion-category-strategy" aria-labelledby="publion-category-strategy-title">
+                    <div class="publion-category-strategy-heading">
+                        <div>
+                            <p class="publion-eyebrow"><?php esc_html_e( 'VOORAF — CATEGORIESTRATEGIE', 'publion' ); ?></p>
+                            <h3 id="publion-category-strategy-title"><?php esc_html_e( 'Bouw een complete categoriehiërarchie voor je website', 'publion' ); ?></h3>
+                            <p><?php esc_html_e( 'Handmatig en op aanvraag. Publion leest je bestaande berichten, pagina’s en categorieën en maakt voorstellen voor hoofd- én subcategorieën. Elk voorstel bevat alle WordPress-, SEO- en GEO-velden; jij beoordeelt en bevestigt de aanmaak.', 'publion' ); ?></p>
+                        </div>
+                        <span class="publion-strategy-badge"><?php esc_html_e( 'Geen automatische planning', 'publion' ); ?></span>
+                    </div>
+                    <ol class="publion-category-strategy-steps" aria-label="<?php esc_attr_e( 'Werkwijze categorie-strategie', 'publion' ); ?>">
+                        <li><span>1</span><div><strong><?php esc_html_e( 'Onderzoek', 'publion' ); ?></strong><small><?php esc_html_e( 'Analyseer actuele pagina’s, berichten en categorieën.', 'publion' ); ?></small></div></li>
+                        <li><span>2</span><div><strong><?php esc_html_e( 'Beoordeel', 'publion' ); ?></strong><small><?php esc_html_e( 'Controleer hiërarchie, beschrijving, intentie en metadata.', 'publion' ); ?></small></div></li>
+                        <li><span>3</span><div><strong><?php esc_html_e( 'Maak veilig aan', 'publion' ); ?></strong><small><?php esc_html_e( 'Hoofdcategorieën worden vóór subcategorieën aangemaakt.', 'publion' ); ?></small></div></li>
+                    </ol>
+                    <div class="publion-category-strategy-controls">
+                        <label for="publion-category-intent">
+                            <span><?php esc_html_e( 'Primair doel', 'publion' ); ?></span>
+                            <select id="publion-category-intent">
+                                <option value="gemengd"><?php esc_html_e( 'Gebalanceerde mix', 'publion' ); ?></option>
+                                <option value="informatief"><?php esc_html_e( 'Informatief — expertise en bereik', 'publion' ); ?></option>
+                                <option value="commercieel"><?php esc_html_e( 'Commercieel — leads en overweging', 'publion' ); ?></option>
+                                <option value="transactioneel"><?php esc_html_e( 'Transactioneel — conversie of verkoop', 'publion' ); ?></option>
+                            </select>
+                        </label>
+                        <label class="publion-category-context" for="publion-category-context">
+                            <span><?php esc_html_e( 'Extra kader (optioneel)', 'publion' ); ?></span>
+                            <input type="text" id="publion-category-context" maxlength="1200" placeholder="<?php esc_attr_e( 'Bijvoorbeeld: focus dit kwartaal op MKB-leads in webdesign.', 'publion' ); ?>">
+                        </label>
+                        <button type="button" id="publion-suggest-categories" class="button button-secondary"><?php esc_html_e( 'Categorieën onderzoeken', 'publion' ); ?></button>
+                    </div>
+                    <p class="description"><?php esc_html_e( 'Voorstellen zijn hoofdclusters of gerichte subclusters, geen losse blogtitels. De tool slaat niets op totdat je dit zelf per categorie of voor de hele hiërarchie bevestigt. Bestaande categorieën worden nooit automatisch overschreven.', 'publion' ); ?></p>
+                    <div id="publion-category-strategy-loading" class="publion-inline-loading" style="display:none;" aria-live="polite"><span class="spinner is-active" style="float:none;"></span><em><?php esc_html_e( 'Websitecontent en categorieën worden geanalyseerd…', 'publion' ); ?></em></div>
+                    <div id="publion-category-results-toolbar" class="publion-category-results-toolbar" hidden>
+                        <div><strong id="publion-category-results-title"><?php esc_html_e( 'Categorievoorstellen klaar voor review', 'publion' ); ?></strong><span id="publion-category-results-status" aria-live="polite"></span></div>
+                        <div class="publion-category-results-actions">
+                            <button type="button" id="publion-create-category-hierarchy" class="button button-primary"><?php esc_html_e( 'Volledige hiërarchie aanmaken', 'publion' ); ?></button>
+                            <button type="button" id="publion-clear-category-suggestions" class="button"><?php esc_html_e( 'Voorstellen wissen', 'publion' ); ?></button>
+                        </div>
+                    </div>
+                    <div id="publion-category-suggestions" class="publion-category-suggestions" aria-live="polite" aria-relevant="additions text" aria-busy="false" tabindex="-1"></div>
+                </section>
                 <select id="publion-category">
                     <option value=""><?php esc_html_e( 'Selecteer een categorie', 'publion' ); ?></option>
                     <?php
@@ -524,13 +594,21 @@ class Publion_Admin {
                             continue;
                         }
 
-                        $label = $cat->name;
-                        if ( $cat->parent ) {
-                            $parent = get_category( $cat->parent );
-                            $label  = $parent->name . ' → ' . $cat->name;
+                        $label_parts = array( $cat->name );
+                        $parent_id   = (int) $cat->parent;
+                        $guard       = 0;
+                        while ( $parent_id && $guard < 10 ) {
+                            $parent = get_category( $parent_id );
+                            if ( ! $parent || is_wp_error( $parent ) ) {
+                                break;
+                            }
+                            array_unshift( $label_parts, $parent->name );
+                            $parent_id = (int) $parent->parent;
+                            $guard++;
                         }
+                        $label = implode( ' → ', $label_parts );
 
-                        echo '<option value="' . esc_attr( $cat->term_id ) . '">' . esc_html( $label ) . '</option>';
+                        echo '<option value="' . esc_attr( $cat->term_id ) . '" data-publion-category-name="' . esc_attr( $cat->name ) . '">' . esc_html( $label ) . '</option>';
                     }
                     ?>
                 </select>

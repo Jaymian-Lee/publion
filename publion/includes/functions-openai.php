@@ -400,10 +400,14 @@ function publion_build_openai_chat_body( $model, $messages, $max_output_tokens, 
  * This keeps the request useful for normal API context limits while the
  * duplicate gate below still compares against the complete local post body.
  */
-function publion_get_existing_content_map( $exclude_post_id = 0 ) {
+function publion_get_existing_content_map( $exclude_post_id = 0, $post_types = array( 'post' ) ) {
+	$post_types = array_values( array_filter( array_map( 'sanitize_key', (array) $post_types ) ) );
+	if ( empty( $post_types ) ) {
+		$post_types = array( 'post' );
+	}
     $posts = get_posts(
         array(
-            'post_type'              => 'post',
+            'post_type'              => $post_types,
             'post_status'            => array( 'publish', 'future', 'draft', 'pending', 'private' ),
             'posts_per_page'         => -1,
             'orderby'                => 'modified',

@@ -3,7 +3,7 @@
 Plugin Name: Publion
 Plugin URI: https://jaymian-lee.nl/publion
 Description: Genereer en verfijn blogposts met AI. Kies een categorie, krijg onderwerp-ideeën, zet SEO-geoptimaliseerde posts met afbeeldingen in de wachtrij en plan het aanmaken in WordPress.
-Version: 1.9.28
+Version: 1.9.31
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'PUBLION_VERSION', '1.9.28' );
+define( 'PUBLION_VERSION', '1.9.31' );
 define( 'PUBLION_PATH', plugin_dir_path( __FILE__ ) );
 define( 'PUBLION_URL', plugin_dir_url( __FILE__ ) );
 
@@ -228,6 +228,32 @@ function publion_uninstall_cleanup() {
 	delete_option( 'publion_last_image_error_details' );
 	delete_option( 'publion_last_post_created_at' );
 	delete_option( 'publion_remove_data_on_uninstall' );
+
+	// Categories are ordinary site-owned WordPress content and therefore stay
+	// in place. Remove only the editorial metadata that this plugin attached to
+	// explicitly approved category strategy proposals.
+	$category_terms = get_terms(
+		array(
+			'taxonomy'   => 'category',
+			'hide_empty' => false,
+			'fields'     => 'ids',
+		)
+	);
+	if ( ! is_wp_error( $category_terms ) ) {
+		foreach ( (array) $category_terms as $term_id ) {
+			delete_term_meta( (int) $term_id, 'publion_category_level' );
+			delete_term_meta( (int) $term_id, 'publion_category_parent_name' );
+			delete_term_meta( (int) $term_id, 'publion_category_intent' );
+			delete_term_meta( (int) $term_id, 'publion_category_focus_keyword' );
+			delete_term_meta( (int) $term_id, 'publion_category_seo_title' );
+			delete_term_meta( (int) $term_id, 'publion_category_meta_description' );
+			delete_term_meta( (int) $term_id, 'publion_category_geo_summary' );
+			delete_term_meta( (int) $term_id, 'publion_category_rationale' );
+			delete_term_meta( (int) $term_id, 'publion_category_example_topics' );
+			delete_term_meta( (int) $term_id, 'publion_category_slug' );
+			delete_term_meta( (int) $term_id, 'publion_category_strategy_source' );
+		}
+	}
 }
 
 // Add "Dashboard" and "Documentation" links under plugin name on Plugins page.
