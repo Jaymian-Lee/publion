@@ -119,13 +119,16 @@ class Publion_Cron {
 			$wpdb->publion_queue = $wpdb->prefix . 'publion_queue';
 		}
 		$content_map = publion_get_existing_content_map();
+		$topics_to_add    = publion_get_automatic_topic_batch_size( $settings );
+		$topics_added     = 0;
+		$suggestion_count = max( 5, min( 12, $topics_to_add ) );
 
 		foreach ( $categories as $category ) {
 			$category_name = $category->name;
 
-			$prompt  = $pre_prompt . "\n\nOp basis van de categorie \"" . $category_name . "\", stel 5 unieke blogonderwerpen voor.";
+			$prompt  = $pre_prompt . "\n\nOp basis van de categorie \"" . $category_name . "\", stel " . $suggestion_count . " unieke blogonderwerpen voor.";
 			$prompt .= "\n\nLees eerst de onderstaande actuele contentkaart van alle " . (int) $content_map['count'] . " bestaande WordPress-berichten. Geef alleen een onderwerp met een nieuwe zoekvraag en een duidelijk andere invalshoek; hergebruik geen bestaande titel, koppenstructuur of centrale uitleg.\n\n=== ACTUELE CONTENTKAART ===\n" . $content_map['context'] . "\n=== EINDE CONTENTKAART ===";
-			$prompt .= "\n\nFormaat: geef exact 5 onderwerpen, elk op een eigen regel. Geen inleiding, geen bullets, geen nummers, geen Markdown, geen extra uitleg.";
+			$prompt .= "\n\nFormaat: geef exact " . $suggestion_count . " onderwerpen, elk op een eigen regel. Geen inleiding, geen bullets, geen nummers, geen Markdown, geen extra uitleg.";
 
 			$response = wp_remote_post(
 				'https://api.openai.com/v1/chat/completions',
@@ -141,7 +144,7 @@ class Publion_Cron {
 								array( 'role' => 'system', 'content' => 'Je bent een behulpzame assistent.' ),
 								array( 'role' => 'user', 'content' => $prompt ),
 							),
-							200
+							360
 						)
 					),
 					'timeout' => 60,
@@ -207,14 +210,17 @@ class Publion_Cron {
 						'created_at'     => current_time( 'mysql' ),
 					)
 				);
+				$topics_added++;
 
 				// Invalidate caches affected by this write.
 				wp_cache_delete( 'pending_ids', $this->cache_group );
 				wp_cache_delete( 'pending_total', $this->cache_group );
 				publion_schedule_pending_entries( false );
-				$this->schedule_next_daily_topic( $settings );
 
-				return;
+				if ( $topics_added >= $topics_to_add ) {
+					$this->schedule_next_daily_topic( $settings );
+					return;
+				}
 			}
 		}
 
@@ -372,6 +378,15 @@ class Publion_Cron {
 
 		// Insert images into content (first 5).
 		$post_html = publion_insert_images_into_content( $post_html, array_slice( $final_image_urls, 0, 5 ), array_slice( $image_layouts, 0, 5 ), $seo_brief['focus_keyword'] );
+		$rank_math_quality_report = array();
+		if ( $rank_math_enabled ) {
+			$rank_math_quality_report = publion_get_rank_math_quality_report( $post_html, $seo_brief['focus_keyword'], $topic->topic );
+			// A manually selected Publish status must not bypass a failed hard
+			// content check. Keep the result as a draft until it is repaired.
+			if ( publion_get_rank_math_settings( $settings )['publish_gate'] && ! empty( $rank_math_quality_report['failed_required'] ) ) {
+				$post_status = 'draft';
+			}
+		}
 
 
 		// Check once more immediately before writing: another source may have
@@ -388,6 +403,8 @@ class Publion_Cron {
 			'post_name'     => publion_build_rank_math_slug( $seo_brief['focus_keyword'], $topic->topic ),
 			'post_content'  => $post_html,
 			'post_status'   => $post_status,
+			'comment_status'=> 'closed',
+			'ping_status'   => 'closed',
 			'post_category' => array( $topic->category_id ),
 			'post_type'     => 'post',
 			'post_author'   => $author_id,
@@ -400,9 +417,9 @@ class Publion_Cron {
 			publion_store_article_seo_data( $post_id, $post_html, $seo_brief['focus_keyword'] );
 
 			if ( $rank_math_enabled ) {
-				update_post_meta( (int) $post_id, 'rank_math_focus_keyword', $seo_brief['focus_keyword'] );
-				update_post_meta( (int) $post_id, 'rank_math_title', publion_build_rank_math_seo_title( $topic->topic, $seo_brief['focus_keyword'] ) );
-				update_post_meta( (int) $post_id, 'rank_math_description', publion_build_rank_math_meta_description( $post_html, $seo_brief['focus_keyword'] ) );
+				publion_store_rank_math_post_data( $post_id, $post_html, $seo_brief['focus_keyword'], $topic->topic );
+				update_post_meta( (int) $post_id, '_publion_rank_math_quality_report', wp_json_encode( $rank_math_quality_report ) );
+				update_post_meta( (int) $post_id, '_publion_rank_math_quality_status', sanitize_key( $rank_math_quality_report['status'] ?? 'review_required' ) );
 			}
 		}
 		

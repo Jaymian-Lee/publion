@@ -696,10 +696,39 @@ jQuery(document).ready(function ($) {
 		$('.publion-web-research-options').toggle($('#publion_web_research_enabled').is(':checked'));
 	}
 
+	function updatePostScheduleControls() {
+		const mode = $('#publion_post_schedule_mode').val();
+		const isDaily = mode === 'daily';
+		const postsPerDay = Math.max(1, parseInt($('#publion_posts_per_day').val(), 10) || 1);
+		const windowHours = Math.max(1, parseInt($('#publion_post_creation_window_hours').val(), 10) || 1);
+		const intervalDays = Math.max(1, parseInt($('#publion_time_frame_days').val(), 10) || 1);
+		const firstTime = $('#publion_post_creation_time').val() || '00:00';
+
+		$('.publion-post-schedule-daily').toggle(isDaily);
+		$('.publion-post-schedule-every-days').toggle(!isDaily);
+
+		const summary = isDaily
+			? `Publion plant ${postsPerDay} ${postsPerDay === 1 ? 'post' : 'posts'} per dag vanaf ${firstTime}, gespreid over ${windowHours} ${windowHours === 1 ? 'uur' : 'uur'}.`
+			: `Publion plant één post elke ${intervalDays} ${intervalDays === 1 ? 'dag' : 'dagen'} om ${firstTime}.`;
+		$('#publion-post-schedule-summary').text(summary);
+
+		const autoTopics = $('#publion_auto_daily_topic').is(':checked');
+		const topicCount = isDaily ? postsPerDay : 1;
+		const topicCadence = isDaily
+			? `vóór elke dagelijkse postronde ${topicCount} ${topicCount === 1 ? 'nieuw onderwerp' : 'nieuwe onderwerpen'}`
+			: `vóór elke postronde één nieuw onderwerp`;
+		$('#publion-topic-schedule-summary').text(autoTopics
+			? `Publion genereert ${topicCadence}, zodat de wachtrij automatisch gevuld blijft.`
+			: 'Schakel dit in om de wachtrij automatisch met nieuwe, unieke onderwerpen aan te vullen.');
+		$('.publion-next-topic-run').toggle(autoTopics);
+	}
+
 	$('#publion_article_style_mode').on('change', toggleRefinedStyleControls);
 	$('#publion_web_research_enabled').on('change', toggleWebResearchControls);
+	$('#publion_post_schedule_mode, #publion_posts_per_day, #publion_post_creation_window_hours, #publion_time_frame_days, #publion_post_creation_time, #publion_auto_daily_topic').on('change input', updatePostScheduleControls);
 	toggleRefinedStyleControls();
 	toggleWebResearchControls();
+	updatePostScheduleControls();
 
     // Auto-save Rank Math toggle to prevent accidental loss on refresh.
     $('#publion_rank_math_integration').on('change', function () {
@@ -719,6 +748,9 @@ jQuery(document).ready(function ($) {
 		const data = {
 		    action: 'publion_save_post_settings',
 		    nonce: Publion.nonce,
+		    post_schedule_mode: $('#publion_post_schedule_mode').val(),
+		    posts_per_day: $('#publion_posts_per_day').val(),
+		    post_creation_window_hours: $('#publion_post_creation_window_hours').val(),
 		    time_frame_days: $('#publion_time_frame_days').val(),
 		    post_creation_time: $('#publion_post_creation_time').val(),
 		    post_status: $('#publion_post_status').val(),
@@ -729,8 +761,6 @@ jQuery(document).ready(function ($) {
 		    notification_email: $('#publion_notification_email').val(),
 		    hide_title: $('#publion_hide_title').is(':checked') ? 'yes' : 'no',
 		    auto_daily_topic: $('#publion_auto_daily_topic').is(':checked') ? 'yes' : 'no',
-		    daily_topic_time: $('#publion_daily_topic_time').val(),
-		    daily_topic_interval_days: $('#publion_daily_topic_interval_days').val(),
 		    preferred_external_domain: $('#publion_preferred_external_domain').val(),
 		    preferred_external_urls: $('#publion_preferred_external_urls').val(),
 		    web_research_enabled: $('#publion_web_research_enabled').is(':checked') ? 'yes' : 'no',
@@ -743,6 +773,16 @@ jQuery(document).ready(function ($) {
 		    web_research_display_sources: $('#publion_web_research_display_sources').is(':checked') ? 'yes' : 'no',
 		    web_research_failure_mode: $('#publion_web_research_failure_mode').val(),
 		    rank_math_integration: $('#publion_rank_math_integration').is(':checked') ? 'yes' : 'no',
+		    rank_math_target_word_count: $('#publion_rank_math_target_word_count').val(),
+		    rank_math_density_min: $('#publion_rank_math_density_min').val(),
+		    rank_math_density_max: $('#publion_rank_math_density_max').val(),
+		    rank_math_max_paragraph_words: $('#publion_rank_math_max_paragraph_words').val(),
+		    rank_math_auto_repair: $('#publion_rank_math_auto_repair').is(':checked') ? 'yes' : 'no',
+		    rank_math_publish_gate: $('#publion_rank_math_publish_gate').is(':checked') ? 'yes' : 'no',
+		    rank_math_add_toc: $('#publion_rank_math_add_toc').is(':checked') ? 'yes' : 'no',
+		    rank_math_check_image_alt: $('#publion_rank_math_check_image_alt').is(':checked') ? 'yes' : 'no',
+		    rank_math_check_external_link: $('#publion_rank_math_check_external_link').is(':checked') ? 'yes' : 'no',
+		    rank_math_check_internal_link: $('#publion_rank_math_check_internal_link').is(':checked') ? 'yes' : 'no',
 		    structured_data: $('#publion_structured_data').is(':checked') ? 'yes' : 'no',
 		    image_border_radius: $('#publion_image_border_radius').val(),
 		    article_style_mode: $('#publion_article_style_mode').val(),

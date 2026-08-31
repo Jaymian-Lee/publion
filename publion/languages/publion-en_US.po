@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Publion 1.9.31\\n"
+"Project-Id-Version: Publion 1.9.38\\n"
 "Report-Msgid-Bugs-To: https://jaymian-lee.nl/publion\\n"
 "POT-Creation-Date: 2026-08-04 00:00+0000\\n"
 "PO-Revision-Date: 2026-08-04 00:00+0000\\n"
@@ -24,6 +24,161 @@ msgstr "Deactivating or deleting this plugin permanently removes all saved data.
 
 msgid "Content plannen"
 msgstr "Plan content"
+
+# Post creation settings workflow
+msgid "Automatische postcreatie"
+msgstr "Automatic post creation"
+
+msgid "Bepaal hoe de onderwerpen uit je wachtrij worden ingepland en als artikelconcept worden aangemaakt."
+msgstr "Choose how topics in your queue are scheduled and created as article drafts."
+
+msgid "Planning voor wachtrij-items"
+msgstr "Scheduling queued items"
+
+msgid "Publion plant nieuwe items automatisch in. De server verwerkt steeds één artikel tegelijk, zodat meerdere posts per dag betrouwbaar en overzichtelijk blijven."
+msgstr "Publion schedules new items automatically. The server processes one article at a time, keeping multiple daily posts reliable and easy to manage."
+
+msgid "Wachtrij actief"
+msgstr "Queue active"
+
+msgid "Frequentie"
+msgstr "Frequency"
+
+msgid "Dagelijks (één of meerdere posts)"
+msgstr "Daily (one or more posts)"
+
+msgid "Elke X dagen (één post)"
+msgstr "Every X days (one post)"
+
+msgid "Posts per dag"
+msgstr "Posts per day"
+
+msgid "Spreid over"
+msgstr "Spread across"
+
+msgid "uur"
+msgstr "hours"
+
+msgid "Elke hoeveel dagen"
+msgstr "Every how many days"
+
+msgid "Eerste aanmaaktijd"
+msgstr "First creation time"
+
+msgid "Vul de wachtrij automatisch aan met AI-onderwerpen"
+msgstr "Automatically replenish the queue with AI topics"
+
+msgid "Volgende onderwerpaanvulling:"
+msgstr "Next topic replenishment:"
+
+msgid "Onderwerpen en categorieën"
+msgstr "Topics and categories"
+
+msgid "Beheer hier de SEO- en GEO-categoriestructuur die Publion voor nieuwe onderwerpen gebruikt."
+msgstr "Manage the SEO and GEO category structure that Publion uses for new topics here."
+
+msgid "Categorieën maken"
+msgstr "Create categories"
+
+msgid "Hoofd- en subcategorieën plannen"
+msgstr "Plan parent and child categories"
+
+msgid "Categorieën worden bewust pas aangemaakt nadat je de SEO-, GEO- en hiërarchievoorstellen hebt gecontroleerd. Open Categorie-strategie om ze handmatig te genereren en als volledige hiërarchie aan te maken."
+msgstr "Categories are deliberately created only after you have reviewed the SEO, GEO and hierarchy proposals. Open Category strategy to generate them manually and create a complete hierarchy."
+
+msgid "Bronnen en research"
+msgstr "Sources and research"
+
+msgid "Stel betrouwbare bronlinks en optioneel live webonderzoek per artikel in."
+msgstr "Set reliable source links and optional live web research for each article."
+
+msgid "SEO en artikelkwaliteit"
+msgstr "SEO and article quality"
+
+msgid "Bepaal de SEO-structuur en de opmaak die nieuwe artikelen meekrijgen."
+msgstr "Choose the SEO structure and styling that new articles receive."
+
+msgid "Meten en opvolgen"
+msgstr "Measure and follow up"
+
+msgid "Koppel je rapporten, voeg een call-to-action toe en ontvang meldingen na creatie."
+msgstr "Connect your reports, add a call to action and receive notifications after creation."
+
+# Rank Math quality gate
+msgid "Publion Rank Math-controle"
+msgstr "Publion Rank Math check"
+
+msgid "Klaar voor redactionele controle"
+msgstr "Ready for editorial review"
+
+msgid "Extra controle nodig"
+msgstr "Additional review needed"
+
+msgid "%1$d woorden · %2$s%% keyworddichtheid"
+msgstr "%1$d words · %2$s%% keyword density"
+
+msgid "Focus-keyword vroeg in SEO-titel"
+msgstr "Focus keyword early in SEO title"
+
+msgid "Focus-keyword in intro"
+msgstr "Focus keyword in introduction"
+
+msgid "Focus-keyword in tussenkop"
+msgstr "Focus keyword in subheading"
+
+msgid "Keyworddichtheid 1–1,5%"
+msgstr "Keyword density 1–1.5%"
+
+msgid "Minimaal 2.500 woorden"
+msgstr "At least 2,500 words"
+
+msgid "Alinea’s korter dan 120 woorden"
+msgstr "Paragraphs under 120 words"
+
+msgid "Rank Math-inhoudsopgave"
+msgstr "Rank Math table of contents"
+
+msgid "Minimaal vier afbeeldingen of video’s"
+msgstr "At least four images or videos"
+
+msgid "Focus-keyword in afbeeldings-alttekst"
+msgstr "Focus keyword in image alt text"
+
+msgid "Gevolgde externe bronlink"
+msgstr "Followed external source link"
+
+msgid "Relevante interne link"
+msgstr "Relevant internal link"
+
+msgid "Feitelijk getal in SEO-titel"
+msgstr "Factual number in SEO title"
+
+msgid "Passend power word in SEO-titel"
+msgstr "Appropriate power word in SEO title"
+
+msgid "Passend sentiment in SEO-titel"
+msgstr "Appropriate sentiment in SEO title"
+
+msgid "Voor publicatie herstellen:"
+msgstr "Fix before publishing:"
+
+msgid "Controleer redactioneel:"
+msgstr "Check editorially:"
+
+msgid "Publion vervangt geen feitelijke controle. Ontbrekende relevante interne/externe links of een misleidende titel worden bewust niet gefabriceerd voor een score."
+msgstr "Publion does not replace factual review. Missing relevant internal or external links and misleading titles are deliberately not fabricated for a score."
+
+msgid "De Rank Math-kwaliteitscontrole kon niet worden hersteld omdat de OpenAI API-sleutel ontbreekt."
+msgstr "The Rank Math quality check could not be repaired because the OpenAI API key is missing."
+
+msgid "De Rank Math-kwaliteitscontrole kon het concept niet veilig herstellen. Het oorspronkelijke concept blijft behouden voor redactionele review."
+msgstr "The Rank Math quality check could not safely repair the draft. The original draft remains available for editorial review."
+
+msgid "De Rank Math-kwaliteitscontrole kreeg geen bruikbare herstelde artikeltekst terug."
+msgstr "The Rank Math quality check did not receive usable repaired article text."
+
+msgid "Publion controleert focus-keyword, SEO-titel, korte URL, meta description, intro, koppen, keyworddichtheid, lengte, alinea’s, links, inhoudsopgave en afbeeldingen. Mist een harde inhoudsvoorwaarde, dan volgt één feitelijke herstelronde; lukt dat niet, dan blijft de post altijd een concept. In de WordPress-editor toont de Publion Rank Math-controle precies wat nog redactionele aandacht vraagt en start Rank Math zijn eigen analyse opnieuw. De score zelf komt uitsluitend van Rank Math."
+msgstr "Publion checks the focus keyword, SEO title, short URL, meta description, introduction, headings, keyword density, length, paragraphs, links, table of contents and images. If a hard content requirement is missing, it performs one factual repair pass; if that fails, the post always remains a draft. In the WordPress editor, the Publion Rank Math check shows exactly what still needs editorial attention and Rank Math runs its own analysis again. The score itself always comes from Rank Math."
 
 msgid "Postcreatie"
 msgstr "Post creation"
@@ -1067,3 +1222,47 @@ msgstr "The slug “%1$s” is already used by category “%2$s”. Choose a uni
 
 msgid "“%s” is zelf een subcategorie. Kies voor deze strategie een hoofdcategorie als bovenliggende categorie."
 msgstr "“%s” is itself a subcategory. Choose a main category as the parent for this strategy."
+
+# Separate category strategy tab
+msgid "Categorie-strategie"
+msgstr "Category strategy"
+
+msgid "01 — CATEGORIEËN"
+msgstr "01 — CATEGORIES"
+
+msgid "Ontwerp een bruikbare structuur vóór je nieuwe artikelen plant."
+msgstr "Design a useful structure before planning new articles."
+
+msgid "Onderzoek welke hoofd- en subcategorieën werkelijk passen bij de inhoud en doelen van je website."
+msgstr "Research which main categories and subcategories genuinely fit your website's content and goals."
+
+msgid "CATEGORIESTRATEGIE"
+msgstr "CATEGORY STRATEGY"
+
+msgid "02 — CONTENT PLANNEN"
+msgstr "02 — CONTENT PLANNING"
+
+msgid "Open categorie-strategie"
+msgstr "Open category strategy"
+
+# Rank Math quality panel
+msgid "praktische gids"
+msgstr "practical guide"
+
+msgid "Focus-keyword in SEO-meta description"
+msgstr "Focus keyword in SEO meta description"
+
+msgid "Focus-keyword in URL"
+msgstr "Focus keyword in URL"
+
+msgid "Focus-keyword in inhoud"
+msgstr "Focus keyword in content"
+
+msgid "Externe gegevensbron"
+msgstr "External data source"
+
+msgid "Korte URL (max. 75 tekens)"
+msgstr "Short URL (max. 75 characters)"
+
+msgid "(alleen als feitelijk)"
+msgstr "(only when factual)"

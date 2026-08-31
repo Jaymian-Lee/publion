@@ -4,7 +4,7 @@
 
 Publion helpt redacties, marketeers en ondernemers om van een categorie naar een gecontroleerd artikelconcept te werken. De plugin maakt niet alleen tekst: hij bouwt eerst een contentbrief met zoekintentie, focus-keyword, invalshoek en FAQ-vragen. Daarna kun je onderwerpen plannen, artikelen als concept maken, afbeeldingen laten genereren en de resultaten volgen in je eigen analyticsomgeving.
 
-De huidige release is **1.9.31**. Download het WordPress-importpakket: [publion-wordpress-1.9.31.zip](publion-wordpress-1.9.31.zip). Het pakket bevat precies één hoofdmap: `publion/`. Dat is de vereiste WordPress-structuur en voorkomt dat WordPress een tweede, losstaande pluginmap maakt.
+De huidige release is **1.9.39**. Download het WordPress-importpakket: [publion-wordpress-1.9.39.zip](publion-wordpress-1.9.39.zip). Het pakket bevat precies één hoofdmap: `publion/`. Dat is de vereiste WordPress-structuur en voorkomt dat WordPress een tweede, losstaande pluginmap maakt.
 
 ## In één oogopslag
 
@@ -72,7 +72,7 @@ Nieuwe AI-onderwerpvoorstellen en artikelen volgen juist de **sitetaal**. Zo kan
 
 ### Installeren via WordPress
 
-1. Download [publion-wordpress-1.9.31.zip](publion-wordpress-1.9.31.zip).
+1. Download [publion-wordpress-1.9.39.zip](publion-wordpress-1.9.39.zip).
 2. Ga in WordPress naar **Plugins → Nieuwe plugin → Plugin uploaden**.
 3. Upload het zipbestand, installeer en activeer de plugin.
 4. Open **Berichten → Publion**.
@@ -126,17 +126,18 @@ Ga naar **Instellingen voor postcreatie** en kies:
 
 | Instelling | Gebruik |
 | --- | --- |
-| Tijdvenster en tijdstip | Verdeelt wachtrij-items over een voorspelbaar publicatieritme. |
+| Automatische postcreatie | Kies dagelijks of elke X dagen. Dagelijks kun je 1, 2, 3, 4, 6 of 8 posts plannen en deze vanaf de eerste aanmaaktijd over een gekozen aantal uren spreiden. |
 | Poststatus | Kies bij voorkeur **Concept**; zo blijft review verplicht. |
 | Standaardauteur | Koppelt automatisch gemaakte posts aan de juiste redacteur. |
 | Automatisch onderwerp | Voegt op vaste momenten een nieuwe contentkans toe. |
+| Categorieën maken | Opent de aparte **Categorie-strategie**. Daar genereer, controleer en maak je hoofd- en subcategorieën bewust handmatig aan, inclusief SEO-, GEO- en hiërarchievelden. |
 | Externe bronwebsite | Geeft de AI een betrouwbare externe bronwebsite. Publion gebruikt de HTTPS-homepage als veilige fallback. |
 | Geverifieerde externe bron-URL's | Zet één relevante HTTPS-URL per regel. Publion gebruikt precies één passende bron per artikel; zonder ingestelde bron verzint de plugin nooit een URL. |
 | Live brononderzoek op internet | Zoekt voor de artikeltekst actuele bronnen via OpenAI web search. Dit is bewust opt-in, omdat het extra API-kosten en tijd kan geven. |
 | Onderzoeksregels | Kies het researchmodel, 1â€“5 bronnen, contextdiepte, live toegang en wat er gebeurt wanneer onderzoek geen bruikbare bronnen oplevert. |
 | Domeinbeleid | Sta alleen gezaghebbende domeinen toe of sluit bijvoorbeeld concurrenten en forums uit. De API ontvangt alleen gevalideerde hostnamen, maximaal 100 per lijst. |
 | Klikbare bronnenlijst | Plaatst uitsluitend URLs die de live webzoekactie werkelijk heeft teruggegeven, met veilige linkattributen. |
-| Rank Math | Bereidt alle controleerbare contenttests voor: unieke focus-keyword, keyword-led titel/meta/URL, intro, koppen, links, inhoudsopgave, 4+ afbeeldingen en korte alinea's. Met de integratie aan vraagt Publion circa 2.500-2.800 woorden; dat kost meer tijd en API-tegoed. Bij het openen in de editor start Rank Math automatisch zijn eigen analyse; de score blijft de echte Rank Math-score. |
+| Rank Math | Controleert focus-keyword, titel/meta/URL, intro, koppen, keyworddichtheid, 2.500+ woorden, korte alinea’s, links, inhoudsopgave en 4+ afbeeldingen. Bij een harde afwijking volgt één feitelijke herstelronde; lukt die niet, dan blijft de post een concept. Het artikel toont in de editor een Publion-controle met resterende reviewpunten. Rank Math zelf berekent daarna de echte score. |
 | Structured data | Publiceert optioneel `BlogPosting`- en `FAQPage`-gegevens voor Publion-posts, tenzij Rank Math, Yoast of All in One SEO al articleschema beheert. |
 | Thema-integratie | Volgt standaard de bestaande themastijl; biedt optioneel een verfijnde leesstijl en gescoped Custom CSS. |
 | Afbeeldingafronding | Standaard **8px**, instelbaar van 0 tot 48px voor Publion-afbeeldingen. |
@@ -202,7 +203,7 @@ De volledige dashboardhandleiding staat als normale tekst in **Publion > Handlei
 
 ### Eerst: categorieën strategisch uitbreiden
 
-Onder **Content plannen** staat boven de onderwerpkeuze de handmatige **Categorie-strategie**. Kies een primair doel: een gebalanceerde mix, informatief bereik, commerciële leadgeneratie of transactionele conversie. Eventueel kun je een tijdelijk redactioneel kader toevoegen.
+Gebruik de eigen tab **Categorie-strategie** vóór je naar **Content plannen** gaat. Kies een primair doel: een gebalanceerde mix, informatief bereik, commerciële leadgeneratie of transactionele conversie. Eventueel kun je een tijdelijk redactioneel kader toevoegen.
 
 Bij elke aanvraag leest Publion de actuele contentkaart van alle WordPress-berichten én gewone pagina’s, plus de bestaande categorieën. Het resultaat is een echte structuur met minstens twee hoofdcategorieën en twee subcategorieën. Ieder voorstel vult direct alle WordPress-velden uit je screenshot: **naam**, **slug**, **hoofdcategorie** en een unieke **beschrijving**. Daarnaast toont Publion focus-keyword, SEO-titel, meta description, GEO-samenvatting, onderbouwing en drie voorbeeldartikelen.
 
@@ -310,10 +311,10 @@ Publion plant wachtrij-items met WordPress Cron. WordPress Cron wordt normaal ge
 
 Voor een betrouwbaardere planning:
 
-1. Stel in WordPress een tijdvenster en aanmaaktijd in.
+1. Kies in **Instellingen voor postcreatie** een frequentie, de eerste aanmaaktijd en eventueel meerdere posts per dag. Publion spreidt die posts binnen het opgegeven tijdvenster.
 2. Configureer op productie een echte servercron die `wp-cron.php` periodiek aanroept.
 3. Houd de wachtrij op **Postcreatie** in de gaten.
-4. Gebruik **Nu maken** alleen als een item bewust direct moet starten.
+4. Gebruik **Nu maken** alleen als een item bewust direct moet starten. De automatische verwerking maakt steeds één artikel tegelijk; dat voorkomt dubbele generaties wanneer meerdere slots dicht op elkaar liggen.
 
 ## Fouten en diagnose
 

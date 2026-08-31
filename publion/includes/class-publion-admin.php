@@ -12,6 +12,7 @@ class Publion_Admin {
         add_filter( 'post_class', [ $this, 'add_generated_post_class' ], 10, 3 );
         add_filter( 'post_thumbnail_html', [ $this, 'add_generated_thumbnail_class' ], 10, 5 );
         add_action( 'wp_head', [ $this, 'output_structured_data' ], 20 );
+        add_action( 'add_meta_boxes_post', [ $this, 'add_rank_math_quality_meta_box' ], 10, 1 );
     }
 
     public function add_admin_menu() {
@@ -26,20 +27,107 @@ class Publion_Admin {
         );
     }
 
+    public function add_rank_math_quality_meta_box( $post ) {
+        if ( ! $post instanceof WP_Post || ! get_post_meta( $post->ID, '_publion_rank_math_quality_report', true ) ) {
+            return;
+        }
+        add_meta_box(
+            'publion-rank-math-quality',
+            __( 'Publion SEO/GEO-controle', 'publion' ),
+            [ $this, 'render_rank_math_quality_meta_box' ],
+            'post',
+            'side',
+            'high'
+        );
+    }
+
+    public function render_rank_math_quality_meta_box( $post ) {
+        if ( ! $post instanceof WP_Post || ! current_user_can( 'edit_post', $post->ID ) ) {
+            return;
+        }
+
+        $raw_report = get_post_meta( $post->ID, '_publion_rank_math_quality_report', true );
+        $report     = is_string( $raw_report ) ? json_decode( $raw_report, true ) : $raw_report;
+        if ( ! is_array( $report ) || empty( $report['checks'] ) ) {
+            echo '<p>' . esc_html__( 'Dit bericht is niet door Publion met de uitgebreide SEO/GEO-controle aangemaakt.', 'publion' ) . '</p>';
+            return;
+        }
+
+        $status          = sanitize_key( $report['status'] ?? 'review_required' );
+        $status_label    = 'ready' === $status ? __( 'Klaar voor redactionele controle', 'publion' ) : __( 'Extra controle nodig', 'publion' );
+        $status_class    = 'ready' === $status ? 'publion-quality-ready' : 'publion-quality-review';
+        $checks          = (array) $report['checks'];
+        $failed_required = (array) ( $report['failed_required'] ?? array() );
+        $advisories      = (array) ( $report['needs_editor_review'] ?? array() );
+        $labels = array(
+            'focus_keyword_in_seo_title' => __( 'Focus-keyword vroeg in SEO-titel', 'publion' ),
+            'focus_keyword_in_meta_description' => __( 'Focus-keyword in SEO-meta description', 'publion' ),
+            'focus_keyword_in_url'       => __( 'Focus-keyword in URL', 'publion' ),
+            'focus_keyword_in_intro'     => __( 'Focus-keyword in intro', 'publion' ),
+            'focus_keyword_in_content'   => __( 'Focus-keyword in inhoud', 'publion' ),
+            'focus_keyword_in_heading'   => __( 'Focus-keyword in tussenkop', 'publion' ),
+            'focus_keyword_density'      => __( 'Keyworddichtheid 1–1,5%', 'publion' ),
+            'content_length'             => __( 'Minimaal 2.500 woorden', 'publion' ),
+            'short_paragraphs'           => __( 'Alinea’s korter dan 120 woorden', 'publion' ),
+            'table_of_contents'          => __( 'Inhoudsopgave', 'publion' ),
+            'media_count'                => __( 'Minimaal vier afbeeldingen of video’s', 'publion' ),
+            'focus_keyword_in_image_alt' => __( 'Focus-keyword in afbeeldings-alttekst', 'publion' ),
+            'external_link'              => __( 'Externe gegevensbron', 'publion' ),
+            'followed_external_link'     => __( 'Gevolgde externe bronlink', 'publion' ),
+            'internal_link'              => __( 'Relevante interne link', 'publion' ),
+            'short_url'                  => __( 'Korte URL (max. 75 tekens)', 'publion' ),
+            'number_in_seo_title'        => __( 'Feitelijk getal in SEO-titel', 'publion' ),
+            'power_word_in_seo_title'    => __( 'Passend power word in SEO-titel', 'publion' ),
+            'sentiment_in_seo_title'     => __( 'Passend sentiment in SEO-titel', 'publion' ),
+        );
+
+        echo '<p><strong class="' . esc_attr( $status_class ) . '">' . esc_html( $status_label ) . '</strong></p>';
+        echo '<p>' . esc_html( sprintf( __( '%1$d woorden · %2$s%% keyworddichtheid', 'publion' ), (int) ( $report['word_count'] ?? 0 ), number_format_i18n( (float) ( $report['keyword_density'] ?? 0 ), 2 ) ) ) . '</p>';
+        echo '<ul class="publion-quality-checks">';
+        foreach ( $labels as $check => $label ) {
+            $is_optional = ( 'number_in_seo_title' === $check );
+            $passed      = ! empty( $checks[ $check ] );
+            $class       = $passed ? 'is-passed' : ( $is_optional ? 'is-optional' : 'is-pending' );
+            $icon        = $passed ? '&#10003;' : ( $is_optional ? '&ndash;' : '&#10007;' );
+            echo '<li class="' . esc_attr( $class ) . '"><span aria-hidden="true">' . $icon . '</span> ' . esc_html( $label ) . ( $is_optional ? ' <em>' . esc_html__( '(alleen als feitelijk)', 'publion' ) . '</em>' : '' ) . '</li>';
+        }
+        echo '</ul>';
+        if ( ! empty( $failed_required ) ) {
+            echo '<p><strong>' . esc_html__( 'Voor publicatie herstellen:', 'publion' ) . '</strong></p><ul>';
+            foreach ( $failed_required as $check ) {
+                echo '<li>' . esc_html( $labels[ $check ] ?? $check ) . '</li>';
+            }
+            echo '</ul>';
+        }
+        if ( ! empty( $advisories ) ) {
+            echo '<p><strong>' . esc_html__( 'Controleer redactioneel:', 'publion' ) . '</strong></p><ul>';
+            foreach ( $advisories as $check ) {
+                echo '<li>' . esc_html( $labels[ $check ] ?? $check ) . '</li>';
+            }
+            echo '</ul>';
+        }
+        echo '<p class="description">' . esc_html__( 'Publion vervangt geen feitelijke controle. Ontbrekende relevante interne/externe links of een misleidende titel worden bewust niet gefabriceerd voor een score.', 'publion' ) . '</p>';
+    }
+
     public function enqueue_assets( $hook ) {
         $is_publion_page = ( $hook === 'toplevel_page_publion' );
         if ( ! $is_publion_page ) {
             $page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
             $is_publion_page = ( $page === 'publion' );
         }
-        if ( ! $is_publion_page ) {
+        $is_post_editor = in_array( $hook, array( 'post.php', 'post-new.php' ), true );
+        if ( ! $is_publion_page && ! $is_post_editor ) {
             return;
         }
 
         $css_version = file_exists( PUBLION_PATH . 'assets/admin.css' ) ? filemtime( PUBLION_PATH . 'assets/admin.css' ) : PUBLION_VERSION;
-        $js_version  = file_exists( PUBLION_PATH . 'assets/admin.js' ) ? filemtime( PUBLION_PATH . 'assets/admin.js' ) : PUBLION_VERSION;
-
         wp_enqueue_style( 'publion-style', PUBLION_URL . 'assets/admin.css', [], $css_version );
+
+        if ( ! $is_publion_page ) {
+            return;
+        }
+
+        $js_version  = file_exists( PUBLION_PATH . 'assets/admin.js' ) ? filemtime( PUBLION_PATH . 'assets/admin.js' ) : PUBLION_VERSION;
         wp_enqueue_script( 'publion-script', PUBLION_URL . 'assets/admin.js', [ 'jquery' ], $js_version, true );
 
         // Localize a reusable nonce for all AJAX requests that call check_ajax_referer( 'publion_nonce', 'nonce' ).
@@ -452,6 +540,7 @@ class Publion_Admin {
 
             <h2 class="nav-tab-wrapper">
                 <a href="javascript:void(0)" class="nav-tab nav-tab-active" data-tab="publion-dashboard"><?php esc_html_e( 'Overzicht', 'publion' ); ?></a>
+                <a href="javascript:void(0)" class="nav-tab" data-tab="publion-category-strategy-tab"><?php esc_html_e( 'Categorie-strategie', 'publion' ); ?></a>
                 <a href="javascript:void(0)" class="nav-tab" data-tab="publion-generate"><?php esc_html_e( 'Content plannen', 'publion' ); ?></a>
                 <a href="javascript:void(0)" class="nav-tab" data-tab="publion-queue"><?php esc_html_e( 'Postcreatie', 'publion' ); ?></a>
                 <a href="javascript:void(0)" class="nav-tab" data-tab="publion-post-settings"><?php esc_html_e( 'Instellingen voor postcreatie', 'publion' ); ?></a>
@@ -536,18 +625,17 @@ class Publion_Admin {
                 </section>
             </div>
 
-            <!-- Tab: Generate Topics & Queue Posts -->
-            <div id="publion-generate" class="publion-tab-content" style="display:none;">
-
+            <!-- Tab: Category Strategy -->
+            <div id="publion-category-strategy-tab" class="publion-tab-content" style="display:none;">
                 <div class="publion-section-intro">
-                    <p class="publion-eyebrow"><?php esc_html_e( '01 — ONDERZOEK', 'publion' ); ?></p>
-                    <h2><?php esc_html_e( 'Kies een categorie. Publion bouwt vervolgens een SEO-brief per artikel.', 'publion' ); ?></h2>
-                    <p><?php esc_html_e( 'Elke suggestie bevat een dynamisch focus-keyword, zoekintentie, invalshoek en FAQ-vragen.', 'publion' ); ?></p>
+                    <p class="publion-eyebrow"><?php esc_html_e( '01 — CATEGORIEËN', 'publion' ); ?></p>
+                    <h2><?php esc_html_e( 'Ontwerp een bruikbare structuur vóór je nieuwe artikelen plant.', 'publion' ); ?></h2>
+                    <p><?php esc_html_e( 'Onderzoek welke hoofd- en subcategorieën werkelijk passen bij de inhoud en doelen van je website.', 'publion' ); ?></p>
                 </div>
                 <section id="publion-category-strategy" class="publion-category-strategy" aria-labelledby="publion-category-strategy-title">
                     <div class="publion-category-strategy-heading">
                         <div>
-                            <p class="publion-eyebrow"><?php esc_html_e( 'VOORAF — CATEGORIESTRATEGIE', 'publion' ); ?></p>
+                            <p class="publion-eyebrow"><?php esc_html_e( 'CATEGORIESTRATEGIE', 'publion' ); ?></p>
                             <h3 id="publion-category-strategy-title"><?php esc_html_e( 'Bouw een complete categoriehiërarchie voor je website', 'publion' ); ?></h3>
                             <p><?php esc_html_e( 'Handmatig en op aanvraag. Publion leest je bestaande berichten, pagina’s en categorieën en maakt voorstellen voor hoofd- én subcategorieën. Elk voorstel bevat alle WordPress-, SEO- en GEO-velden; jij beoordeelt en bevestigt de aanmaak.', 'publion' ); ?></p>
                         </div>
@@ -585,6 +673,16 @@ class Publion_Admin {
                     </div>
                     <div id="publion-category-suggestions" class="publion-category-suggestions" aria-live="polite" aria-relevant="additions text" aria-busy="false" tabindex="-1"></div>
                 </section>
+            </div>
+
+            <!-- Tab: Generate Topics & Queue Posts -->
+            <div id="publion-generate" class="publion-tab-content" style="display:none;">
+
+                <div class="publion-section-intro">
+                    <p class="publion-eyebrow"><?php esc_html_e( '02 — CONTENT PLANNEN', 'publion' ); ?></p>
+                    <h2><?php esc_html_e( 'Kies een categorie. Publion bouwt vervolgens een SEO-brief per artikel.', 'publion' ); ?></h2>
+                    <p><?php esc_html_e( 'Elke suggestie bevat een dynamisch focus-keyword, zoekintentie, invalshoek en FAQ-vragen.', 'publion' ); ?></p>
+                </div>
                 <select id="publion-category">
                     <option value=""><?php esc_html_e( 'Selecteer een categorie', 'publion' ); ?></option>
                     <?php
@@ -756,6 +854,9 @@ class Publion_Admin {
             $settings    = get_option( 'publion_post_settings', [] );
             $cta_enabled = $settings['cta_enabled'] ?? 'no';
             $author_id   = isset( $settings['default_post_author'] ) ? (int) $settings['default_post_author'] : 0;
+            $post_schedule_mode = function_exists( 'publion_get_post_schedule_mode' ) ? publion_get_post_schedule_mode( $settings ) : 'every_n_days';
+            $posts_per_day = function_exists( 'publion_get_posts_per_day' ) ? publion_get_posts_per_day( $settings ) : 1;
+            $post_creation_window_hours = function_exists( 'publion_get_post_creation_window_hours' ) ? publion_get_post_creation_window_hours( $settings ) : 8;
             $author_users = get_users(
                 [
                     'orderby' => 'display_name',
@@ -769,22 +870,76 @@ class Publion_Admin {
                     <?php wp_nonce_field( 'publion_nonce', 'publion_nonce' ); ?>
 
                     <table class="form-table">
-                        <tr>
-                            <th><label for="publion_time_frame_days"><?php esc_html_e( 'Tijdvenster voor postcreatie (dagen)', 'publion' ); ?></label></th>
-                            <td>
-                                <input type="number" id="publion_time_frame_days" name="time_frame_days" style="width:60px;" min="1"
-                                    value="<?php echo esc_attr( $settings['time_frame_days'] ?? 3 ); ?>" />
-                            </td>
+                        <tr class="publion-settings-section-row">
+                            <th colspan="2" scope="colgroup">
+                                <div class="publion-settings-section-heading">
+                                    <span>1</span>
+                                    <div>
+                                        <h3><?php esc_html_e( 'Automatische postcreatie', 'publion' ); ?></h3>
+                                        <p><?php esc_html_e( 'Bepaal hoe de onderwerpen uit je wachtrij worden ingepland en als artikelconcept worden aangemaakt.', 'publion' ); ?></p>
+                                    </div>
+                                </div>
+                            </th>
                         </tr>
-
-                        <tr>
-                            <th><label for="publion_post_creation_time"><?php esc_html_e( 'Standaardtijd voor postcreatie', 'publion' ); ?></label></th>
-                            <td>
-                                <input type="time" id="publion_post_creation_time" name="post_creation_time"
-                                    value="<?php echo esc_attr( $settings['post_creation_time'] ?? '00:00' ); ?>" />
-                                <p class="description" style="margin-top:6px; max-width: 600px;">
-                                    <?php esc_html_e( 'Wordt gebruikt om de standaardplanning te bepalen (bijv. 00:00).', 'publion' ); ?>
-                                </p>
+                        <tr class="publion-settings-highlight-row">
+                            <td colspan="2">
+                                <div class="publion-automation-card">
+                                    <div class="publion-automation-card-heading">
+                                        <div>
+                                            <strong><?php esc_html_e( 'Planning voor wachtrij-items', 'publion' ); ?></strong>
+                                            <p><?php esc_html_e( 'Publion plant nieuwe items automatisch in. De server verwerkt steeds één artikel tegelijk, zodat meerdere posts per dag betrouwbaar en overzichtelijk blijven.', 'publion' ); ?></p>
+                                        </div>
+                                        <span class="publion-settings-badge"><?php esc_html_e( 'Wachtrij actief', 'publion' ); ?></span>
+                                    </div>
+                                    <div class="publion-settings-control-grid">
+                                        <label for="publion_post_schedule_mode">
+                                            <span><?php esc_html_e( 'Frequentie', 'publion' ); ?></span>
+                                            <select id="publion_post_schedule_mode" name="post_schedule_mode">
+                                                <option value="daily" <?php selected( $post_schedule_mode, 'daily' ); ?>><?php esc_html_e( 'Dagelijks (één of meerdere posts)', 'publion' ); ?></option>
+                                                <option value="every_n_days" <?php selected( $post_schedule_mode, 'every_n_days' ); ?>><?php esc_html_e( 'Elke X dagen (één post)', 'publion' ); ?></option>
+                                            </select>
+                                        </label>
+                                        <label class="publion-post-schedule-daily" for="publion_posts_per_day">
+                                            <span><?php esc_html_e( 'Posts per dag', 'publion' ); ?></span>
+                                            <select id="publion_posts_per_day" name="posts_per_day">
+                                                <?php foreach ( array( 1, 2, 3, 4, 6, 8 ) as $posts_per_day_option ) : ?>
+                                                    <option value="<?php echo esc_attr( $posts_per_day_option ); ?>" <?php selected( $posts_per_day, $posts_per_day_option ); ?>><?php echo esc_html( $posts_per_day_option ); ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </label>
+                                        <label class="publion-post-schedule-daily" for="publion_post_creation_window_hours">
+                                            <span><?php esc_html_e( 'Spreid over', 'publion' ); ?></span>
+                                            <span class="publion-input-with-suffix"><input type="number" id="publion_post_creation_window_hours" name="post_creation_window_hours" min="1" max="23" value="<?php echo esc_attr( $post_creation_window_hours ); ?>" /><em><?php esc_html_e( 'uur', 'publion' ); ?></em></span>
+                                        </label>
+                                        <label class="publion-post-schedule-every-days" for="publion_time_frame_days">
+                                            <span><?php esc_html_e( 'Elke hoeveel dagen', 'publion' ); ?></span>
+                                            <span class="publion-input-with-suffix"><input type="number" id="publion_time_frame_days" name="time_frame_days" min="1" value="<?php echo esc_attr( $settings['time_frame_days'] ?? 3 ); ?>" /><em><?php esc_html_e( 'dagen', 'publion' ); ?></em></span>
+                                        </label>
+                                        <label for="publion_post_creation_time">
+                                            <span><?php esc_html_e( 'Eerste aanmaaktijd', 'publion' ); ?></span>
+                                            <input type="time" id="publion_post_creation_time" name="post_creation_time" value="<?php echo esc_attr( $settings['post_creation_time'] ?? '00:00' ); ?>" />
+                                        </label>
+									</div>
+									<p id="publion-post-schedule-summary" class="publion-schedule-summary" aria-live="polite"></p>
+									<div class="publion-automation-topic-flow">
+										<label for="publion_auto_daily_topic">
+											<input type="checkbox" name="auto_daily_topic" id="publion_auto_daily_topic" value="yes" <?php checked( $settings['auto_daily_topic'] ?? '', 'yes' ); ?> />
+											<strong><?php esc_html_e( 'Vul de wachtrij automatisch aan met AI-onderwerpen', 'publion' ); ?></strong>
+										</label>
+										<p id="publion-topic-schedule-summary" class="description"></p>
+										<?php
+										$next_daily_ts = (int) wp_next_scheduled( 'publion_daily_topic_hook' );
+										if ( ! $next_daily_ts && ( $settings['auto_daily_topic'] ?? 'no' ) === 'yes' ) {
+											$next_daily_ts = publion_calculate_initial_daily_topic_timestamp( $settings );
+										}
+										$next_daily_label = $next_daily_ts ? wp_date( 'M d, Y H:i', $next_daily_ts ) : __( 'Niet gepland', 'publion' );
+										?>
+										<p class="publion-next-topic-run">
+											<?php esc_html_e( 'Volgende onderwerpaanvulling:', 'publion' ); ?>
+											<span id="publion-next-daily-topic"><?php echo esc_html( $next_daily_label ); ?></span>
+										</p>
+									</div>
+								</div>
                             </td>
                         </tr>
 
@@ -833,40 +988,41 @@ class Publion_Admin {
                             </td>
                         </tr>
 
-                        <tr>
-                            <th scope="row"><?php esc_html_e( 'Automatisch onderwerp toevoegen', 'publion' ); ?></th>
-                            <td>
-                                <label>
-                                    <input type="checkbox" name="auto_daily_topic" id="publion_auto_daily_topic" value="yes" <?php checked( $settings['auto_daily_topic'] ?? '', 'yes' ); ?> />
-                                    <?php esc_html_e( 'Voeg automatisch een nieuw onderwerp toe (willekeurige categorie)', 'publion' ); ?>
-                                </label>
-                                <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:14px; align-items:center;">
-                                    <label for="publion_daily_topic_time">
-                                        <?php esc_html_e( 'Tijdstip:', 'publion' ); ?>
-                                        <input type="time" id="publion_daily_topic_time" name="daily_topic_time"
-                                            value="<?php echo esc_attr( $settings['daily_topic_time'] ?? '00:00' ); ?>" style="margin-left:6px;" />
-                                    </label>
-                                    <label for="publion_daily_topic_interval_days">
-                                        <?php esc_html_e( 'Elke', 'publion' ); ?>
-                                        <input type="number" id="publion_daily_topic_interval_days" name="daily_topic_interval_days" min="1"
-                                            value="<?php echo esc_attr( $settings['daily_topic_interval_days'] ?? 1 ); ?>" style="width:60px; margin:0 6px;" />
-                                        <?php esc_html_e( 'dagen', 'publion' ); ?>
-                                    </label>
+                        <tr class="publion-settings-section-row">
+                            <th colspan="2" scope="colgroup">
+                                <div class="publion-settings-section-heading">
+                                    <span>2</span>
+                                    <div>
+                                        <h3><?php esc_html_e( 'Onderwerpen en categorieën', 'publion' ); ?></h3>
+                                        <p><?php esc_html_e( 'Beheer hier de SEO- en GEO-categoriestructuur die Publion voor nieuwe onderwerpen gebruikt.', 'publion' ); ?></p>
+                                    </div>
                                 </div>
-                                <p class="description" style="margin-top:6px;">
-                                    <?php
-                                    $next_daily_ts = (int) wp_next_scheduled( 'publion_daily_topic_hook' );
-                                    if ( ! $next_daily_ts && ( $settings['auto_daily_topic'] ?? 'no' ) === 'yes' ) {
-                                        $next_daily_ts = publion_calculate_initial_daily_topic_timestamp( $settings );
-                                    }
-                                    $next_daily_label = $next_daily_ts ? wp_date( 'M d, Y H:i', $next_daily_ts ) : __( 'Niet gepland', 'publion' );
-                                    ?>
-                                    <?php esc_html_e( 'Volgende onderwerp generatie:', 'publion' ); ?>
-                                    <span id="publion-next-daily-topic"><?php echo esc_html( $next_daily_label ); ?></span>
-                                </p>
+                            </th>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php esc_html_e( 'Categorieën maken', 'publion' ); ?></th>
+                            <td>
+                                <div class="publion-settings-linked-workflow">
+                                    <div>
+                                        <strong><?php esc_html_e( 'Hoofd- en subcategorieën plannen', 'publion' ); ?></strong>
+                                        <p><?php esc_html_e( 'Categorieën worden bewust pas aangemaakt nadat je de SEO-, GEO- en hiërarchievoorstellen hebt gecontroleerd. Open Categorie-strategie om ze handmatig te genereren en als volledige hiërarchie aan te maken.', 'publion' ); ?></p>
+                                    </div>
+                                    <button type="button" class="button" data-publion-tab="publion-category-strategy-tab"><?php esc_html_e( 'Open Categorie-strategie', 'publion' ); ?></button>
+                                </div>
                             </td>
                         </tr>
 
+                        <tr class="publion-settings-section-row">
+                            <th colspan="2" scope="colgroup">
+                                <div class="publion-settings-section-heading">
+                                    <span>3</span>
+                                    <div>
+                                        <h3><?php esc_html_e( 'Bronnen en research', 'publion' ); ?></h3>
+                                        <p><?php esc_html_e( 'Stel betrouwbare bronlinks en optioneel live webonderzoek per artikel in.', 'publion' ); ?></p>
+                                    </div>
+                                </div>
+                            </th>
+                        </tr>
                         <tr>
                             <th scope="row"><?php esc_html_e( 'Externe bronwebsite', 'publion' ); ?></th>
                             <td>
@@ -952,16 +1108,44 @@ class Publion_Admin {
                             </td>
                         </tr>
 
+                        <tr class="publion-settings-section-row">
+                            <th colspan="2" scope="colgroup">
+                                <div class="publion-settings-section-heading">
+                                    <span>4</span>
+                                    <div>
+                                        <h3><?php esc_html_e( 'SEO en artikelkwaliteit', 'publion' ); ?></h3>
+                                        <p><?php esc_html_e( 'Bepaal de SEO-structuur en de opmaak die nieuwe artikelen meekrijgen.', 'publion' ); ?></p>
+                                    </div>
+                                </div>
+                            </th>
+                        </tr>
                         <tr>
-                            <th scope="row"><?php esc_html_e( 'Rank Math integratie', 'publion' ); ?></th>
+                            <th scope="row"><?php esc_html_e( 'SEO/GEO-kwaliteit', 'publion' ); ?></th>
                             <td>
                                 <label>
                                     <input type="checkbox" name="rank_math_integration" id="publion_rank_math_integration" value="yes" <?php checked( $settings['rank_math_integration'] ?? '', 'yes' ); ?> />
-                                    <?php esc_html_e( 'Gebruik de volledige Rank Math-contentcontrole voor nieuwe Publion-artikelen', 'publion' ); ?>
+                                    <?php esc_html_e( 'Gebruik de volledige SEO/GEO-contentcontrole voor nieuwe Publion-artikelen', 'publion' ); ?>
                                 </label>
                                 <p class="description" style="margin-top:6px; max-width:720px;">
-                                    <?php esc_html_e( 'Publion bewaakt een unieke focus-keyword, een keyword-led SEO-titel en korte URL, meta description, intro, koppen, relevante interne en externe links, een Rank Math-inhoudsopgave, minimaal vier afbeeldingen en leesbare alinea’s. Voor de maximale lengtecheck vraagt het circa 2.500 tot 2.800 woorden; dat vraagt meer generatietijd en API-tegoed. Open je het artikel in de WordPress-editor, dan start Rank Math automatisch zijn eigen analyse opnieuw. De score komt altijd rechtstreeks van Rank Math; Publion verzint of bewaart geen score.', 'publion' ); ?>
+                                    <?php esc_html_e( 'Publion controleert focus-keyword, SEO-titel, korte URL, meta description, intro, koppen, keyworddichtheid, lengte, alinea’s, links, inhoudsopgave en afbeeldingen. Mist een harde inhoudsvoorwaarde, dan volgt één feitelijke herstelronde; lukt dat niet, dan blijft de post altijd een concept. In de WordPress-editor toont de Publion SEO/GEO-controle precies wat nog redactionele aandacht vraagt.', 'publion' ); ?>
                                 </p>
+                                <div id="publion-rank-math-options" class="publion-rank-math-options">
+                                    <p><strong><?php esc_html_e( 'Kwaliteitsregels voor nieuwe artikelen', 'publion' ); ?></strong></p>
+                                    <div class="publion-rank-math-fields">
+                                        <label><?php esc_html_e( 'Minimaal aantal woorden', 'publion' ); ?><input type="number" name="rank_math_target_word_count" id="publion_rank_math_target_word_count" min="1200" max="5000" value="<?php echo esc_attr( $settings['rank_math_target_word_count'] ?? 2500 ); ?>" /></label>
+                                        <label><?php esc_html_e( 'Keyworddichtheid van', 'publion' ); ?><input type="number" name="rank_math_density_min" id="publion_rank_math_density_min" min="0.5" max="2" step="0.1" value="<?php echo esc_attr( $settings['rank_math_density_min'] ?? 1 ); ?>" /></label>
+                                        <label><?php esc_html_e( 'tot', 'publion' ); ?><input type="number" name="rank_math_density_max" id="publion_rank_math_density_max" min="0.5" max="2.5" step="0.1" value="<?php echo esc_attr( $settings['rank_math_density_max'] ?? 1.5 ); ?>" /></label>
+                                        <label><?php esc_html_e( 'Max. woorden per alinea', 'publion' ); ?><input type="number" name="rank_math_max_paragraph_words" id="publion_rank_math_max_paragraph_words" min="60" max="180" value="<?php echo esc_attr( $settings['rank_math_max_paragraph_words'] ?? 120 ); ?>" /></label>
+                                    </div>
+                                    <div class="publion-rank-math-toggles">
+                                        <label><input type="checkbox" id="publion_rank_math_auto_repair" <?php checked( $settings['rank_math_auto_repair'] ?? 'yes', 'yes' ); ?> /> <?php esc_html_e( 'Herstel harde inhoudschecks eenmaal automatisch', 'publion' ); ?></label>
+                                        <label><input type="checkbox" id="publion_rank_math_publish_gate" <?php checked( $settings['rank_math_publish_gate'] ?? 'yes', 'yes' ); ?> /> <?php esc_html_e( 'Bewaar bij harde fouten altijd als concept', 'publion' ); ?></label>
+                                        <label><input type="checkbox" id="publion_rank_math_add_toc" <?php checked( $settings['rank_math_add_toc'] ?? 'yes', 'yes' ); ?> /> <?php esc_html_e( 'Voeg een inhoudsopgave toe', 'publion' ); ?></label>
+                                        <label><input type="checkbox" id="publion_rank_math_check_image_alt" <?php checked( $settings['rank_math_check_image_alt'] ?? 'yes', 'yes' ); ?> /> <?php esc_html_e( 'Controleer keyword in relevante alt-tekst', 'publion' ); ?></label>
+                                        <label><input type="checkbox" id="publion_rank_math_check_external_link" <?php checked( $settings['rank_math_check_external_link'] ?? 'yes', 'yes' ); ?> /> <?php esc_html_e( 'Toon externe bronlink als reviewpunt', 'publion' ); ?></label>
+                                        <label><input type="checkbox" id="publion_rank_math_check_internal_link" <?php checked( $settings['rank_math_check_internal_link'] ?? 'yes', 'yes' ); ?> /> <?php esc_html_e( 'Toon relevante interne link als reviewpunt', 'publion' ); ?></label>
+                                    </div>
+                                </div>
                             </td>
                         </tr>
 
@@ -1019,6 +1203,17 @@ class Publion_Admin {
                             </td>
                         </tr>
 
+                        <tr class="publion-settings-section-row">
+                            <th colspan="2" scope="colgroup">
+                                <div class="publion-settings-section-heading">
+                                    <span>5</span>
+                                    <div>
+                                        <h3><?php esc_html_e( 'Meten en opvolgen', 'publion' ); ?></h3>
+                                        <p><?php esc_html_e( 'Koppel je rapporten, voeg een call-to-action toe en ontvang meldingen na creatie.', 'publion' ); ?></p>
+                                    </div>
+                                </div>
+                            </th>
+                        </tr>
                         <tr>
                             <th scope="row"><label for="publion_search_console_url"><?php esc_html_e( 'Google Search Console-rapport', 'publion' ); ?></label></th>
                             <td>

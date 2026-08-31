@@ -3,7 +3,7 @@
 Plugin Name: Publion
 Plugin URI: https://jaymian-lee.nl/publion
 Description: Genereer en verfijn blogposts met AI. Kies een categorie, krijg onderwerp-ideeën, zet SEO-geoptimaliseerde posts met afbeeldingen in de wachtrij en plan het aanmaken in WordPress.
-Version: 1.9.31
+Version: 1.9.39
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'PUBLION_VERSION', '1.9.31' );
+define( 'PUBLION_VERSION', '1.9.39' );
 define( 'PUBLION_PATH', plugin_dir_path( __FILE__ ) );
 define( 'PUBLION_URL', plugin_dir_url( __FILE__ ) );
 
@@ -62,6 +62,44 @@ function publion_load_textdomain() {
 	}
 }
 add_action( 'plugins_loaded', 'publion_load_textdomain', 1 );
+
+/**
+ * Publion generates articles, never discussion replies. Keep comments and
+ * trackbacks closed for every article that originated in its queue, including
+ * older generated posts whose theme might otherwise expose a comment form.
+ */
+function publion_close_comments_on_generated_posts( $open, $post_id ) {
+	$post_id = (int) $post_id;
+	if ( $post_id > 0 && get_post_meta( $post_id, '_publion_queue_id', true ) ) {
+		return false;
+	}
+
+	return $open;
+}
+add_filter( 'comments_open', 'publion_close_comments_on_generated_posts', 20, 2 );
+add_filter( 'pings_open', 'publion_close_comments_on_generated_posts', 20, 2 );
+
+/**
+ * Old articles can contain an image whose remote file was later removed by a
+ * host or media cleanup tool. Hide only that failed Publion figure in-browser,
+ * rather than leaving a broken icon and its alt text in the reading flow.
+ */
+function publion_hide_failed_generated_images() {
+	if ( ! is_singular( 'post' ) || ! get_queried_object_id() || ! get_post_meta( get_queried_object_id(), '_publion_queue_id', true ) ) {
+		return;
+	}
+	?>
+	<script>
+	document.addEventListener('error', function (event) {
+		var image = event.target;
+		if (!image || !image.classList || !image.classList.contains('publion-generated-image')) return;
+		var figure = image.closest ? image.closest('figure.publion-article-media') : null;
+		if (figure) figure.remove();
+	}, true);
+	</script>
+	<?php
+}
+add_action( 'wp_footer', 'publion_hide_failed_generated_images', 99 );
 
 // Register custom cron schedule (every 15 minutes).
 add_filter(

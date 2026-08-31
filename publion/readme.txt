@@ -5,7 +5,7 @@ Tags: ai content, chatgpt, blog automatisering, post generatie, blogpost ai
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.9.31
+Stable tag: 1.9.39
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -21,7 +21,7 @@ Publion is je persoonlijke content-assistent voor WordPress. Deze plugin is bedo
 * Een content-wachtrij opbouwen en beheren.
 * Automatisch volledige blogposts (concepten) maken met ChatGPT.
 * 6 contextbewuste AI-afbeeldingen genereren (5 in de content en 1 uitgelichte afbeelding).
-* Postcreatie plannen zodat concepten op een consistent ritme verschijnen.
+* Postcreatie plannen: dagelijks één of meerdere concepten, gespreid over een zelfgekozen tijdvenster, of één concept elke X dagen.
 * "Nu maken" starten voor elk onderwerp in de wachtrij.
 * Optioneel een CTA-blok aan het einde van elke post toevoegen.
 * Schrijven voor mensen, Google en AI-zoekmachines: directe antwoorden, semantische kopstructuur, feitelijke bronverwijzingen, interne links en relevante alt-tekst.
@@ -81,6 +81,38 @@ Deze versie maakt standaard blogposts aan.
 4. Maak automatisch volledige conceptposts met AI-afbeeldingen.
 
 == Changelog ==
+
+= 1.9.39 =
+* Publion voegt alleen nog gevalideerde media-afbeeldingen in de artikelinhoud in. Mislukte generatie of een fallback geeft geen kapot afbeeldingsicoon meer; bestaande kapotte Publion-afbeeldingen worden op de pagina veilig verborgen.
+
+= 1.9.38 =
+* Publion plaatst geen reacties. Reacties en pingbacks staan nu bovendien hard uit voor alle artikelen die vanuit de Publion-wachtrij zijn gemaakt, ook bij oudere artikelen.
+
+= 1.9.37 =
+* De zichtbare kwaliteitsworkflow heet voortaan SEO/GEO-kwaliteit; de technische SEO-plugincompatibiliteit blijft op de achtergrond werken.
+
+= 1.9.36 =
+* Rank Math-contentcontrole is nu per onderdeel instelbaar: woorddoel, keyworddichtheid, maximale alinealengte, herstelronde, veilige conceptblokkade, inhoudsopgave, alt-tekst en linkreview.
+
+= 1.9.35 =
+* De volledige Basis SEO- en Extra-checklist van Rank Math is nu in beide aanmaakroutes verwerkt: SEO-titel en -omschrijving, URL, eerste alinea, inhoud, tussenkop, dichtheid, lengte, korte alinea’s, afbeeldingen/alt-tekst, inhoudsopgave en links.
+* Ook “Nu maken” volgt voortaan dezelfde definitieve kwaliteitsgrens als de planning: onvolledige harde checks kunnen nooit per ongeluk als gepubliceerd bericht worden opgeslagen.
+* De focus-keyword staat expliciet in de eerste alinea; de SEO-titel start met het keyword en bevat een passend power word. Een getal blijft zichtbaar als optionele, uitsluitend feitelijke titelkeuze.
+* De Rank Math-meta description wordt ook als WordPress-samenvatting opgeslagen, zodat de gecontroleerde keywordomschrijving beschikbaar blijft als een site-template daarop terugvalt.
+
+= 1.9.34 =
+* Rank Math-integratie heeft nu een daadwerkelijke kwaliteitscontrole vóór het opslaan: focus-keyword, titel/meta/URL, intro, tussenkop, dichtheid, lengte en alinea’s worden gecontroleerd.
+* Bij een harde inhoudsafwijking voert Publion één feitelijke herstelronde uit. Blijft een harde check openstaan, dan wordt een gekozen publicatie veilig teruggezet naar Concept.
+* Elk Publion-artikel toont in de WordPress-editor een Rank Math-controlepaneel met woordenaantal, keyworddichtheid, geslaagde checks en redactionele aandachtspunten voor links, media en titel.
+
+= 1.9.33 =
+* De instellingen voor postcreatie zijn opnieuw ingedeeld in duidelijke workflowblokken: planning, onderwerpen en categorieën, bronnen, SEO en opvolging.
+* Kies dagelijks één of meerdere posts (maximaal acht) en laat Publion ze vanaf de eerste aanmaaktijd over een aantal uren spreiden. De wachtrij blijft veilig één artikel tegelijk verwerken.
+* De instellingen bevatten nu een directe verwijzing naar de aparte Categorie-strategie voor het handmatig genereren en controleren van SEO- en GEO-geschikte hoofd- en subcategorieën.
+
+= 1.9.32 =
+* Categorie-strategie heeft nu een eigen tab in Publion. Content plannen is daardoor uitsluitend gericht op artikelonderwerpen en SEO-briefs.
+* Categorie-acties en herstelknoppen sturen direct terug naar de aparte Categorie-strategie-tab.
 
 = 1.9.31 =
 * De Categorie-strategie is uitgewerkt als toegankelijke driestaps-review: onderzoek, beoordeling en veilige aanmaak. Elke kaart toont een status en subcategorieën wachten zichtbaar op de benodigde hoofdcategorie.

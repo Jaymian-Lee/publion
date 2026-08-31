@@ -67,6 +67,26 @@ function publion_get_web_research_settings() {
     );
 }
 
+/** Read the editor-configurable SEO/GEO safeguards with safe defaults. */
+function publion_get_rank_math_settings( $saved = null ) {
+    $saved = is_array( $saved ) ? $saved : get_option( 'publion_post_settings', array() );
+    $density_min = max( 0.5, min( 2.0, (float) ( $saved['rank_math_density_min'] ?? 1.0 ) ) );
+    $density_max = max( $density_min, min( 2.5, (float) ( $saved['rank_math_density_max'] ?? 1.5 ) ) );
+    return array(
+        'enabled'             => ( $saved['rank_math_integration'] ?? 'no' ) === 'yes',
+        'target_word_count'   => max( 1200, min( 5000, (int) ( $saved['rank_math_target_word_count'] ?? 2500 ) ) ),
+        'density_min'         => $density_min,
+        'density_max'         => $density_max,
+        'max_paragraph_words' => max( 60, min( 180, (int) ( $saved['rank_math_max_paragraph_words'] ?? 120 ) ) ),
+        'auto_repair'         => ( $saved['rank_math_auto_repair'] ?? 'yes' ) === 'yes',
+        'publish_gate'        => ( $saved['rank_math_publish_gate'] ?? 'yes' ) === 'yes',
+        'add_toc'             => ( $saved['rank_math_add_toc'] ?? 'yes' ) === 'yes',
+        'check_image_alt'     => ( $saved['rank_math_check_image_alt'] ?? 'yes' ) === 'yes',
+        'check_external_link' => ( $saved['rank_math_check_external_link'] ?? 'yes' ) === 'yes',
+        'check_internal_link' => ( $saved['rank_math_check_internal_link'] ?? 'yes' ) === 'yes',
+    );
+}
+
 /**
  * Normalises one domain per line (or comma-separated) for OpenAI web-search
  * filters. Protocols and paths are intentionally removed: the API expects hostnames.
@@ -706,11 +726,12 @@ function publion_generate_chatgpt_html( $topic, $category_name, $seo_brief = arr
     // A complete response is more reliable than joining continuations: the latter can
     // leave lists and headings open and produces repeated phrases in published HTML.
 	$article_settings   = get_option( 'publion_post_settings', array() );
-	$rank_math_enabled  = ( $article_settings['rank_math_integration'] ?? 'no' ) === 'yes';
+	$rank_math_settings = publion_get_rank_math_settings( $article_settings );
+	$rank_math_enabled  = $rank_math_settings['enabled'];
 	// Rank Math awards the full content-length score from 2,500 words. Keep
 	// this target limited to the explicit Rank Math workflow because it has a
 	// material impact on API cost and generation time.
-	$target_word_count = $rank_math_enabled ? 2500 : 1200;
+	$target_word_count = $rank_math_enabled ? $rank_math_settings['target_word_count'] : 1200;
 	$max_output_tokens = $rank_math_enabled ? 7000 : 4096;
     $max_iterations = 1;
 
@@ -763,7 +784,7 @@ Maak de inhoud bruikbaar voor klassieke zoekmachines, antwoordmachines en genera
 
 Wanneer de zoekintentie commercieel of transactioneel is, help de lezer eerlijk vergelijken met duidelijke selectiecriteria, beperkingen en een rustige volgende stap. Schrijf geen advertentietekst, verzin geen aanbiedingen en gebruik geen druk- of clickbaittaal.
 
-Schrijf " . ( $rank_math_enabled ? 'circa 2.500 tot 2.800 woorden' : 'circa 1.200 tot 1.600 woorden' ) . ", maar vermijd opvultekst en herhaling. Voeg geen paginamarkup toe zoals <!DOCTYPE html>, <head>, <body>, <header>, <footer>, <script> of <meta>. Maak de eerste kop een <h2>, geen <h1>. Gebruik uitsluitend semantische content-HTML: <p>, <h2>, <h3>, <ul>, <ol>, <strong>, <table> waar dat inhoudelijk helpt. Sluit elke HTML-tag. Plaats een kop, alinea, tabel of nieuw onderwerp nooit binnen een <ul> of <ol>; daarin staan uitsluitend <li>-elementen. Herhaal een kop, openingszin, woordgroep of FAQ-vraag niet.
+Schrijf " . ( $rank_math_enabled ? sprintf( 'minimaal %d woorden', $target_word_count ) : 'circa 1.200 tot 1.600 woorden' ) . ", maar vermijd opvultekst en herhaling. Voeg geen paginamarkup toe zoals <!DOCTYPE html>, <head>, <body>, <header>, <footer>, <script> of <meta>. Maak de eerste kop een <h2>, geen <h1>. Gebruik uitsluitend semantische content-HTML: <p>, <h2>, <h3>, <ul>, <ol>, <strong>, <table> waar dat inhoudelijk helpt. Sluit elke HTML-tag. Plaats een kop, alinea, tabel of nieuw onderwerp nooit binnen een <ul> of <ol>; daarin staan uitsluitend <li>-elementen. Herhaal een kop, openingszin, woordgroep of FAQ-vraag niet.
 
 Neem alleen links op naar relevante, betrouwbare en verifieerbare bronnen.$external_link_instruction" . publion_format_web_research_context( $web_research ) . "$rank_math_generation_instruction$faq_instruction$originality_instruction
 
@@ -816,6 +837,25 @@ Geef uitsluitend valide HTML-content terug, zonder uitleg, notities of Markdown.
 	$html_output = preg_replace('/<h1>(.*?)<\/h1>/i', '<h2>$1</h2>', $html_output, 1);
 	$html_output = str_ireplace(['<header>', '</header>'], '', $html_output);
 	$html_output = publion_add_rank_math_table_of_contents( $html_output, $rank_math_enabled );
+	if ( $rank_math_enabled && $rank_math_settings['auto_repair'] ) {
+		$rank_math_report = publion_get_rank_math_quality_report( $html_output, $focus_keyword, $topic );
+		if ( ! empty( $rank_math_report['failed_required'] ) ) {
+			$repaired_html = publion_repair_rank_math_content( $html_output, $focus_keyword, $rank_math_report, $api_key, $model, $content_language );
+			if ( ! is_wp_error( $repaired_html ) ) {
+				$html_output = publion_ensure_rank_math_keyword_intro( $repaired_html, $focus_keyword, true );
+				$html_output = publion_ensure_rank_math_keyword_heading( $html_output, $focus_keyword, true );
+				$html_output = publion_validate_links_in_html( $html_output, $reference_urls );
+				$html_output = publion_enhance_external_links( $html_output );
+				$html_output = publion_ensure_configured_external_reference( $html_output, $configured_reference_urls, $topic );
+				$html_output = publion_add_rank_math_table_of_contents( $html_output, true );
+			} else {
+				// Do not discard a complete draft when the optional repair request is
+				// temporarily unavailable. The final, stored report makes the review
+				// requirement explicit before a human publishes it.
+				update_option( 'publion_last_openai_error', $repaired_html->get_error_message() );
+			}
+		}
+	}
 	$keywords = publion_extract_noun_keywords($html_output, $api_key, $model);
 	$html_output = publion_auto_internal_links($html_output, $keywords);
 
@@ -954,8 +994,14 @@ function publion_build_rank_math_slug( $focus_keyword, $topic = '' ) {
 	// enough room for the site URL while retaining the keyword-led slug.
 	$home_url_length = strlen( untrailingslashit( home_url( '/' ) ) );
 	$slug_max_length = max( 20, min( 75, 75 - $home_url_length - 1 ) );
+	$was_truncated   = strlen( $slug ) > $slug_max_length;
 	$slug = substr( $slug, 0, $slug_max_length );
-    $slug = preg_replace( '/-[^-]*$/', '', $slug );
+    // Only remove a possible partial word after an actual truncation. Removing
+    // the final segment unconditionally would drop the last word of a short,
+    // otherwise perfect focus-keyword slug.
+    if ( $was_truncated ) {
+        $slug = preg_replace( '/-[^-]*$/', '', $slug );
+    }
     return trim( (string) $slug, '-' );
 }
 
@@ -966,13 +1012,21 @@ function publion_build_rank_math_seo_title( $topic, $focus_keyword ) {
         return $topic;
     }
 
-    if ( false !== strpos( publion_normalize_content_for_comparison( $topic ), publion_normalize_content_for_comparison( $focus_keyword ) ) ) {
+    $normalized_topic   = publion_normalize_content_for_comparison( $topic );
+    $normalized_keyword = publion_normalize_content_for_comparison( $focus_keyword );
+    if ( 0 === strpos( $normalized_topic, $normalized_keyword ) && preg_match( '/\b(?:praktische|complete|essentiële|essentiele|slimme|krachtige|eenvoudige|ultimate|best|complete|essential|practical|powerful|easy)\b/iu', $topic ) ) {
         return $topic;
     }
 
-    $prefix    = $focus_keyword . ': ';
-    $remaining = max( 12, 60 - mb_strlen( $prefix ) );
-    return $prefix . publion_trim_text_at_word_boundary( $topic, $remaining );
+    // Start with the exact keyword and use one restrained power word. This is
+    // helpful for Rank Math's title checks without inventing numbers or claims.
+    $prefix    = $focus_keyword . ': ' . __( 'praktische gids', 'publion' );
+    $remaining = max( 0, 60 - mb_strlen( $prefix ) - 3 );
+    if ( $remaining < 12 || '' === $topic ) {
+        return publion_trim_text_at_word_boundary( $prefix, 60 );
+    }
+
+    return $prefix . ' - ' . publion_trim_text_at_word_boundary( $topic, $remaining );
 }
 
 function publion_build_rank_math_meta_description( $html, $focus_keyword ) {
@@ -985,9 +1039,39 @@ function publion_build_rank_math_meta_description( $html, $focus_keyword ) {
     return publion_trim_text_at_word_boundary( $focus_keyword . ': ' . $description, 155 );
 }
 
+/**
+ * Store the exact metadata that Rank Math reads and mirror the description to
+ * WordPress' excerpt. The excerpt is an intentional fallback in Rank Math when
+ * a theme or a site template does not expose the custom snippet value.
+ */
+function publion_store_rank_math_post_data( $post_id, $html, $focus_keyword, $topic ) {
+    $post_id       = (int) $post_id;
+    $focus_keyword = sanitize_text_field( $focus_keyword );
+    if ( $post_id <= 0 || '' === $focus_keyword ) {
+        return;
+    }
+
+    $seo_title        = publion_build_rank_math_seo_title( $topic, $focus_keyword );
+    $meta_description = publion_build_rank_math_meta_description( $html, $focus_keyword );
+    update_post_meta( $post_id, 'rank_math_focus_keyword', $focus_keyword );
+    update_post_meta( $post_id, 'rank_math_title', $seo_title );
+    update_post_meta( $post_id, 'rank_math_description', $meta_description );
+
+    // Rank Math falls back to the excerpt when a custom snippet is unavailable.
+    // These posts are generated by Publion, so keeping the excerpt in sync is
+    // preferable to leaving that fallback dependent on the first paragraph.
+    wp_update_post(
+        array(
+            'ID'           => $post_id,
+            'post_excerpt' => $meta_description,
+        )
+    );
+}
+
 /** Insert Rank Math's own TOC block only when its integration is enabled. */
 function publion_add_rank_math_table_of_contents( $html, $enabled ) {
-    if ( ! $enabled || ! defined( 'RANK_MATH_VERSION' ) || false !== strpos( $html, 'rank-math/toc-block' ) || ! function_exists( 'serialize_block' ) ) {
+    $settings = publion_get_rank_math_settings();
+    if ( ! $enabled || ! $settings['add_toc'] || ! defined( 'RANK_MATH_VERSION' ) || false !== strpos( $html, 'rank-math/toc-block' ) || ! function_exists( 'serialize_block' ) ) {
         return $html;
     }
 
@@ -1024,11 +1108,17 @@ function publion_get_rank_math_generation_instruction( $focus_keyword, $enabled 
         return '';
     }
 
-    return "\n\nRANK MATH-KWALITEITSCONTROLE: Gebruik de exacte focus-keyword \"" . sanitize_text_field( $focus_keyword ) . "\" natuurlijk in de eerste alinea, in ten minste Ã©Ã©n beschrijvende <h2> of <h3> en ongeveer 1 tot 1,5% van de zichtbare tekst. Vermijd keyword stuffing en ga nooit boven 2,5%. Houd alle alinea's korter dan 120 woorden. Gebruik minimaal vier inhoudelijk relevante afbeeldingen; de eerste afbeelding moet het hoofdonderwerp zichtbaar tonen, zodat de alt-tekst de focus-keyword natuurlijk kan bevatten. Een betrouwbare externe bronlink is verplicht zodra er een gecontroleerde bron of live onderzoeksbron beschikbaar is; gebruik nooit nofollow voor zo'n redactionele bron. Verwerk relevante interne links zodra er passende bestaande pagina's zijn. Voeg een getal, sentimentwoord of power word alleen toe wanneer het feitelijk is en de titel daardoor niet misleidend wordt.";
+    return "\n\nSEO/GEO-KWALITEITSCONTROLE: Gebruik de exacte focus-keyword \"" . sanitize_text_field( $focus_keyword ) . "\" natuurlijk in de eerste alinea, in ten minste één beschrijvende <h2> of <h3> en ongeveer 1 tot 1,5% van de zichtbare tekst. Vermijd keyword stuffing en ga nooit boven 2,5%. Houd alle alinea's korter dan 120 woorden. Gebruik minimaal vier inhoudelijk relevante afbeeldingen; de eerste afbeelding moet het hoofdonderwerp zichtbaar tonen, zodat de alt-tekst de focus-keyword natuurlijk kan bevatten. Een betrouwbare externe bronlink is verplicht zodra er een gecontroleerde bron of live onderzoeksbron beschikbaar is; gebruik nooit nofollow voor zo'n redactionele bron. Verwerk relevante interne links zodra er passende bestaande pagina's zijn. Voeg een getal, sentimentwoord of power word alleen toe wanneer het feitelijk is en de titel daardoor niet misleidend wordt.";
 }
 
 function publion_ensure_rank_math_keyword_intro( $html, $focus_keyword, $enabled ) {
-    if ( ! $enabled || '' === trim( (string) $focus_keyword ) || publion_article_has_focus_keyword( $html, $focus_keyword, 500 ) ) {
+    if ( ! $enabled || '' === trim( (string) $focus_keyword ) ) {
+        return $html;
+    }
+
+    // Rank Math evaluates the opening content. A keyword in an early heading or
+    // a table of contents is not a substitute for one in the first paragraph.
+    if ( preg_match( '/<p\b[^>]*>(.*?)<\/p>/is', (string) $html, $first_paragraph ) && publion_article_has_focus_keyword( $first_paragraph[1], $focus_keyword ) ) {
         return $html;
     }
 
@@ -1069,6 +1159,232 @@ function publion_ensure_rank_math_keyword_heading( $html, $focus_keyword, $enabl
         $html,
         1
     );
+}
+
+/**
+ * Count visible words in a way that also works for Dutch and other UTF-8 site
+ * languages. str_word_count() is not reliable for accented characters.
+ */
+function publion_rank_math_visible_word_count( $html ) {
+    $text = wp_strip_all_tags( (string) $html );
+    return preg_match_all( '/[\p{L}\p{N}]+(?:[\'’\-][\p{L}\p{N}]+)*/u', $text, $matches );
+}
+
+function publion_rank_math_focus_keyword_occurrences( $html, $focus_keyword ) {
+    $focus_keyword = trim( publion_normalize_content_for_comparison( $focus_keyword ) );
+    if ( '' === $focus_keyword ) {
+        return 0;
+    }
+
+    $text    = publion_normalize_content_for_comparison( wp_strip_all_tags( (string) $html ) );
+    $pattern = '/(?<![\p{L}\p{N}])' . preg_quote( $focus_keyword, '/' ) . '(?![\p{L}\p{N}])/iu';
+    return preg_match_all( $pattern, $text, $matches );
+}
+
+function publion_rank_math_link_quality( $html ) {
+    $site_host = wp_parse_url( home_url( '/' ), PHP_URL_HOST );
+    $site_host = is_string( $site_host ) ? strtolower( preg_replace( '/^www\./', '', $site_host ) ) : '';
+    $result    = array(
+        'internal_links'         => 0,
+        'external_links'         => 0,
+        'followed_external_links' => 0,
+    );
+
+    if ( ! preg_match_all( '/<a\b[^>]*href\s*=\s*(["\'])(.*?)\1[^>]*>/is', (string) $html, $links ) ) {
+        return $result;
+    }
+
+    foreach ( $links[0] as $index => $tag ) {
+        $url  = html_entity_decode( $links[2][ $index ], ENT_QUOTES, get_bloginfo( 'charset' ) ?: 'UTF-8' );
+        $host = wp_parse_url( $url, PHP_URL_HOST );
+        if ( ! is_string( $host ) || '' === $host ) {
+            continue;
+        }
+        $host = strtolower( preg_replace( '/^www\./', '', $host ) );
+        if ( '' !== $site_host && ( $host === $site_host || substr( $host, - strlen( '.' . $site_host ) ) === '.' . $site_host ) ) {
+            $result['internal_links']++;
+            continue;
+        }
+
+        $result['external_links']++;
+        if ( ! preg_match( '/\brel\s*=\s*(["\'])[^"\']*\bnofollow\b[^"\']*\1/i', $tag ) ) {
+            $result['followed_external_links']++;
+        }
+    }
+
+    return $result;
+}
+
+/**
+ * Creates an auditable Rank Math readiness report. It deliberately records
+ * conditions that depend on the site (such as available internal links) rather
+ * than fabricating links or clickbait just to chase a score.
+ */
+function publion_get_rank_math_quality_report( $html, $focus_keyword, $post_title = '' ) {
+    $settings           = publion_get_rank_math_settings();
+    $word_count         = publion_rank_math_visible_word_count( $html );
+    $keyword_occurrences = publion_rank_math_focus_keyword_occurrences( $html, $focus_keyword );
+    $density            = $word_count > 0 ? round( ( $keyword_occurrences / $word_count ) * 100, 2 ) : 0;
+    $paragraphs         = array();
+    $long_paragraphs    = 0;
+    if ( preg_match_all( '/<p\b[^>]*>(.*?)<\/p>/is', (string) $html, $paragraphs ) ) {
+        foreach ( $paragraphs[1] as $paragraph ) {
+            if ( publion_rank_math_visible_word_count( $paragraph ) > $settings['max_paragraph_words'] ) {
+                $long_paragraphs++;
+            }
+        }
+    }
+
+    $links      = publion_rank_math_link_quality( $html );
+    $image_tags = array();
+    preg_match_all( '/<img\b[^>]*>/is', (string) $html, $image_tags );
+    $has_keyword_alt = false;
+    foreach ( $image_tags[0] as $image_tag ) {
+        if ( preg_match( '/\balt\s*=\s*(["\'])(.*?)\1/is', $image_tag, $alt_match ) && publion_article_has_focus_keyword( $alt_match[2], $focus_keyword ) ) {
+            $has_keyword_alt = true;
+            break;
+        }
+    }
+
+    $seo_title       = publion_build_rank_math_seo_title( $post_title, $focus_keyword );
+    $seo_description = publion_build_rank_math_meta_description( $html, $focus_keyword );
+    $seo_slug        = publion_build_rank_math_slug( $focus_keyword, $post_title );
+    $seo_url         = trailingslashit( home_url( '/' ) ) . ltrim( $seo_slug, '/' );
+    $title_has_keyword_early = '' !== trim( (string) $focus_keyword ) && false !== strpos(
+        mb_strtolower( mb_substr( $seo_title, 0, max( 1, (int) ceil( mb_strlen( $seo_title ) / 2 ) ) ) ),
+        mb_strtolower( trim( (string) $focus_keyword ) )
+    );
+    $title_has_number = (bool) preg_match( '/\d/u', $seo_title );
+    $title_has_power_word = (bool) preg_match( '/\b(?:beste|praktische|complete|essentiële|essentiele|slimme|krachtige|eenvoudige|ultimate|best|complete|essential|practical|powerful|easy)\b/iu', $seo_title );
+    $title_has_sentiment = (bool) preg_match( '/\b(?:succesvol|veilig|sterk|effectief|onmisbaar|geweldig|betrouwbaar|successful|safe|strong|effective|essential|great|reliable)\b/iu', $seo_title );
+    $has_keyword_heading = false;
+    if ( preg_match_all( '/<h[2-3][^>]*>(.*?)<\/h[2-3]>/is', (string) $html, $headings ) ) {
+        foreach ( $headings[1] as $heading ) {
+            if ( publion_article_has_focus_keyword( $heading, $focus_keyword ) ) {
+                $has_keyword_heading = true;
+                break;
+            }
+        }
+    }
+
+    $checks = array(
+        'focus_keyword_in_seo_title' => $title_has_keyword_early,
+        'focus_keyword_in_meta_description' => publion_article_has_focus_keyword( $seo_description, $focus_keyword ),
+        'focus_keyword_in_url'       => publion_article_has_focus_keyword( $seo_slug, $focus_keyword ),
+        'focus_keyword_in_intro'     => (bool) ( preg_match( '/<p\b[^>]*>(.*?)<\/p>/is', (string) $html, $first_paragraph ) && publion_article_has_focus_keyword( $first_paragraph[1], $focus_keyword ) ),
+        'focus_keyword_in_content'   => $keyword_occurrences > 0,
+        'focus_keyword_in_heading'   => $has_keyword_heading,
+        'focus_keyword_density'      => $density >= $settings['density_min'] && $density <= $settings['density_max'],
+        'content_length'             => $word_count >= $settings['target_word_count'],
+        'short_paragraphs'           => 0 === $long_paragraphs,
+        'table_of_contents'          => ! $settings['add_toc'] || false !== strpos( (string) $html, 'rank-math/toc-block' ),
+        'media_count'                => count( $image_tags[0] ) >= 4,
+        'focus_keyword_in_image_alt' => ! $settings['check_image_alt'] || $has_keyword_alt,
+        'external_link'              => ! $settings['check_external_link'] || $links['external_links'] > 0,
+        'followed_external_link'     => ! $settings['check_external_link'] || $links['followed_external_links'] > 0,
+        'internal_link'              => ! $settings['check_internal_link'] || $links['internal_links'] > 0,
+        'short_url'                  => strlen( $seo_url ) <= 75,
+        'number_in_seo_title'        => $title_has_number,
+        'power_word_in_seo_title'    => $title_has_power_word,
+        'sentiment_in_seo_title'     => $title_has_sentiment,
+    );
+
+    $required_checks = array( 'focus_keyword_in_seo_title', 'focus_keyword_in_meta_description', 'focus_keyword_in_url', 'focus_keyword_in_intro', 'focus_keyword_in_content', 'focus_keyword_in_heading', 'focus_keyword_density', 'content_length', 'short_paragraphs' );
+    $failed_required = array();
+    foreach ( $required_checks as $check ) {
+        if ( empty( $checks[ $check ] ) ) {
+            $failed_required[] = $check;
+        }
+    }
+
+    // A number is intentionally not a requirement: adding one where no real
+    // quantity exists would make a title less trustworthy, not more useful.
+    $advisory_checks = array( 'table_of_contents', 'media_count', 'focus_keyword_in_image_alt', 'external_link', 'followed_external_link', 'internal_link', 'short_url', 'power_word_in_seo_title', 'sentiment_in_seo_title' );
+    $needs_editor_review = array();
+    foreach ( $advisory_checks as $check ) {
+        if ( empty( $checks[ $check ] ) ) {
+            $needs_editor_review[] = $check;
+        }
+    }
+
+    return array(
+        'version'             => 1,
+        'focus_keyword'       => sanitize_text_field( $focus_keyword ),
+        'word_count'          => $word_count,
+        'keyword_occurrences' => $keyword_occurrences,
+        'keyword_density'     => $density,
+        'long_paragraphs'     => $long_paragraphs,
+        'image_count'         => count( $image_tags[0] ),
+        'seo_title'           => $seo_title,
+        'meta_description'    => $seo_description,
+        'seo_url_length'      => strlen( $seo_url ),
+        'settings'            => $settings,
+        'links'               => $links,
+        'checks'              => $checks,
+        'failed_required'     => $failed_required,
+        'needs_editor_review' => $needs_editor_review,
+        'status'              => empty( $failed_required ) ? 'ready' : 'review_required',
+    );
+}
+
+/**
+ * Requests one factual rewrite when the deterministic Rank Math content gate
+ * finds a failure. It never asks the model to invent a numbered list, emotion
+ * or a link merely to influence a superficial score.
+ */
+function publion_repair_rank_math_content( $html, $focus_keyword, $report, $api_key, $model, $content_language ) {
+    $failed_checks = array_map( 'sanitize_key', (array) ( $report['failed_required'] ?? array() ) );
+    if ( empty( $failed_checks ) ) {
+        return $html;
+    }
+    if ( empty( $api_key ) ) {
+        return new WP_Error( 'publion_rank_math_repair_key_missing', __( 'De SEO/GEO-kwaliteitscontrole kon niet worden hersteld omdat de OpenAI API-sleutel ontbreekt.', 'publion' ) );
+    }
+
+    $requirements = array();
+    if ( in_array( 'content_length', $failed_checks, true ) ) {
+        $requirements[] = 'maak de zichtbare tekst minimaal 2.500 woorden zonder opvultekst';
+    }
+    if ( in_array( 'focus_keyword_density', $failed_checks, true ) ) {
+        $requirements[] = 'gebruik de exacte primaire zoekterm natuurlijk tussen 1,0% en 1,5% van de zichtbare tekst, nooit boven 2,5%';
+    }
+    if ( in_array( 'short_paragraphs', $failed_checks, true ) ) {
+        $requirements[] = 'splits elke alinea die langer is dan 120 woorden op';
+    }
+    if ( in_array( 'focus_keyword_in_intro', $failed_checks, true ) ) {
+        $requirements[] = 'verwerk de exacte primaire zoekterm in de eerste alinea';
+    }
+    if ( in_array( 'focus_keyword_in_heading', $failed_checks, true ) ) {
+        $requirements[] = 'verwerk de exacte primaire zoekterm in minstens één beschrijvende h2 of h3';
+    }
+
+    $prompt = "Herschrijf uitsluitend de onderstaande HTML voor een bestaand artikel in $content_language. De primaire zoekterm is \"" . sanitize_text_field( $focus_keyword ) . "\". Behoud alle feitelijke claims, bronlinks, koppen, FAQ's en de betekenis; verzin geen cijfers, bronnen, ervaringen, lijstlengtes of clickbait. Voldoe aan deze concrete kwaliteitscorrecties:\n- " . implode( "\n- ", $requirements ) . "\n\nGeef uitsluitend complete, geldige semantische HTML terug, zonder Markdown of toelichting.\n\n=== HTML ===\n" . (string) $html . "\n=== EINDE HTML ===";
+    $response = publion_openai_post(
+        'https://api.openai.com/v1/chat/completions',
+        array(
+            'headers' => array(
+                'Content-Type'  => 'application/json',
+                'Authorization' => 'Bearer ' . $api_key,
+            ),
+            'body'    => wp_json_encode( publion_build_openai_chat_body( $model, array(
+                array( 'role' => 'system', 'content' => 'Je bent een nauwkeurige redacteur. Lever uitsluitend veilige, feitelijke HTML terug.' ),
+                array( 'role' => 'user', 'content' => $prompt ),
+            ), 7000 ) ),
+            'timeout' => 210,
+        ),
+        'rank_math_repair'
+    );
+    if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+        return new WP_Error( 'publion_rank_math_repair_failed', __( 'De SEO/GEO-kwaliteitscontrole kon het concept niet veilig herstellen. Het oorspronkelijke concept blijft behouden voor redactionele review.', 'publion' ) );
+    }
+
+    $body = json_decode( wp_remote_retrieve_body( $response ), true );
+    $html = $body['choices'][0]['message']['content'] ?? '';
+    if ( '' === trim( (string) $html ) ) {
+        return new WP_Error( 'publion_rank_math_repair_empty', __( 'De SEO/GEO-kwaliteitscontrole kreeg geen bruikbare herstelde artikeltekst terug.', 'publion' ) );
+    }
+
+    return publion_normalize_article_html( publion_clean_html_output( $html ) );
 }
 
 function publion_auto_internal_links($html, $keywords) {
@@ -1815,9 +2131,16 @@ function publion_generate_and_upload_images( $prompt, $count, $context, $api_key
         } else {
             $upload = false;
         }
-        if ( is_array( $upload ) && isset( $upload['attachment_id'], $upload['url'] ) ) {
-            $uploaded_ids[]  = (int) $upload['attachment_id'];
-            $uploaded_urls[] = $upload['url'];
+        if ( is_array( $upload ) && ! empty( $upload['attachment_id'] ) && ! empty( $upload['url'] ) ) {
+            $attachment_id = (int) $upload['attachment_id'];
+            // Do not insert a media URL until WordPress identifies it as a
+            // usable image attachment. This stays compatible with sites that
+            // offload their media library to object storage.
+            if ( ! wp_attachment_is_image( $attachment_id ) ) {
+                continue;
+            }
+            $uploaded_ids[]  = $attachment_id;
+            $uploaded_urls[] = esc_url_raw( $upload['url'] );
         }
     }
 
@@ -1858,6 +2181,13 @@ function publion_insert_images_into_content($html, $image_urls, $layouts = array
 
     $inserts = [];
     foreach ($desired_positions as $i => $target) {
+        $image_url = esc_url_raw( (string) ( $image_urls[ $i ] ?? '' ) );
+        // A missing generation or the packaged fallback must not become a
+        // broken image icon in the public article. It is better to omit that
+        // slot and let the editor add a meaningful image later.
+        if ( '' === $image_url || false !== strpos( $image_url, '/includes/images/image-placeholder.jpg' ) ) {
+            continue;
+        }
         $closest = null;
         $min_diff = PHP_INT_MAX;
         $alt_text = '';
@@ -1883,7 +2213,7 @@ function publion_insert_images_into_content($html, $image_urls, $layouts = array
         $alt_text = publion_build_descriptive_image_alt( $alt_text );
         $inserts[] = array(
             'offset' => $closest ?? $target,
-            'html'   => '<figure class="publion-article-media publion-article-media--' . $layout . '"><img class="publion-generated-image" src="' . esc_url($image_urls[$i]) . '" alt="' . esc_attr($alt_text) . '" loading="lazy" decoding="async" /></figure>',
+            'html'   => '<figure class="publion-article-media publion-article-media--' . $layout . '"><img class="publion-generated-image" src="' . esc_url( $image_url ) . '" alt="' . esc_attr($alt_text) . '" loading="lazy" decoding="async" /></figure>',
         );
     }
 
