@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Publion 1.9.38\\n"
+"Project-Id-Version: Publion 1.9.40\\n"
 "Report-Msgid-Bugs-To: https://jaymian-lee.nl/publion\\n"
 "POT-Creation-Date: 2026-08-04 00:00+0000\\n"
 "PO-Revision-Date: 2026-08-04 00:00+0000\\n"
