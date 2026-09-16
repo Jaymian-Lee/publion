@@ -852,30 +852,48 @@ jQuery(document).ready(function ($) {
 	});
 
 	function syncCustomModelInput() {
-	    const isCustom = $('#publion_openai_model').val() === '__custom__';
+	    const $select = $('#publion_openai_model');
+	    const isCustom = $select.val() === '__custom__';
 	    const $wrap = $('#publion-custom-model-wrap');
 	    const $input = $('#publion_custom_openai_model');
-	    $wrap.prop('hidden', !isCustom).attr('aria-hidden', String(!isCustom));
-	    $input.prop('disabled', !isCustom);
+	    const selectedModel = $select.val();
+
+	    // Keep the displayed API ID authoritative and in sync with the selected
+	    // option. A custom ID remains editable only for the custom option.
+	    $wrap.prop('hidden', false).attr('aria-hidden', 'false');
+	    if (!isCustom) {
+	        $input.val(selectedModel).prop('readonly', true).attr('aria-readonly', 'true');
+	    } else {
+	        $input.prop('readonly', false).attr('aria-readonly', 'false');
+	    }
 	    if (isCustom) {
 	        $input.trigger('focus');
 	    }
 	}
 
 	$('#publion_openai_model').on('change', syncCustomModelInput);
+	syncCustomModelInput();
 
 	function syncCustomImageModelInput() {
-	    const isCustom = $('#publion_openai_image_model').val() === '__custom__';
+	    const $select = $('#publion_openai_image_model');
+	    const isCustom = $select.val() === '__custom__';
 	    const $wrap = $('#publion-custom-image-model-wrap');
 	    const $input = $('#publion_custom_openai_image_model');
-	    $wrap.prop('hidden', !isCustom).attr('aria-hidden', String(!isCustom));
-	    $input.prop('disabled', !isCustom);
+	    const selectedModel = $select.val();
+
+	    $wrap.prop('hidden', false).attr('aria-hidden', 'false');
+	    if (!isCustom) {
+	        $input.val(selectedModel).prop('readonly', true).attr('aria-readonly', 'true');
+	    } else {
+	        $input.prop('readonly', false).attr('aria-readonly', 'false');
+	    }
 	    if (isCustom) {
 	        $input.trigger('focus');
 	    }
 	}
 
 	$('#publion_openai_image_model').on('change', syncCustomImageModelInput);
+	syncCustomImageModelInput();
 
 	// Save Model via AJAX
 	$('#publion-save-model').on('click', function (e) {
