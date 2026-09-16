@@ -856,44 +856,37 @@ jQuery(document).ready(function ($) {
 	    const isCustom = $select.val() === '__custom__';
 	    const $wrap = $('#publion-custom-model-wrap');
 	    const $input = $('#publion_custom_openai_model');
-	    const selectedModel = $select.val();
 
-	    // Keep the displayed API ID authoritative and in sync with the selected
-	    // option. A custom ID remains editable only for the custom option.
+        // The initial server-rendered value already matches the saved model.
+        // On a selection change, reflect a curated model ID in the read-only
+        // field without ever overwriting a custom model ID.
 	    $wrap.prop('hidden', false).attr('aria-hidden', 'false');
 	    if (!isCustom) {
-	        $input.val(selectedModel).prop('readonly', true).attr('aria-readonly', 'true');
+	        $input.val($select.val());
 	    } else {
-	        $input.prop('readonly', false).attr('aria-readonly', 'false');
-	    }
-	    if (isCustom) {
 	        $input.trigger('focus');
 	    }
+	    $input.prop('disabled', !isCustom);
 	}
 
 	$('#publion_openai_model').on('change', syncCustomModelInput);
-	syncCustomModelInput();
 
 	function syncCustomImageModelInput() {
 	    const $select = $('#publion_openai_image_model');
 	    const isCustom = $select.val() === '__custom__';
 	    const $wrap = $('#publion-custom-image-model-wrap');
 	    const $input = $('#publion_custom_openai_image_model');
-	    const selectedModel = $select.val();
 
 	    $wrap.prop('hidden', false).attr('aria-hidden', 'false');
 	    if (!isCustom) {
-	        $input.val(selectedModel).prop('readonly', true).attr('aria-readonly', 'true');
+	        $input.val($select.val());
 	    } else {
-	        $input.prop('readonly', false).attr('aria-readonly', 'false');
-	    }
-	    if (isCustom) {
 	        $input.trigger('focus');
 	    }
+	    $input.prop('disabled', !isCustom);
 	}
 
 	$('#publion_openai_image_model').on('change', syncCustomImageModelInput);
-	syncCustomImageModelInput();
 
 	// Save Model via AJAX
 	$('#publion-save-model').on('click', function (e) {

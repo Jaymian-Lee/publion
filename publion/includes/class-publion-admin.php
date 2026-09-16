@@ -1316,7 +1316,7 @@ class Publion_Admin {
                             </select>
                             <div id="publion-custom-model-wrap" class="publion-custom-model-wrap">
                                 <label for="publion_custom_openai_model"><?php esc_html_e( 'Exacte model-ID', 'publion' ); ?></label>
-                                <input type="text" id="publion_custom_openai_model" value="<?php echo esc_attr( $openai_model ); ?>" placeholder="gpt-5.6-sol" maxlength="128" spellcheck="false" autocomplete="off" <?php readonly( empty( $custom_model ) ); ?> aria-readonly="<?php echo empty( $custom_model ) ? 'true' : 'false'; ?>">
+                                <input type="text" id="publion_custom_openai_model" value="<?php echo esc_attr( $openai_model ); ?>" placeholder="gpt-5.6-sol" maxlength="128" spellcheck="false" autocomplete="off" <?php disabled( empty( $custom_model ) ); ?>>
                             </div>
                             <p id="publion-model-help" class="description publion-model-help">
                                 <?php esc_html_e( 'Kies Terra voor de beste balans bij artikelen, Sol voor maximale kwaliteit of Luna voor veel snelle taken. Een eigen ID moet exact overeenkomen met een model dat voor jouw OpenAI API-project beschikbaar is.', 'publion' ); ?>
@@ -1343,7 +1343,7 @@ class Publion_Admin {
                             </select>
                             <div id="publion-custom-image-model-wrap" class="publion-custom-model-wrap">
                                 <label for="publion_custom_openai_image_model"><?php esc_html_e( 'Exacte afbeeldingsmodel-ID', 'publion' ); ?></label>
-                                <input type="text" id="publion_custom_openai_image_model" value="<?php echo esc_attr( $image_model ); ?>" placeholder="gpt-image-2" maxlength="128" spellcheck="false" autocomplete="off" <?php readonly( empty( $custom_image_model ) ); ?> aria-readonly="<?php echo empty( $custom_image_model ) ? 'true' : 'false'; ?>">
+                                <input type="text" id="publion_custom_openai_image_model" value="<?php echo esc_attr( $image_model ); ?>" placeholder="gpt-image-2" maxlength="128" spellcheck="false" autocomplete="off" <?php disabled( empty( $custom_image_model ) ); ?>>
                             </div>
                             <p id="publion-image-model-help" class="description publion-model-help">
                                 <?php esc_html_e( 'GPT Image 2 is de aanbevolen keuze. Een eigen model-ID moet afbeeldingen via de OpenAI Images API kunnen genereren én beschikbaar zijn voor jouw API-project.', 'publion' ); ?>
