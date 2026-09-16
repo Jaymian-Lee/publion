@@ -925,6 +925,13 @@ jQuery(document).ready(function ($) {
 
 	$('#publion_openai_image_model').on('change', syncCustomImageModelInput);
 
+	// Publishing is an explicit final-status choice. Keep the optional SEO
+	// draft gate from silently overriding it when the settings are saved.
+	$('#publion_post_status').on('change', function () {
+	    const publishSelected = $(this).val() === 'publish';
+	    $('#publion_rank_math_publish_gate').prop('checked', false).prop('disabled', publishSelected);
+	});
+
 	// Save Model via AJAX
 	$('#publion-save-model').on('click', function (e) {
 	    e.preventDefault();

@@ -5,7 +5,7 @@ Tags: ai content, chatgpt, blog automatisering, post generatie, blogpost ai
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.9.43
+Stable tag: 1.9.45
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -81,6 +81,12 @@ Deze versie maakt standaard blogposts aan.
 4. Maak automatisch volledige conceptposts met AI-afbeeldingen.
 
 == Changelog ==
+
+= 1.9.45 =
+* Afbeeldingen worden uitsluitend nog tussen de echte artikelonderdelen geplaatst. Toegevoegde secties voor externe bronnen en live brononderzoek zijn uitgesloten, zodat afbeeldingen daar niet meer kunnen clusteren.
+
+= 1.9.44 =
+* De keuze “Gepubliceerd” is nu leidend voor handmatige én geplande postcreatie. De optionele Rank Math-conceptblokkade kan deze keuze niet langer stil naar een concept terugzetten.
 
 = 1.9.43 =
 * Voegt een veilige knop “Verbinding testen” toe aan de OpenAI-instellingen. Deze controleert de API-sleutel en de beschikbaarheid van de gekozen tekst- en afbeeldingsmodellen, zonder content of afbeeldingen te genereren.

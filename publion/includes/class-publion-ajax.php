@@ -1786,7 +1786,9 @@ function publion_save_post_settings_callback() {
 		'rank_math_density_max' => $rank_math_density_max,
 		'rank_math_max_paragraph_words' => $rank_math_max_paragraph_words,
 		'rank_math_auto_repair' => ( isset( $_POST['rank_math_auto_repair'] ) && 'yes' === $_POST['rank_math_auto_repair'] ) ? 'yes' : 'no',
-		'rank_math_publish_gate' => ( isset( $_POST['rank_math_publish_gate'] ) && 'yes' === $_POST['rank_math_publish_gate'] ) ? 'yes' : 'no',
+		// A selected Publish status must remain authoritative for manual and
+		// scheduled creation alike. The quality report is still saved for review.
+		'rank_math_publish_gate' => ( 'publish' === $post_status ) ? 'no' : ( ( isset( $_POST['rank_math_publish_gate'] ) && 'yes' === $_POST['rank_math_publish_gate'] ) ? 'yes' : 'no' ),
 		'rank_math_add_toc' => ( isset( $_POST['rank_math_add_toc'] ) && 'yes' === $_POST['rank_math_add_toc'] ) ? 'yes' : 'no',
 		'rank_math_check_image_alt' => ( isset( $_POST['rank_math_check_image_alt'] ) && 'yes' === $_POST['rank_math_check_image_alt'] ) ? 'yes' : 'no',
 		'rank_math_check_external_link' => ( isset( $_POST['rank_math_check_external_link'] ) && 'yes' === $_POST['rank_math_check_external_link'] ) ? 'yes' : 'no',

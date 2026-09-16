@@ -77,6 +77,9 @@ function publion_get_rank_math_settings( $saved = null ) {
     $saved = is_array( $saved ) ? $saved : get_option( 'publion_post_settings', array() );
     $density_min = max( 0.5, min( 2.0, (float) ( $saved['rank_math_density_min'] ?? 1.0 ) ) );
     $density_max = max( $density_min, min( 2.5, (float) ( $saved['rank_math_density_max'] ?? 1.5 ) ) );
+	// An explicit Publish choice is the final publication preference. Do not
+	// silently turn it into a draft because of a quality-review preference.
+	$publish_gate = ( $saved['rank_math_publish_gate'] ?? 'yes' ) === 'yes' && ( $saved['post_status'] ?? 'draft' ) !== 'publish';
     return array(
         'enabled'             => ( $saved['rank_math_integration'] ?? 'no' ) === 'yes',
         'target_word_count'   => max( 1200, min( 5000, (int) ( $saved['rank_math_target_word_count'] ?? 2500 ) ) ),
@@ -84,7 +87,7 @@ function publion_get_rank_math_settings( $saved = null ) {
         'density_max'         => $density_max,
         'max_paragraph_words' => max( 60, min( 180, (int) ( $saved['rank_math_max_paragraph_words'] ?? 120 ) ) ),
         'auto_repair'         => ( $saved['rank_math_auto_repair'] ?? 'yes' ) === 'yes',
-        'publish_gate'        => ( $saved['rank_math_publish_gate'] ?? 'yes' ) === 'yes',
+        'publish_gate'        => $publish_gate,
         'add_toc'             => ( $saved['rank_math_add_toc'] ?? 'yes' ) === 'yes',
         'check_image_alt'     => ( $saved['rank_math_check_image_alt'] ?? 'yes' ) === 'yes',
         'check_external_link' => ( $saved['rank_math_check_external_link'] ?? 'yes' ) === 'yes',
@@ -1793,7 +1796,34 @@ function publion_build_image_prompt( $topic, $category_name = '' ) {
     return 'Maak een realistische, hoogwaardige foto-achtige afbeelding voor een blogpost over "' . $topic . '". Contextueel en relevant, zonder tekst, watermerk of logo.';
 }
 
+/**
+ * Return the authored article portion that is eligible for image placement.
+ *
+ * External-source blocks are appended after the model output. They are not
+ * article sections, so neither image briefs nor insertion offsets may use
+ * them. Otherwise several images can cluster around "Bronnen en verdieping".
+ */
+function publion_get_image_eligible_article_content( $html ) {
+    $html     = (string) $html;
+    $boundary = strlen( $html );
+
+    foreach ( array( 'publion-external-source', 'publion-research-sources' ) as $class_name ) {
+        $class_position = stripos( $html, $class_name );
+        if ( false === $class_position ) {
+            continue;
+        }
+
+        $tag_position = strrpos( substr( $html, 0, $class_position ), '<' );
+        if ( false !== $tag_position ) {
+            $boundary = min( $boundary, $tag_position );
+        }
+    }
+
+    return substr( $html, 0, $boundary );
+}
+
 function publion_generate_contextual_image_prompts( $html, $topic, $category_name = '' ) {
+    $html = publion_get_image_eligible_article_content( $html );
     $blocks = [];
     preg_match_all( '/<h[2-4][^>]*>.*?<\\/h[2-4]>|<p[^>]*>.*?<\\/p>/is', $html, $matches, PREG_OFFSET_CAPTURE );
     $all_offsets = $matches[0] ?? [];
@@ -2173,11 +2203,18 @@ function publion_process_and_upload_images($remote_image_urls) {
 function publion_insert_images_into_content($html, $image_urls, $layouts = array(), $focus_keyword = '') {
     if (!is_array($image_urls) || count($image_urls) < 5 || empty($html)) return $html;
 
+    // Keep generated images in the authored article. Source and research
+    // blocks are appended metadata, not valid image anchors.
+    $article_html = publion_get_image_eligible_article_content( $html );
+    if ( '' === $article_html ) {
+        return $html;
+    }
+
     // Match to headings (h2–h4)
-    preg_match_all('/<h[2-4][^>]*>.*?<\/h[2-4]>|<p[^>]*>.*?<\/p>/is', $html, $matches, PREG_OFFSET_CAPTURE);
+    preg_match_all('/<h[2-4][^>]*>.*?<\/h[2-4]>|<p[^>]*>.*?<\/p>/is', $article_html, $matches, PREG_OFFSET_CAPTURE);
     $all_offsets = $matches[0];
 
-    $length = strlen($html);
+    $length = strlen($article_html);
     $desired_positions = [
         floor($length * 0.165),
         floor($length * 0.33),

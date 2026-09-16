@@ -952,7 +952,7 @@ class Publion_Admin {
                                 </select>
                                 <p class="description" style="margin-top:6px; max-width: 600px;">
                                     <strong><?php esc_html_e( 'Let op:', 'publion' ); ?></strong>
-                                    <em><?php esc_html_e( 'Concept wordt aanbevolen. Als er geen AI-afbeeldingen gegenereerd kunnen worden, worden placeholders gebruikt. Kies je voor Gepubliceerd, dan kan de post live gaan met placeholders.', 'publion' ); ?></em>
+                                    <em><?php esc_html_e( 'Concept wordt aanbevolen. Als er geen AI-afbeeldingen gegenereerd kunnen worden, worden placeholders gebruikt. Kies je voor Gepubliceerd, dan gaat de post live met placeholders indien nodig. De SEO-conceptblokkade wordt dan automatisch uitgeschakeld, zodat deze keuze leidend blijft.', 'publion' ); ?></em>
                                 </p>
                             </td>
                         </tr>
@@ -1139,7 +1139,7 @@ class Publion_Admin {
                                     </div>
                                     <div class="publion-rank-math-toggles">
                                         <label><input type="checkbox" id="publion_rank_math_auto_repair" <?php checked( $settings['rank_math_auto_repair'] ?? 'yes', 'yes' ); ?> /> <?php esc_html_e( 'Herstel harde inhoudschecks eenmaal automatisch', 'publion' ); ?></label>
-                                        <label><input type="checkbox" id="publion_rank_math_publish_gate" <?php checked( $settings['rank_math_publish_gate'] ?? 'yes', 'yes' ); ?> /> <?php esc_html_e( 'Bewaar bij harde fouten altijd als concept', 'publion' ); ?></label>
+                                        <label><input type="checkbox" id="publion_rank_math_publish_gate" <?php checked( ( $settings['rank_math_publish_gate'] ?? 'yes' ) === 'yes' && ( $settings['post_status'] ?? 'draft' ) !== 'publish' ); ?> <?php disabled( ( $settings['post_status'] ?? 'draft' ) === 'publish' ); ?> /> <?php esc_html_e( 'Bewaar bij harde fouten altijd als concept', 'publion' ); ?></label>
                                         <label><input type="checkbox" id="publion_rank_math_add_toc" <?php checked( $settings['rank_math_add_toc'] ?? 'yes', 'yes' ); ?> /> <?php esc_html_e( 'Voeg een inhoudsopgave toe', 'publion' ); ?></label>
                                         <label><input type="checkbox" id="publion_rank_math_check_image_alt" <?php checked( $settings['rank_math_check_image_alt'] ?? 'yes', 'yes' ); ?> /> <?php esc_html_e( 'Controleer keyword in relevante alt-tekst', 'publion' ); ?></label>
                                         <label><input type="checkbox" id="publion_rank_math_check_external_link" <?php checked( $settings['rank_math_check_external_link'] ?? 'yes', 'yes' ); ?> /> <?php esc_html_e( 'Toon externe bronlink als reviewpunt', 'publion' ); ?></label>
