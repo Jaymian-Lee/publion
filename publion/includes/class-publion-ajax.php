@@ -1924,6 +1924,66 @@ function publion_save_api_key_callback() {
 	wp_send_json_success( [ 'message' => __( 'API-sleutel opgeslagen.', 'publion' ) ] );
 }
 
+/* ===== Test OpenAI Connection ===== */
+add_action( 'wp_ajax_publion_test_openai_connection', 'publion_test_openai_connection_callback' );
+function publion_test_openai_connection_callback() {
+	check_ajax_referer( 'publion_nonce', 'nonce' );
+
+	if ( ! current_user_can( 'manage_options' ) ) {
+		publion_send_error( 'permission_denied', __( 'Je account mag de OpenAI-verbinding niet testen.', 'publion' ) );
+	}
+
+	// An entered key is tested without being saved. With an empty field, use the
+	// stored key so editors can check an existing configuration safely.
+	$api_key = sanitize_text_field( wp_unslash( $_POST['api_key'] ?? '' ) );
+	if ( '' === $api_key ) {
+		$api_key = (string) get_option( 'publion_api_key', '' );
+	}
+	$api_key = trim( $api_key );
+	if ( '' === $api_key ) {
+		publion_send_error( 'api_key_missing', __( 'Vul eerst een API-sleutel in of sla er één op voordat je de verbinding test.', 'publion' ) );
+	}
+
+	// GET /v1/models validates the Bearer key without generating content or
+	// creating an image. It also lets the UI report the availability of both
+	// selected model IDs.
+	$response = wp_remote_get(
+		'https://api.openai.com/v1/models',
+		array(
+			'headers'     => array( 'Authorization' => 'Bearer ' . $api_key ),
+			'timeout'     => 20,
+			'redirection' => 0,
+		)
+	);
+	if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+		$error = publion_get_openai_request_error( $response );
+		publion_send_error( publion_guess_error_code( $error, 'openai_connection' ), $error );
+	}
+
+	$body      = json_decode( wp_remote_retrieve_body( $response ), true );
+	$model_ids = array();
+	foreach ( (array) ( $body['data'] ?? array() ) as $item ) {
+		if ( is_array( $item ) && ! empty( $item['id'] ) ) {
+			$model_ids[] = (string) $item['id'];
+		}
+	}
+
+	$text_model  = publion_normalize_openai_model_id( wp_unslash( $_POST['text_model'] ?? publion_get_openai_model() ) );
+	$image_model = publion_normalize_openai_model_id( wp_unslash( $_POST['image_model'] ?? publion_get_openai_image_model() ) );
+	if ( '' === $text_model || '' === $image_model ) {
+		publion_send_error( 'validation', __( 'Kies eerst geldige tekst- en afbeeldingsmodel-ID’s voordat je de verbinding test.', 'publion' ) );
+	}
+	wp_send_json_success(
+		array(
+			'message'               => __( 'Verbinding met OpenAI geslaagd. De API-sleutel is geldig.', 'publion' ),
+			'text_model'            => $text_model,
+			'text_model_available'  => in_array( $text_model, $model_ids, true ),
+			'image_model'           => $image_model,
+			'image_model_available' => in_array( $image_model, $model_ids, true ),
+		)
+	);
+}
+
 /* ===== Save Model ===== */
 add_action( 'wp_ajax_publion_save_model', 'publion_save_model_callback' );
 function publion_save_model_callback() {

@@ -1301,6 +1301,15 @@ class Publion_Admin {
                             <?php esc_html_e( 'Sleutel opslaan', 'publion' ); ?>
                         </button>
                         <span id="publion-api-key-status" class="publion-save-status" style="position:relative; top:8px;"></span>
+                        <div style="margin-top:10px;">
+                            <button type="button" id="publion-test-openai-connection" class="button">
+                                <?php esc_html_e( 'Verbinding testen', 'publion' ); ?>
+                            </button>
+                            <span id="publion-connection-status" class="publion-save-status" aria-live="polite" style="margin-left:8px;"></span>
+                            <p class="description" style="margin-top:6px;">
+                                <?php esc_html_e( 'Controleert veilig of de opgeslagen API-sleutel werkt en of de gekozen tekst- en afbeeldingsmodellen voor dit API-project beschikbaar zijn. Dit maakt geen generatie.', 'publion' ); ?>
+                            </p>
+                        </div>
 
                         <div class="publion-model-control" style="margin-top:16px;">
                             <label for="publion_openai_model" style="display:block; font-weight:600; margin-bottom:6px;">

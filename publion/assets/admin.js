@@ -851,6 +851,43 @@ jQuery(document).ready(function ($) {
 	    });
 	});
 
+	// Test the saved key (or a key currently entered above) server-side. The key
+	// is never sent directly from the browser to OpenAI.
+	$('#publion-test-openai-connection').on('click', function (e) {
+	    e.preventDefault();
+
+	    const $button = $(this);
+	    const $status = $('#publion-connection-status');
+	    $button.prop('disabled', true);
+	    $status.html('<span class="spinner is-active" style="float:none;display:inline-block;"></span>');
+
+	    $.post(Publion.ajax_url, {
+	        action: 'publion_test_openai_connection',
+	        nonce: Publion.nonce,
+	        api_key: $('#publion_api_key').val().trim(),
+	        text_model: $('#publion_custom_openai_model').val(),
+	        image_model: $('#publion_custom_openai_image_model').val()
+	    }, function (response) {
+	        if (response.success) {
+	            const data = response.data || {};
+	            const checks = [];
+	            if (data.text_model) {
+	                checks.push((data.text_model_available ? '✓ ' : '⚠ ') + 'Tekstmodel ' + data.text_model + (data.text_model_available ? ': beschikbaar' : ': niet beschikbaar'));
+	            }
+	            if (data.image_model) {
+	                checks.push((data.image_model_available ? '✓ ' : '⚠ ') + 'Afbeeldingsmodel ' + data.image_model + (data.image_model_available ? ': beschikbaar' : ': niet beschikbaar'));
+	            }
+	            $status.text((data.message || 'Verbinding met OpenAI geslaagd.') + (checks.length ? ' ' + checks.join('. ') + '.' : '')).css('color', data.text_model_available && data.image_model_available ? 'green' : '#a16207');
+	        } else {
+	            showActionableError(response, t('network_save_failed', 'Verbinding testen mislukt.'), $status);
+	        }
+	    }).fail(function () {
+	        showActionableError(null, t('network_save_failed', 'Verbinding testen mislukt door een netwerkfout.'), $status);
+	    }).always(function () {
+	        $button.prop('disabled', false);
+	    });
+	});
+
 	function syncCustomModelInput() {
 	    const $select = $('#publion_openai_model');
 	    const isCustom = $select.val() === '__custom__';
