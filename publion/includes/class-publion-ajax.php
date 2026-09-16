@@ -1749,8 +1749,6 @@ function publion_save_post_settings_callback() {
 	$preferred_external_domain = sanitize_text_field( wp_unslash( $_POST['preferred_external_domain'] ?? '' ) );
 	$preferred_external_urls   = wp_kses_post( wp_unslash( $_POST['preferred_external_urls'] ?? '' ) );
 	$web_research_enabled      = ( isset( $_POST['web_research_enabled'] ) && 'yes' === $_POST['web_research_enabled'] ) ? 'yes' : 'no';
-	$web_research_model        = publion_normalize_openai_model_id( wp_unslash( $_POST['web_research_model'] ?? 'gpt-5.6' ) );
-	$web_research_model        = $web_research_model ?: 'gpt-5.6';
 	$web_research_source_count = max( 1, min( 5, absint( wp_unslash( $_POST['web_research_source_count'] ?? 3 ) ) ) );
 	$web_research_context_size = sanitize_key( wp_unslash( $_POST['web_research_context_size'] ?? 'medium' ) );
 	$web_research_context_size = in_array( $web_research_context_size, array( 'low', 'medium', 'high' ), true ) ? $web_research_context_size : 'medium';
@@ -1804,7 +1802,6 @@ function publion_save_post_settings_callback() {
 		'preferred_external_domain' => $preferred_external_domain,
 		'preferred_external_urls'   => $preferred_external_urls,
 		'web_research_enabled'      => $web_research_enabled,
-		'web_research_model'        => $web_research_model,
 		'web_research_source_count' => $web_research_source_count,
 		'web_research_context_size' => $web_research_context_size,
 		'web_research_live_access'  => $web_research_live_access,

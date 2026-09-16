@@ -47,23 +47,28 @@ function publion_get_openai_model() {
 }
 
 /**
- * Returns the safe defaults for optional, live web-grounded article research.
- * It is opt-in because every lookup can add latency and OpenAI tool usage.
+ * Returns settings for optional, live web-grounded article research.
+ *
+ * Research is a text generation path, so it deliberately uses the single
+ * model selected in the OpenAI settings. Do not add a research-specific
+ * model or fallback here: doing so makes the model shown in API usage differ
+ * from the model selected by the user.
  */
 function publion_get_web_research_settings() {
-    $saved = get_option( 'publion_post_settings', array() );
-    $model = publion_normalize_openai_model_id( $saved['web_research_model'] ?? 'gpt-5.6' );
+    $saved        = get_option( 'publion_post_settings', array() );
+    $context_size = $saved['web_research_context_size'] ?? 'medium';
+    $failure_mode = $saved['web_research_failure_mode'] ?? 'stop';
 
     return array(
         'enabled'          => ( $saved['web_research_enabled'] ?? 'no' ) === 'yes',
-        'model'            => $model ?: 'gpt-5.6',
+        'model'            => publion_get_openai_model(),
         'source_count'     => max( 1, min( 5, (int) ( $saved['web_research_source_count'] ?? 3 ) ) ),
-        'context_size'     => in_array( $saved['web_research_context_size'] ?? 'medium', array( 'low', 'medium', 'high' ), true ) ? $saved['web_research_context_size'] : 'medium',
+        'context_size'     => in_array( $context_size, array( 'low', 'medium', 'high' ), true ) ? $context_size : 'medium',
         'live_access'      => ( $saved['web_research_live_access'] ?? 'yes' ) === 'yes',
         'allowed_domains'  => publion_parse_web_research_domains( $saved['web_research_allowed_domains'] ?? '' ),
         'blocked_domains'  => publion_parse_web_research_domains( $saved['web_research_blocked_domains'] ?? '' ),
         'display_sources'  => ( $saved['web_research_display_sources'] ?? 'yes' ) === 'yes',
-        'failure_mode'     => in_array( $saved['web_research_failure_mode'] ?? 'stop', array( 'stop', 'continue' ), true ) ? $saved['web_research_failure_mode'] : 'stop',
+        'failure_mode'     => in_array( $failure_mode, array( 'stop', 'continue' ), true ) ? $failure_mode : 'stop',
     );
 }
 
@@ -1747,6 +1752,8 @@ function publion_ensure_configured_external_reference( $html, $reference_urls, $
 
 function publion_get_allowed_openai_image_models() {
     $models = array(
+        'gpt-image-2.5-sunburst' => 'GPT Image 2.5 Sunburst',
+        'gpt-image-2.5-flare'    => 'GPT Image 2.5 Flare',
         'gpt-image-2'   => 'GPT Image 2 — aanbevolen',
         'gpt-image-1.5' => 'GPT Image 1.5 — vorige generatie',
         'gpt-image-1'   => 'GPT Image 1 — eerdere generatie',

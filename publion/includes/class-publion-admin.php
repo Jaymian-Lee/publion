@@ -1047,9 +1047,9 @@ class Publion_Admin {
                                 <div class="publion-web-research-options" style="margin-top:14px; max-width:760px; padding:14px; border:1px solid #d9e2f0; border-radius:8px; background:#f8fafc;">
                                     <p style="margin-top:0;"><strong><?php esc_html_e( 'Onderzoeksregels', 'publion' ); ?></strong></p>
                                     <p>
-                                        <label for="publion_web_research_model"><strong><?php esc_html_e( 'Model voor brononderzoek', 'publion' ); ?></strong></label><br>
-                                        <input type="text" id="publion_web_research_model" name="web_research_model" value="<?php echo esc_attr( $settings['web_research_model'] ?? 'gpt-5.6' ); ?>" placeholder="gpt-5.6" maxlength="128" style="width:260px;" spellcheck="false" autocomplete="off" />
-                                        <span class="description"><?php esc_html_e( 'Aanbevolen: gpt-5.6. Gebruik alleen een model-ID die de Responses API en webzoekfunctie ondersteunt.', 'publion' ); ?></span>
+                                        <strong><?php esc_html_e( 'Model voor brononderzoek', 'publion' ); ?></strong><br>
+                                        <code><?php echo esc_html( $openai_model ); ?></code>
+                                        <span class="description"><?php esc_html_e( 'Brononderzoek gebruikt altijd het hierboven geselecteerde OpenAI-model. Als dit model geen Responses API met webzoekfunctie ondersteunt, toont OpenAI een fout in plaats van stil een ander model te gebruiken.', 'publion' ); ?></span>
                                     </p>
                                     <p>
                                         <label for="publion_web_research_source_count"><strong><?php esc_html_e( 'Aantal bronnen per artikel', 'publion' ); ?></strong></label><br>
