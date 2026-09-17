@@ -490,6 +490,90 @@ function publion_get_post_author_id( $settings = null, $fallback_mode = 'current
 	return 0;
 }
 
+/**
+ * Resolve the only two post statuses that Publion may create.
+ *
+ * Keeping this in one place prevents the scheduled worker and the manual
+ * request from interpreting a stored value differently. In particular, an
+ * old or malformed option must never be passed through to wp_insert_post(),
+ * where WordPress can silently fall back to a draft.
+ *
+ * @param array|null $settings Post settings, or null to read the saved option.
+ * @return string Either `draft` or `publish`.
+ */
+function publion_get_requested_post_status( $settings = null ) {
+	if ( ! is_array( $settings ) ) {
+		$settings = get_option( 'publion_post_settings', array() );
+	}
+
+	$status = sanitize_key( $settings['post_status'] ?? 'draft' );
+	return in_array( $status, array( 'draft', 'publish' ), true ) ? $status : 'draft';
+}
+
+/**
+ * Verify the status WordPress actually stored and repair it once if a hook
+ * changed it during creation or while post metadata was added.
+ *
+ * A number of WordPress plugins use wp_insert_post_data or save_post hooks.
+ * The old flow trusted the requested status, which meant such a hook could
+ * leave a valid article as a draft while Publion recorded it as published.
+ * Do not bypass those hooks with a direct database write: that would make the
+ * post inconsistent for moderation and cache plugins. Instead, make one
+ * normal WordPress update and report a persistent mismatch honestly.
+ *
+ * @param int    $post_id          Created post ID.
+ * @param string $requested_status Expected Publion status.
+ * @return true|WP_Error True when the stored status matches, otherwise an error.
+ */
+function publion_ensure_requested_post_status( $post_id, $requested_status ) {
+	$post_id          = absint( $post_id );
+	$requested_status = in_array( $requested_status, array( 'draft', 'publish' ), true ) ? $requested_status : 'draft';
+
+	if ( ! $post_id || ! get_post( $post_id ) ) {
+		return new WP_Error( 'publion_post_missing', __( 'De zojuist aangemaakte WordPress-post kon niet meer worden gevonden.', 'publion' ) );
+	}
+
+	$actual_status = get_post_status( $post_id );
+	if ( $requested_status === $actual_status ) {
+		return true;
+	}
+
+	$updated = wp_update_post(
+		array(
+			'ID'          => $post_id,
+			'post_status' => $requested_status,
+		),
+		true
+	);
+	if ( is_wp_error( $updated ) ) {
+		return new WP_Error(
+			'publion_post_status_update_failed',
+			sprintf(
+				/* translators: 1: requested status, 2: WordPress error. */
+				__( 'Publion kon de gewenste poststatus “%1$s” niet toepassen: %2$s', 'publion' ),
+				$requested_status,
+				$updated->get_error_message()
+			)
+		);
+	}
+
+	clean_post_cache( $post_id );
+	$actual_status = get_post_status( $post_id );
+	if ( $requested_status === $actual_status ) {
+		return true;
+	}
+
+	return new WP_Error(
+		'publion_post_status_mismatch',
+		sprintf(
+			/* translators: 1: requested status, 2: final stored status. */
+			__( 'Publion vroeg poststatus “%1$s”, maar WordPress sloeg “%2$s” op. Controleer een plugin of hook die poststatussen wijzigt.', 'publion' ),
+			$requested_status,
+			$actual_status ? $actual_status : __( 'onbekend', 'publion' )
+		)
+	);
+}
+
 function publion_get_daily_post_schedule_slots( DateTimeImmutable $date, $time_str, $posts_per_day, $window_hours ) {
 	$parsed        = publion_parse_time_string( $time_str, '00:00' );
 	$posts_per_day = max( 1, min( 8, (int) $posts_per_day ) );
@@ -2534,7 +2618,7 @@ function publion_create_post_now() {
 	delete_transient( publion_creation_cancellation_key( $topic_id ) );
 
 	$settings    = get_option( 'publion_post_settings', [] );
-	$post_status = sanitize_key( $settings['post_status'] ?? 'draft' );
+	$post_status = publion_get_requested_post_status( $settings );
 	$author_id   = publion_get_post_author_id( $settings, 'current' );
 
 	$add_cta  = ( isset( $settings['cta_enabled'] ) && 'yes' === $settings['cta_enabled'] );
@@ -2625,7 +2709,7 @@ function publion_create_post_now() {
 	}
 
 	// Create post.
-	publion_set_creation_progress( $topic_id, 'running', 88, __( 'Concept opslaan', 'publion' ), __( 'Het artikelconcept wordt in WordPress aangemaakt.', 'publion' ) );
+	publion_set_creation_progress( $topic_id, 'running', 88, __( 'Artikel opslaan', 'publion' ), __( 'Het artikel wordt in WordPress aangemaakt.', 'publion' ) );
 	$post_id = wp_insert_post(
 		[
 			'post_title'    => wp_strip_all_tags( $topic->topic ),
@@ -2673,15 +2757,21 @@ function publion_create_post_now() {
 		}
 	}
 
+	$status_result = publion_ensure_requested_post_status( $post_id, $post_status );
+	if ( is_wp_error( $status_result ) ) {
+		publion_fail_post_creation( $topic_id, $status_result->get_error_message(), 'publication' );
+	}
+	$actual_post_status = get_post_status( $post_id );
+
 	$now_mysql = current_time( 'mysql' );
 
 	$queue_update = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->publion_queue,
 		[
-			'status'          => ( 'publish' === $post_status ? 'published' : 'created' ),
+			'status'          => ( 'publish' === $actual_post_status ? 'published' : 'created' ),
 			'processing_started_at' => null,
 			'post_created_at' => $now_mysql,
-			'published_at'    => ( 'publish' === $post_status ? $now_mysql : null ),
+			'published_at'    => ( 'publish' === $actual_post_status ? $now_mysql : null ),
 		],
 		[ 'id' => $topic_id ]
 	);
@@ -2709,8 +2799,10 @@ function publion_create_post_now() {
 		'completed',
 		100,
 		__( 'Klaar', 'publion' ),
-		__( 'Het artikelconcept is opgeslagen en staat klaar voor redactionele controle.', 'publion' ),
-		array( 'post_id' => (int) $post_id, 'post_status' => $post_status )
+		( 'publish' === $actual_post_status )
+			? __( 'Het artikel is gepubliceerd.', 'publion' )
+			: __( 'Het artikelconcept is opgeslagen en staat klaar voor redactionele controle.', 'publion' ),
+		array( 'post_id' => (int) $post_id, 'post_status' => $actual_post_status )
 	);
 
 	wp_send_json_success( [ 'message' => __( 'Post succesvol aangemaakt.', 'publion' ), 'post_id' => (int) $post_id ] );

@@ -237,7 +237,7 @@ class Publion_Cron {
 
 		// Read settings.
 		$settings           = get_option( 'publion_post_settings', array() );
-		$post_status        = $settings['post_status'] ?? 'draft';
+		$post_status        = publion_get_requested_post_status( $settings );
 		$add_cta            = ( ( $settings['cta_enabled'] ?? 'no' ) === 'yes' );
 		$cta_text           = $settings['cta_text'] ?? '';
 		$cta_link           = $settings['cta_link'] ?? '';
@@ -433,15 +433,36 @@ class Publion_Cron {
 			set_post_thumbnail( $post_id, $image_ids[5] );
 		}
 
+		$status_result = publion_ensure_requested_post_status( $post_id, $post_status );
+		if ( is_wp_error( $status_result ) ) {
+			$now = current_time( 'mysql' );
+			$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->publion_queue,
+				array(
+					'status'                => 'created',
+					'processing_started_at' => null,
+					'post_created_at'       => $now,
+				),
+				array( 'id' => (int) $topic->id ),
+				array( '%s', '%s', '%s' ),
+				array( '%d' )
+			);
+			wp_cache_delete( $this->cache_key_next_topic, $this->cache_group );
+			publion_release_generation_lock( (int) $topic->id, $topic->topic );
+			error_log( '[Publion][PUBLION-POST-STATUS] Queue item #' . (int) $topic->id . ': ' . $status_result->get_error_message() );
+			return;
+		}
+		$actual_post_status = get_post_status( $post_id );
+
 		// Update queue row. Writes are not cacheable; also invalidate the next-topic cache.
 		$now = current_time( 'mysql' );
 		$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->publion_queue,
 			array(
-				'status'          => ( 'publish' === $post_status ? 'published' : 'created' ),
+				'status'          => ( 'publish' === $actual_post_status ? 'published' : 'created' ),
 				'processing_started_at' => null,
 				'post_created_at' => $now,
-				'published_at'    => ( 'publish' === $post_status ? $now : null ),
+				'published_at'    => ( 'publish' === $actual_post_status ? $now : null ),
 			),
 			array( 'id' => (int) $topic->id ),
 			array( '%s', '%s', '%s' ),

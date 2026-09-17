@@ -79,7 +79,7 @@ function publion_get_rank_math_settings( $saved = null ) {
     $density_max = max( $density_min, min( 2.5, (float) ( $saved['rank_math_density_max'] ?? 1.5 ) ) );
 	// An explicit Publish choice is the final publication preference. Do not
 	// silently turn it into a draft because of a quality-review preference.
-	$publish_gate = ( $saved['rank_math_publish_gate'] ?? 'yes' ) === 'yes' && ( $saved['post_status'] ?? 'draft' ) !== 'publish';
+	$publish_gate = ( $saved['rank_math_publish_gate'] ?? 'yes' ) === 'yes' && 'publish' !== publion_get_requested_post_status( $saved );
     return array(
         'enabled'             => ( $saved['rank_math_integration'] ?? 'no' ) === 'yes',
         'target_word_count'   => max( 1200, min( 5000, (int) ( $saved['rank_math_target_word_count'] ?? 2500 ) ) ),

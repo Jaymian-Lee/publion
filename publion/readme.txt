@@ -5,7 +5,7 @@ Tags: ai content, chatgpt, blog automatisering, post generatie, blogpost ai
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.9.45
+Stable tag: 1.9.46
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,7 +50,7 @@ Publion is je persoonlijke content-assistent voor WordPress. Deze plugin is bedo
 Ja. Je hebt een OpenAI API-sleutel nodig om content te genereren.
 
 = Publiceert deze plugin automatisch? =
-Nee. De plugin maakt concepten (op schema of op aanvraag) zodat je ze handmatig kunt reviewen en publiceren.
+Standaard maakt de plugin concepten (op schema of op aanvraag) zodat je ze handmatig kunt reviewen. Kies bij “Poststatus bij aanmaken” voor “Gepubliceerd” om geldige artikelen direct te publiceren.
 
 = Kan ik direct een post maken zonder te wachten op het schema? =
 Ja. Gebruik de knop **Nu maken** in de wachtrij.
@@ -81,6 +81,10 @@ Deze versie maakt standaard blogposts aan.
 4. Maak automatisch volledige conceptposts met AI-afbeeldingen.
 
 == Changelog ==
+
+= 1.9.46 =
+* Herstelt automatische publicatie: handmatige en geplande creatie normaliseren de gekozen poststatus, verifiëren de status die WordPress werkelijk opslaat en proberen “Gepubliceerd” één keer opnieuw via de reguliere WordPress-API toe te passen.
+* De wachtrij kan een concept niet langer ten onrechte als gepubliceerd markeren. Als een externe plugin of hook publicatie blijft blokkeren, blijft de post correct als aangemaakt geregistreerd en staat er een gerichte fout in de WordPress error log.
 
 = 1.9.45 =
 * Afbeeldingen worden uitsluitend nog tussen de echte artikelonderdelen geplaatst. Toegevoegde secties voor externe bronnen en live brononderzoek zijn uitgesloten, zodat afbeeldingen daar niet meer kunnen clusteren.

@@ -19,9 +19,7 @@ class Publion_Settings {
     }
 
     public static function get_post_status() {
-        $settings = get_option('publion_post_settings', []);
-        $valid = ['draft', 'publish'];
-        return in_array($settings['post_status'] ?? 'draft', $valid) ? $settings['post_status'] : 'draft';
+        return publion_get_requested_post_status();
     }
 
     public static function should_add_cta() {
