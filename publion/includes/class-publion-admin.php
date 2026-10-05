@@ -1099,7 +1099,7 @@ class Publion_Admin {
                         </tr>
 
                         <tr>
-                            <th scope="row"><?php esc_html_e( 'Geverifieerde externe bron-URL\'s', 'publion' ); ?></th>
+                            <th scope="row"><?php esc_html_e( 'Ingestelde externe bron-URL\'s', 'publion' ); ?></th>
                             <td>
                                 <textarea id="publion_preferred_external_urls" name="preferred_external_urls" rows="4" style="width:100%; max-width:600px;"><?php echo esc_textarea( $settings['preferred_external_urls'] ?? '' ); ?></textarea>
                                 <p class="description" style="margin-top:6px; max-width: 600px;">
@@ -1133,13 +1133,13 @@ class Publion_Admin {
                                     <p><strong><?php esc_html_e( 'Kwaliteitsregels voor nieuwe artikelen', 'publion' ); ?></strong></p>
                                     <div class="publion-rank-math-fields">
                                         <label><?php esc_html_e( 'Minimaal aantal woorden', 'publion' ); ?><input type="number" name="rank_math_target_word_count" id="publion_rank_math_target_word_count" min="1200" max="5000" value="<?php echo esc_attr( $settings['rank_math_target_word_count'] ?? 2500 ); ?>" /></label>
-                                        <label><?php esc_html_e( 'Keyworddichtheid van', 'publion' ); ?><input type="number" name="rank_math_density_min" id="publion_rank_math_density_min" min="0.5" max="2" step="0.1" value="<?php echo esc_attr( $settings['rank_math_density_min'] ?? 1 ); ?>" /></label>
+                                        <label><?php esc_html_e( 'Keyworddichtheid (alleen advies) van', 'publion' ); ?><input type="number" name="rank_math_density_min" id="publion_rank_math_density_min" min="0.5" max="2" step="0.1" value="<?php echo esc_attr( $settings['rank_math_density_min'] ?? 1 ); ?>" /></label>
                                         <label><?php esc_html_e( 'tot', 'publion' ); ?><input type="number" name="rank_math_density_max" id="publion_rank_math_density_max" min="0.5" max="2.5" step="0.1" value="<?php echo esc_attr( $settings['rank_math_density_max'] ?? 1.5 ); ?>" /></label>
                                         <label><?php esc_html_e( 'Max. woorden per alinea', 'publion' ); ?><input type="number" name="rank_math_max_paragraph_words" id="publion_rank_math_max_paragraph_words" min="60" max="180" value="<?php echo esc_attr( $settings['rank_math_max_paragraph_words'] ?? 120 ); ?>" /></label>
                                     </div>
                                     <div class="publion-rank-math-toggles">
                                         <label><input type="checkbox" id="publion_rank_math_auto_repair" <?php checked( $settings['rank_math_auto_repair'] ?? 'yes', 'yes' ); ?> /> <?php esc_html_e( 'Herstel harde inhoudschecks eenmaal automatisch', 'publion' ); ?></label>
-                                        <label><input type="checkbox" id="publion_rank_math_publish_gate" <?php checked( ( $settings['rank_math_publish_gate'] ?? 'yes' ) === 'yes' && ( $settings['post_status'] ?? 'draft' ) !== 'publish' ); ?> <?php disabled( ( $settings['post_status'] ?? 'draft' ) === 'publish' ); ?> /> <?php esc_html_e( 'Bewaar bij harde fouten altijd als concept', 'publion' ); ?></label>
+                                        <label><input type="checkbox" id="publion_rank_math_publish_gate" <?php checked( ( $settings['rank_math_publish_gate'] ?? 'yes' ) === 'yes' ); ?> /> <?php esc_html_e( 'Bewaar bij harde fouten altijd als concept', 'publion' ); ?></label>
                                         <label><input type="checkbox" id="publion_rank_math_add_toc" <?php checked( $settings['rank_math_add_toc'] ?? 'yes', 'yes' ); ?> /> <?php esc_html_e( 'Voeg een inhoudsopgave toe', 'publion' ); ?></label>
                                         <label><input type="checkbox" id="publion_rank_math_check_image_alt" <?php checked( $settings['rank_math_check_image_alt'] ?? 'yes', 'yes' ); ?> /> <?php esc_html_e( 'Controleer keyword in relevante alt-tekst', 'publion' ); ?></label>
                                         <label><input type="checkbox" id="publion_rank_math_check_external_link" <?php checked( $settings['rank_math_check_external_link'] ?? 'yes', 'yes' ); ?> /> <?php esc_html_e( 'Toon externe bronlink als reviewpunt', 'publion' ); ?></label>
@@ -1495,7 +1495,7 @@ class Publion_Admin {
                 </section>
                 <div class="publion-resource-bar">
                     <a class="button button-primary" href="#publion-guide-workflow"><?php esc_html_e( 'Naar de workflow', 'publion' ); ?></a>
-                    <a class="button" href="<?php echo esc_url( PUBLION_URL . 'publion-documentation.pdf' ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Download PDF-handleiding', 'publion' ); ?></a>
+                    <a class="button" href="<?php echo esc_url( PUBLION_URL . 'publion-documentation.html' ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Open handleiding', 'publion' ); ?></a>
                     <a class="button" href="https://support.google.com/webmasters/answer/7576553" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Lees Search Console-metrics', 'publion' ); ?></a>
                     <a class="button" href="https://support.google.com/webmasters/answer/17010961" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Vind kansen met lage CTR', 'publion' ); ?></a>
                 </div>

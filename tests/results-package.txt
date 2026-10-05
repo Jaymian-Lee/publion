@@ -1,0 +1,89 @@
+PASS legacy missing/null/empty/whitespace keyword fallback
+PASS exact primary-keyword diagnostic, source editor note and alt instructions rejected
+PASS valid error-message article and natural low density accepted
+PASS malformed/incomplete/unsafe HTML and unrelated topic rejected
+PASS JSON finish_reason/refusal/nonstring gate
+[Publion][PUBLION-DUPLICATE-CONTENT] This queue item already has a WordPress post. A second post was not created.
+PASS manual happy path empty keyword draft->metadata->publish idempotency
+[Publion][PUBLION-PUBLION-INSTRUCTION-LEAK] Het concept bevat een generatie-instructie, foutantwoord of onveilige markup. Review en herstel de tekst voordat je publiceert.
+[Publion][PUBLION-PUBLION-INSTRUCTION-LEAK] Het concept bevat een generatie-instructie, foutantwoord of onveilige markup. Review en herstel de tekst voordat je publiceert.
+PASS manual diagnostic fails before image/publication
+[Publion][PUBLION-PUBLION-INCOMPLETE-RESPONSE] Het antwoord is geweigerd, onvolledig of afgebroken. Controleer het onderwerp en probeer opnieuw.
+[Publion][PUBLION-PUBLION-INCOMPLETE-RESPONSE] Het antwoord is geweigerd, onvolledig of afgebroken. Controleer het onderwerp en probeer opnieuw.
+PASS manual refusal fails before image/publication
+[Publion][PUBLION-PUBLION-INCOMPLETE-RESPONSE] Het antwoord is geweigerd, onvolledig of afgebroken. Controleer het onderwerp en probeer opnieuw.
+[Publion][PUBLION-PUBLION-INCOMPLETE-RESPONSE] Het antwoord is geweigerd, onvolledig of afgebroken. Controleer het onderwerp en probeer opnieuw.
+PASS manual truncated fails before image/publication
+[Publion][PUBLION-PUBLION-INVALID-RESPONSE] OpenAI gaf ongeldige JSON terug; er is niets gepubliceerd.
+[Publion][PUBLION-PUBLION-INVALID-RESPONSE] OpenAI gaf ongeldige JSON terug; er is niets gepubliceerd.
+PASS manual malformed_json fails before image/publication
+[Publion][PUBLION-PUBLION-INVALID-CONFIGURATION] OpenAI heeft de API-sleutel geweigerd. Vervang de sleutel en controleer het API-project.
+[Publion][PUBLION-PUBLION-INVALID-CONFIGURATION] OpenAI heeft de API-sleutel geweigerd. Vervang de sleutel en controleer het API-project.
+PASS manual auth_fail fails before image/publication
+[Publion][PUBLION-PUBLION-OPENAI-REQUEST-FAILED] OpenAI did not respond in time. Publion retried the request automatically but still received no response. This can happen temporarily with a slow connection, firewall or service congestion.
+[Publion][PUBLION-PUBLION-OPENAI-REQUEST-FAILED] OpenAI did not respond in time. Publion retried the request automatically but still received no response. This can happen temporarily with a slow connection, firewall or service congestion.
+PASS manual timeout fails before image/publication
+[Publion][PUBLION-PUBLION-OPENAI-REQUEST-FAILED] OpenAI heeft deze aanvraag tijdelijk beperkt. Controleer tegoed, facturatie en rate limits en probeer later opnieuw.
+[Publion][PUBLION-PUBLION-OPENAI-REQUEST-FAILED] OpenAI heeft deze aanvraag tijdelijk beperkt. Controleer tegoed, facturatie en rate limits en probeer later opnieuw.
+PASS manual rate_limit fails before image/publication
+PASS cron happy path empty keyword draft->metadata->publish idempotency
+[Publion][PUBLION-PUBLION-INSTRUCTION-LEAK] Het concept bevat een generatie-instructie, foutantwoord of onveilige markup. Review en herstel de tekst voordat je publiceert.
+PASS cron diagnostic fails before image/publication
+[Publion][PUBLION-PUBLION-INCOMPLETE-RESPONSE] Het antwoord is geweigerd, onvolledig of afgebroken. Controleer het onderwerp en probeer opnieuw.
+PASS cron refusal fails before image/publication
+[Publion][PUBLION-PUBLION-INCOMPLETE-RESPONSE] Het antwoord is geweigerd, onvolledig of afgebroken. Controleer het onderwerp en probeer opnieuw.
+PASS cron truncated fails before image/publication
+[Publion][PUBLION-PUBLION-INVALID-RESPONSE] OpenAI gaf ongeldige JSON terug; er is niets gepubliceerd.
+PASS cron malformed_json fails before image/publication
+[Publion][PUBLION-PUBLION-INVALID-CONFIGURATION] OpenAI heeft de API-sleutel geweigerd. Vervang de sleutel en controleer het API-project.
+PASS cron auth_fail fails before image/publication
+[Publion][PUBLION-PUBLION-OPENAI-REQUEST-FAILED] OpenAI did not respond in time. Publion retried the request automatically but still received no response. This can happen temporarily with a slow connection, firewall or service congestion.
+PASS cron timeout fails before image/publication
+[Publion][PUBLION-PUBLION-OPENAI-REQUEST-FAILED] OpenAI heeft deze aanvraag tijdelijk beperkt. Controleer tegoed, facturatie en rate limits en probeer later opnieuw.
+PASS cron rate_limit fails before image/publication
+PASS invalid repair preserves original valid article
+PASS Rank Math gate independent of publish preference
+PASS manual publish and scheduler revalidate only Publion posts
+[Publion][PUBLION-PERMISSION-DENIED] Je account mag geen artikelen maken vanuit Publion.
+PASS nonce missing/invalid and capability rejection
+PASS parallel claim and expired owner cannot renew/delete replacement
+[Publion][PUBLION-PUBLION-CLAIM-LOST] Het geldige concept kon niet veilig worden vastgelegd; de generatieclaim is verlopen.
+PASS precommit owner loss cannot insert post
+[Publion][PUBLION-PUBLION-OPENAI-REQUEST-FAILED] OpenAI did not respond in time. Publion retried the request automatically but still received no response. This can happen temporarily with a slow connection, firewall or service congestion.
+[Publion][PUBLION-PUBLION-OPENAI-REQUEST-FAILED] OpenAI did not respond in time. Publion retried the request automatically but still received no response. This can happen temporarily with a slow connection, firewall or service congestion.
+[Publion][PUBLION-PUBLION-OPENAI-REQUEST-FAILED] OpenAI did not respond in time. Publion retried the request automatically but still received no response. This can happen temporarily with a slow connection, firewall or service congestion.
+PASS bounded retry and poison job does not starve next job
+PASS crash after insert recovers linked draft without new API requests
+PASS source warning keeps valid concept for hash-bound manual review
+PASS sources only cited URLs no public editorial instructions
+[Publion][IMAGE] code=unknown request_id=unavailable
+[Publion][IMAGE] code=unknown request_id=unavailable
+[Publion][IMAGE] code=unknown request_id=unavailable
+[Publion][IMAGE] code=unknown request_id=unavailable
+PASS image failure omits placeholders without dropping valid article
+PASS model choices retained and invalid model no fallback
+PASS secrets redacted and entities preserved
+[Publion][IMAGE] code=unknown request_id=unavailable
+PASS first hero failure retries bounded and persists specific roles/alt briefs
+PASS asset reuse after interrupted media stage and inline hero responsive markup
+[Publion][IMAGE] code=unknown request_id=unavailable
+[Publion][IMAGE] code=unknown request_id=unavailable
+[Publion][IMAGE] code=unknown request_id=unavailable
+[Publion][IMAGE] code=unknown request_id=unavailable
+PASS draft media retry preserves good assets and rejects live post changes
+PASS public-source URL gate rejects SSRF credentials ports and local networks
+PASS evidence-first source pipeline: good
+PASS evidence-first source pipeline: broken
+PASS evidence-first source pipeline: unrelated
+PASS evidence-first source pipeline: fake_quote
+PASS evidence-first source pipeline: contradiction
+PASS evidence-first source pipeline: stale
+PASS evidence-first source pipeline: unsupported
+PASS FAQ structured data refresh after content edit
+PASS diagnostics dry-run renders escaped review controls without modifying posts
+PASS daily cron creates a usable keyword instead of schema empty default
+PASS additive migration preserves old records schedules and settings
+PASS real two-process contention permits one claim and one draft
+PASS robots policy longest rule and specific Publion agent respected
+PASS legitimate Data label and error text are not broad filter matches
+WordPress 7.1.2, PHP 8.2.12, SQLite integration; 52 tests, 0 failures. All HTTP and mail intercepted.

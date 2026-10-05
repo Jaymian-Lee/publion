@@ -4,7 +4,7 @@
 
 Publion helpt redacties, marketeers en ondernemers om van een categorie naar een gecontroleerd artikelconcept te werken. De plugin maakt niet alleen tekst: hij bouwt eerst een contentbrief met zoekintentie, focus-keyword, invalshoek en FAQ-vragen. Daarna kun je onderwerpen plannen, artikelen als concept maken, afbeeldingen laten genereren en de resultaten volgen in je eigen analyticsomgeving.
 
-De huidige release is **1.9.46**. Download het WordPress-importpakket: [publion-wordpress-1.9.46.zip](publion-wordpress-1.9.46.zip). Het pakket bevat precies één hoofdmap: `publion/`. Dat is de vereiste WordPress-structuur en voorkomt dat WordPress een tweede, losstaande pluginmap maakt.
+De huidige release is **1.9.47**. Download het WordPress-importpakket: [publion-wordpress-1.9.47.zip](publion-wordpress-1.9.47.zip). Zie [release, validatie en rollout](RELEASE-1.9.47.md) en [regressietests](tests/README.md). Het pakket bevat precies één hoofdmap: `publion/`. Dat is de vereiste WordPress-structuur en voorkomt dat WordPress een tweede, losstaande pluginmap maakt.
 
 ## In één oogopslag
 
@@ -14,7 +14,7 @@ De huidige release is **1.9.46**. Download het WordPress-importpakket: [publion-
 | Categorie-strategie | Ontwerpt en laat je controleren: vijf volledig ingevulde hoofd- en subcategorieën uit bestaande content en taxonomie, afgestemd op informatie, leads of conversie. |
 | SEO-brief | Geeft elk voorstel een focus-keyword, zoekintentie, invalshoek en FAQ-vragen. |
 | Artikelproductie | Schrijft een semantisch HTML-concept van minimaal 1.500 woorden. |
-| Afbeeldingen | Maakt vijf contextuele afbeeldingen in de inhoud en één uitgelichte afbeelding. |
+| Afbeeldingen | Maakt een herbruikbare hero en maximaal vijf afbeeldingen bij inhoudelijke koppen, met afzonderlijke herstelstatus. |
 | Wachtrij en planning | Beheert handmatige en automatische onderwerpen, inclusief planning en bulkacties. |
 | Kwaliteitsbasis | Stuurt op directe antwoorden, duidelijke koppen, relevante links, alt-tekst en interne links. |
 | Publicatiecheck | Opent een toegankelijke SEO/SEA/GEO-checklist vóór publicatie of campagnegebruik. |
