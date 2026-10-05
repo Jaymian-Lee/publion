@@ -20,6 +20,9 @@ function publion_test_admin_menu( $early_child = false ) {
 }
 test( 'admin_menu registers dashboard first and correct WordPress-generated navigation', function () {
     reset_case();
+    $plugin_data = get_plugin_data( PUBLION_PATH . 'publion.php', false, false );
+    preg_match( '/^Stable tag: (.+)$/m', file_get_contents( PUBLION_PATH . 'readme.txt' ), $stable );
+    check( PUBLION_VERSION === $plugin_data['Version'] && PUBLION_VERSION === trim( $stable[1] ?? '' ), 'Runtime/cache version, plugin header and stable tag differ' );
     $html = publion_test_admin_menu();
     check( 'publion' === $GLOBALS['submenu']['publion'][0][2], 'Dashboard missing/first child hijacked parent' );
     check( false !== strpos( $html, "href='admin.php?page=publion'" ), 'Main/dashboard link is not canonical WordPress admin route' );
