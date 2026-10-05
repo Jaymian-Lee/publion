@@ -8,6 +8,8 @@ import zipfile
 repo = Path(__file__).resolve().parents[1]
 plugin = repo / 'publion'
 version = re.search(r'^Version: (.+)$', (plugin / 'publion.php').read_text(encoding='utf-8'), re.M).group(1)
+assert re.search(r"define\( 'PUBLION_VERSION', '([^']+)' \);", (plugin / 'publion.php').read_text(encoding='utf-8')).group(1) == version
+assert re.search(r'^Stable tag: (.+)$', (plugin / 'readme.txt').read_text(encoding='utf-8'), re.M).group(1) == version
 output = repo / f'publion-wordpress-{version}.zip'
 files = [p for p in sorted(plugin.rglob('*')) if p.is_file() and p.name not in {'AGENTS.md', 'publion-documentation.pdf'}]
 with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as archive:

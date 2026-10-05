@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'PUBLION_VERSION', '1.9.47' );
+define( 'PUBLION_VERSION', '1.9.48' );
 define( 'PUBLION_PATH', plugin_dir_path( __FILE__ ) );
 define( 'PUBLION_URL', plugin_dir_url( __FILE__ ) );
 

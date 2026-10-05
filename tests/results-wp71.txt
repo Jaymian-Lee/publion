@@ -3,8 +3,8 @@ PASS exact primary-keyword diagnostic, source editor note and alt instructions r
 PASS valid error-message article and natural low density accepted
 PASS malformed/incomplete/unsafe HTML and unrelated topic rejected
 PASS JSON finish_reason/refusal/nonstring gate
-PASS manual happy path empty keyword draft->metadata->publish idempotency
 [Publion][PUBLION-DUPLICATE-CONTENT] This queue item already has a WordPress post. A second post was not created.
+PASS manual happy path empty keyword draft->metadata->publish idempotency
 [Publion][PUBLION-PUBLION-INSTRUCTION-LEAK] Het concept bevat een generatie-instructie, foutantwoord of onveilige markup. Review en herstel de tekst voordat je publiceert.
 [Publion][PUBLION-PUBLION-INSTRUCTION-LEAK] Het concept bevat een generatie-instructie, foutantwoord of onveilige markup. Review en herstel de tekst voordat je publiceert.
 PASS manual diagnostic fails before image/publication
