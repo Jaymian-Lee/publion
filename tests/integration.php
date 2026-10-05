@@ -396,6 +396,8 @@ test( 'robots policy longest rule and specific Publion agent respected', functio
 test( 'legitimate Data label and error text are not broad filter matches', function () {
     check( true === publion_validate_article_content( article( 'Data: foutmelding op thermostaat' ), 'thermostaat' ), 'Broad error/data word rejection' );
 } );
+require __DIR__ . '/menu-tests.php';
+
 global $wp_version;
 $failed = array_filter( $results, function ( $row ) { return 'FAIL' === $row[1]; } );
 echo 'WordPress ' . $wp_version . ', PHP ' . PHP_VERSION . ', ' . ( defined( 'DB_ENGINE' ) && 'sqlite' === DB_ENGINE ? 'SQLite integration' : 'MySQL/MariaDB' ) . '; ' . count( $results ) . ' tests, ' . count( $failed ) . " failures. All HTTP and mail intercepted.\n";

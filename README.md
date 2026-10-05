@@ -4,7 +4,7 @@
 
 Publion helpt redacties, marketeers en ondernemers om van een categorie naar een gecontroleerd artikelconcept te werken. De plugin maakt niet alleen tekst: hij bouwt eerst een contentbrief met zoekintentie, focus-keyword, invalshoek en FAQ-vragen. Daarna kun je onderwerpen plannen, artikelen als concept maken, afbeeldingen laten genereren en de resultaten volgen in je eigen analyticsomgeving.
 
-De huidige release is **1.9.47**. Download het WordPress-importpakket: [publion-wordpress-1.9.47.zip](publion-wordpress-1.9.47.zip). Zie [release, validatie en rollout](RELEASE-1.9.47.md) en [regressietests](tests/README.md). Het pakket bevat precies één hoofdmap: `publion/`. Dat is de vereiste WordPress-structuur en voorkomt dat WordPress een tweede, losstaande pluginmap maakt.
+De huidige release is **1.9.48**. Download het WordPress-importpakket: [publion-wordpress-1.9.48.zip](publion-wordpress-1.9.48.zip). Zie [menuroutepatch](RELEASE-1.9.48.md) en [pipeline, validatie en rollout](RELEASE-1.9.47.md) en [regressietests](tests/README.md). Het pakket bevat precies één hoofdmap: `publion/`. Dat is de vereiste WordPress-structuur en voorkomt dat WordPress een tweede, losstaande pluginmap maakt.
 
 ## In één oogopslag
 

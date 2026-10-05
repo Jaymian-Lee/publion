@@ -25,6 +25,10 @@ class Publion_Admin {
             'dashicons-welcome-write-blog',
             26
         );
+        // Register children only after their parent exists: WordPress derives page hooks from it.
+        // Explicit position zero also preserves the dashboard if another extension added a child first.
+        add_submenu_page( 'publion', __( 'Publion', 'publion' ), __( 'Dashboard', 'publion' ), 'manage_options', 'publion', [ $this, 'render_admin_page' ], 0 );
+        add_submenu_page( 'publion', __( 'Publion Diagnose', 'publion' ), __( 'Diagnose en review', 'publion' ), 'manage_options', 'publion-diagnostics', 'publion_render_diagnostics' );
     }
 
     public function add_rank_math_quality_meta_box( $post ) {
@@ -455,6 +459,9 @@ class Publion_Admin {
     }
 
     public function render_admin_page() {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'Geen toegang.', 'publion' ), 403 );
+        }
         if ( ! get_option( 'publion_last_post_created_at' ) ) {
             update_option( 'publion_last_post_created_at', current_time( 'mysql' ) );
         }
@@ -952,7 +959,7 @@ class Publion_Admin {
                                 </select>
                                 <p class="description" style="margin-top:6px; max-width: 600px;">
                                     <strong><?php esc_html_e( 'Let op:', 'publion' ); ?></strong>
-                                    <em><?php esc_html_e( 'Concept wordt aanbevolen. Als er geen AI-afbeeldingen gegenereerd kunnen worden, worden placeholders gebruikt. Kies je voor Gepubliceerd, dan gaat de post live met placeholders indien nodig. De SEO-conceptblokkade wordt dan automatisch uitgeschakeld, zodat deze keuze leidend blijft.', 'publion' ); ?></em>
+                                    <em><?php esc_html_e( 'Concept wordt aanbevolen. Publicatie blijft afhankelijk van geldige inhoud, bronbeleid en beeldbeleid. Een ontbrekend beeld wordt niet door een placeholder vervangen; Diagnose en review toont de herstelstatus.', 'publion' ); ?></em>
                                 </p>
                             </td>
                         </tr>
@@ -1029,7 +1036,7 @@ class Publion_Admin {
                                 <input type="text" id="publion_preferred_external_domain" name="preferred_external_domain" style="width:320px;"
                                        value="<?php echo esc_attr( $settings['preferred_external_domain'] ?? '' ); ?>" placeholder="<?php esc_attr_e( 'Bijv. refacthor.nl', 'publion' ); ?>" />
                                 <p class="description" style="margin-top:6px; max-width: 600px;">
-                                    <?php esc_html_e( 'Vul het domein van een betrouwbare externe bron in. Publion gebruikt de HTTPS-homepage als veilige bronlink wanneer je geen specifieke URL toevoegt.', 'publion' ); ?>
+                                    <?php esc_html_e( 'Vul een voorkeursdomein in. Dit is kandidaatinput, geen bewijs voor claims en geen gegarandeerde link naar de homepage. Voeg specifieke relevante bronpagina’s toe en beoordeel het bronrapport.', 'publion' ); ?>
                                 </p>
                             </td>
                         </tr>
@@ -1042,7 +1049,7 @@ class Publion_Admin {
                                     <?php esc_html_e( 'Zoek actuele externe bronnen voordat een artikel wordt geschreven', 'publion' ); ?>
                                 </label>
                                 <p class="description" style="margin-top:6px; max-width:760px;">
-                                    <?php esc_html_e( 'Publion gebruikt de OpenAI Responses API met webzoekfunctie. Alleen de werkelijk teruggegeven HTTPS-bronnen worden aan de AI meegegeven en kunnen als klikbare bronnenlijst in het artikel verschijnen. Dit kan extra API-kosten en generatietijd geven.', 'publion' ); ?>
+                                    <?php esc_html_e( 'Publion gebruikt de OpenAI Responses API met webzoekfunctie. Bronkandidaten worden begrensd opgehaald en op relevante inhoud beoordeeld voordat bewijscontext aan de AI wordt meegegeven. Dit kan extra API-kosten en generatietijd geven.', 'publion' ); ?>
                                 </p>
                                 <div class="publion-web-research-options" style="margin-top:14px; max-width:760px; padding:14px; border:1px solid #d9e2f0; border-radius:8px; background:#f8fafc;">
                                     <p style="margin-top:0;"><strong><?php esc_html_e( 'Onderzoeksregels', 'publion' ); ?></strong></p>
@@ -1103,7 +1110,7 @@ class Publion_Admin {
                             <td>
                                 <textarea id="publion_preferred_external_urls" name="preferred_external_urls" rows="4" style="width:100%; max-width:600px;"><?php echo esc_textarea( $settings['preferred_external_urls'] ?? '' ); ?></textarea>
                                 <p class="description" style="margin-top:6px; max-width: 600px;">
-                                    <?php esc_html_e( 'Zet één veilige HTTPS-URL per regel. Publion gebruikt precies één passende URL per artikel en verzint nooit bronnen. Voeg hier minstens één relevante bron toe om een externe link in elk artikel te garanderen.', 'publion' ); ?>
+                                    <?php esc_html_e( 'Zet één publieke HTTPS-URL per regel. Dit zijn bronkandidaten. Live onderzoek controleert toegang, relevantie en letterlijke quotes; modelbeoordeling bewijst geen feitelijke waarheid. Een relevante externe link wordt niet geforceerd.', 'publion' ); ?>
                                 </p>
                             </td>
                         </tr>
@@ -1454,7 +1461,7 @@ class Publion_Admin {
                         <div><strong><?php esc_html_e( '1. Verbinden en kader stellen', 'publion' ); ?></strong><p><?php esc_html_e( 'Sla de OpenAI API-sleutel op, kies een tekst- en afbeeldingsmodel en beschrijf doelgroep, expertise en toon in de Publion-prompt. Deel nooit sleutels of vertrouwelijke klantinformatie.', 'publion' ); ?></p></div>
                         <div><strong><?php esc_html_e( '2. Plannen met een SEO-brief', 'publion' ); ?></strong><p><?php esc_html_e( 'Kies een categorie. Publion leest de actuele contentkaart en vraagt vijf nieuwe kansen op. Beoordeel titel, focus-keyword, intentie, unieke invalshoek en FAQ-vragen voordat je iets bewaart.', 'publion' ); ?></p></div>
                         <div><strong><?php esc_html_e( '3. Wachtrij en concept', 'publion' ); ?></strong><p><?php esc_html_e( 'Voeg alleen passende kansen toe. Kies bij voorkeur Concept als poststatus. Met Nu maken zie je de feitelijke stappen: onderzoek, tekst, beeld, SEO, opslaan en afronden.', 'publion' ); ?></p></div>
-                        <div><strong><?php esc_html_e( '4. Redactionele review', 'publion' ); ?></strong><p><?php esc_html_e( 'Controleer feiten, bronnen, links, merktoon, auteursrecht, meta description, afbeeldingen en placeholders. Publicatie blijft altijd een menselijke beslissing.', 'publion' ); ?></p></div>
+                        <div><strong><?php esc_html_e( '4. Redactionele review', 'publion' ); ?></strong><p><?php esc_html_e( 'Controleer feiten, bronnen, links, merktoon, auteursrecht, meta description en echte afbeeldingen. Publicatie blijft altijd een menselijke beslissing.', 'publion' ); ?></p></div>
                     </div>
                 </section>
                 <section id="publion-guide-quality" class="publion-dashboard-panel publion-guide-section">
@@ -1489,7 +1496,7 @@ class Publion_Admin {
                     <dl class="publion-troubleshooting-list publion-troubleshooting-list-wide">
                         <div><dt><?php esc_html_e( 'Lees een foutmelding stap voor stap', 'publion' ); ?></dt><dd><?php esc_html_e( 'Elke actuele fout noemt de actie, oorzaak, vervolgstap en foutreferentie. Gebruik de voorgestelde knop; deel bij ondersteuning alleen de referentie en nooit je API-sleutel.', 'publion' ); ?></dd></div>
                         <div><dt><?php esc_html_e( 'JSON-fout bij voorstellen', 'publion' ); ?></dt><dd><?php esc_html_e( 'Er is niets opgeslagen. Vernieuw de voorstellen; kies eventueel een ondersteund model of verkort een extreem lange Publion-prompt.', 'publion' ); ?></dd></div>
-                        <div><dt><?php esc_html_e( 'Afbeelding of tekst mislukt', 'publion' ); ?></dt><dd><?php esc_html_e( 'Controleer de veilige foutmelding, API-project, facturatie, netwerk en gekozen model. Vervang placeholders altijd voor publicatie.', 'publion' ); ?></dd></div>
+                        <div><dt><?php esc_html_e( 'Afbeelding of tekst mislukt', 'publion' ); ?></dt><dd><?php esc_html_e( 'Controleer de veilige foutmelding, API-project, facturatie, netwerk en gekozen model. Controleer ontbrekende beeldslots in Diagnose en review.', 'publion' ); ?></dd></div>
                         <div><dt><?php esc_html_e( 'Planning komt niet op gang', 'publion' ); ?></dt><dd><?php esc_html_e( 'WordPress Cron draait bij bezoek. Controleer tijdzone en planning; gebruik voor een betrouwbare productieplanning een echte servercron.', 'publion' ); ?></dd></div>
                     </dl>
                 </section>

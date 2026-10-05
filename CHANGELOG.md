@@ -1,3 +1,9 @@
+# Publion 1.9.48
+
+- Dashboard en Diagnose worden samen na het hoofdmenu geregistreerd; juiste admin.php?page= routes en parentafhankelijke hooks. Dashboard blijft eerste submenu, ook bij vroege extensie. Beide callbacks controleren manage_options.
+- Vier regressies voor daadwerkelijke admin_menu/coremenuoutput/hooks/directe toegang en rechten plus ingelogde browsernavigatie. De oorspronkelijke 52 pipelinegevallen blijven slagen.
+- Verouderde settingsbeschrijvingen over placeholders, gateuitschakeling en gegarandeerde bronlinks zijn in lijn gebracht met de veilige pipeline.
+
 # Publion 1.9.47
 
 ## Hersteld

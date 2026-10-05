@@ -3,8 +3,8 @@ PASS exact primary-keyword diagnostic, source editor note and alt instructions r
 PASS valid error-message article and natural low density accepted
 PASS malformed/incomplete/unsafe HTML and unrelated topic rejected
 PASS JSON finish_reason/refusal/nonstring gate
-[Publion][PUBLION-DUPLICATE-CONTENT] This queue item already has a WordPress post. A second post was not created.
 PASS manual happy path empty keyword draft->metadata->publish idempotency
+[Publion][PUBLION-DUPLICATE-CONTENT] This queue item already has a WordPress post. A second post was not created.
 [Publion][PUBLION-PUBLION-INSTRUCTION-LEAK] Het concept bevat een generatie-instructie, foutantwoord of onveilige markup. Review en herstel de tekst voordat je publiceert.
 [Publion][PUBLION-PUBLION-INSTRUCTION-LEAK] Het concept bevat een generatie-instructie, foutantwoord of onveilige markup. Review en herstel de tekst voordat je publiceert.
 PASS manual diagnostic fails before image/publication
@@ -86,4 +86,8 @@ PASS additive migration preserves old records schedules and settings
 PASS real two-process contention permits one claim and one draft
 PASS robots policy longest rule and specific Publion agent respected
 PASS legitimate Data label and error text are not broad filter matches
-WordPress 7.1.2, PHP 8.2.12, SQLite integration; 52 tests, 0 failures. All HTTP and mail intercepted.
+PASS admin_menu registers dashboard first and correct WordPress-generated navigation
+PASS admin_menu withstands earlier third-party child and repeated registration
+PASS direct registered admin URLs render dashboard settings generation and diagnose
+PASS unauthorized role cannot navigate or call either admin page
+WordPress 7.1.2, PHP 8.2.12, SQLite integration; 56 tests, 0 failures. All HTTP and mail intercepted.

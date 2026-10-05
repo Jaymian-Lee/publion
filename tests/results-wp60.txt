@@ -86,4 +86,8 @@ PASS additive migration preserves old records schedules and settings
 PASS real two-process contention permits one claim and one draft
 PASS robots policy longest rule and specific Publion agent respected
 PASS legitimate Data label and error text are not broad filter matches
-WordPress 6.0.11, PHP 8.2.12, MySQL/MariaDB; 52 tests, 0 failures. All HTTP and mail intercepted.
+PASS admin_menu registers dashboard first and correct WordPress-generated navigation
+PASS admin_menu withstands earlier third-party child and repeated registration
+PASS direct registered admin URLs render dashboard settings generation and diagnose
+PASS unauthorized role cannot navigate or call either admin page
+WordPress 6.0.11, PHP 8.2.12, MySQL/MariaDB; 56 tests, 0 failures. All HTTP and mail intercepted.

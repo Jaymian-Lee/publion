@@ -5,7 +5,7 @@ Tags: ai content, chatgpt, blog automatisering, post generatie, blogpost ai
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.9.47
+Stable tag: 1.9.48
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -81,6 +81,10 @@ Deze versie maakt standaard blogposts aan.
 4. Maak automatisch volledige conceptposts met AI-afbeeldingen.
 
 == Changelog ==
+
+= 1.9.48 =
+* Registreert dashboard en diagnose na hetzelfde parentmenu en herstelt correcte admin.php?page= routes.
+
 
 = 1.9.47 =
 * Beveiligde publicatiegates, duurzame retries en locks, herbruikbare afbeeldingen en transparante bronbeoordeling. Zie RELEASE-1.9.47.md in de repository voor tests en rollout.

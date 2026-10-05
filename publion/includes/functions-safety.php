@@ -199,12 +199,9 @@ function publion_render_safety_report( $post ) {
     echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=publion-diagnostics' ) ) . '">' . esc_html__( 'Open diagnose, dry-run en review', 'publion' ) . '</a></p>';
 }
 
-add_action( 'admin_menu', function () {
-    add_submenu_page( 'publion', __( 'Publion Diagnose', 'publion' ), __( 'Diagnose en review', 'publion' ), 'manage_options', 'publion-diagnostics', 'publion_render_diagnostics' );
-} );
 
 function publion_render_diagnostics() {
-    if ( ! current_user_can( 'manage_options' ) ) { return; }
+    if ( ! current_user_can( 'manage_options' ) ) { wp_die( esc_html__( 'Geen toegang.', 'publion' ), 403 ); }
     global $wpdb;
     publion_register_table_on_wpdb();
     echo '<div class="wrap"><h1>' . esc_html__( 'Publion: diagnose en review', 'publion' ) . '</h1><p>' . esc_html__( 'Deze controle wijzigt geen bestaande artikelen. Corrigeer een mislukt onderwerp en probeer het daarna opnieuw; bestaande posts worden hergebruikt.', 'publion' ) . '</p>';

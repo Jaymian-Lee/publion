@@ -12,8 +12,8 @@ De suite onderschept alle HTTP/mails, maakt geen echte AI-aanvragen, en draait t
 
 Gecontroleerd in deze taak:
 
-- WordPress **7.1.2**, officiële SQLite-integratie, PHP **8.2.12**: **52/52 geslaagd**.
-- WordPress **6.0.11**, afzonderlijke **MariaDB 10.4.32**, strict SQL-mode, PHP **8.2.12**: **52/52 geslaagd**.
+- WordPress **7.1.2**, officiële SQLite-integratie, PHP **8.2.12**: **56/56 geslaagd**.
+- WordPress **6.0.11**, afzonderlijke **MariaDB 10.4.32**, strict SQL-mode, PHP **8.2.12**: **56/56 geslaagd**.
 - PHP syntax van alle plugin/test/CLI-PHP-bestanden; `node --check` op beide admin-JS-bestanden.
 - PHPStan niveau **1** met een WordPress-bootstrap: geen fouten. Geen WPCS-config bestond in de baseline.
 - Packagegenerator vergelijkt elke ZIP-entry byte voor byte met de pluginbron en controleert CRC/één hoofdmap/geen path traversal.
@@ -21,3 +21,5 @@ Gecontroleerd in deze taak:
 PHP 7.4-runtime en de daadwerkelijke productieomgeving zijn nog afzonderlijke compatibiliteitscontroles. WordPress 6.0.11 met de nieuwste SQLite-drop-in bleek onverenigbaar op dependency-niveau; daarom is de minimum-WP-suite op MariaDB uitgevoerd, zonder die dependency of WordPress te patchen.
 
 Fixtures behandelen exacte incidenten, beide writers, topic/keywordfallbacks, JSON/refusal/truncation, onveilige/malformed HTML, geldige foutmelding-artikelen, repair behoud, no-image-costs bij slechte tekst, publicatie/future/SEO-gates, nonces/caps, leases/fencing/concurrency, snapshots/crashrecovery, bounded retries/starvation, source quote/provenance/freshness/contradictions, SSRF/robots, beelden/hergebruik/budget/hero/alt, FAQ-refresh, migratiebehoud en read-only Diagnose.
+
+De vier aanvullende 1.9.48-regressies starten vanuit koude pluginbootstrap, draaien de daadwerkelijke admin_menu hooks, registreren dashboard/diagnose-paginahooks, renderen WordPress menu-header.php vanuit de echte wp-admin-directory en controleren directe toegang plus capabilityweigering. Eerder toegevoegde extensies verliezen hun submenu niet. Handmatig in de geïsoleerde browser: admin aanmelden, beide daadwerkelijke sidebarlinks volgen en Plan content-tab openen; geen 404 en werkend admin.js.
