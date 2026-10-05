@@ -3,9 +3,9 @@
 Plugin Name: Publion
 Plugin URI: https://jaymian-lee.nl/publion
 Description: Genereer en verfijn blogposts met AI. Kies een categorie, krijg onderwerp-ideeën, zet SEO-geoptimaliseerde posts met afbeeldingen in de wachtrij en plan het aanmaken in WordPress.
-Version: 1.9.46
+Version: 1.9.48
 Requires at least: 6.0
-Tested up to: 6.9
+Tested up to: 7.1
 Requires PHP: 7.4
 Author: Jaymian-Lee
 Author URI: https://jaymian-lee.nl
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'PUBLION_VERSION', '1.9.46' );
+define( 'PUBLION_VERSION', '1.9.48' );
 define( 'PUBLION_PATH', plugin_dir_path( __FILE__ ) );
 define( 'PUBLION_URL', plugin_dir_url( __FILE__ ) );
 
@@ -81,8 +81,8 @@ add_filter( 'pings_open', 'publion_close_comments_on_generated_posts', 20, 2 );
 
 /**
  * Old articles can contain an image whose remote file was later removed by a
- * host or media cleanup tool. Hide only that failed Publion figure in-browser,
- * rather than leaving a broken icon and its alt text in the reading flow.
+ * host or media cleanup tool. Retry a failed image once and retain its figure
+ * and meaningful alt description so transient failures do not delete content.
  */
 function publion_hide_failed_generated_images() {
 	if ( ! is_singular( 'post' ) || ! get_queried_object_id() || ! get_post_meta( get_queried_object_id(), '_publion_queue_id', true ) ) {
@@ -93,8 +93,17 @@ function publion_hide_failed_generated_images() {
 	document.addEventListener('error', function (event) {
 		var image = event.target;
 		if (!image || !image.classList || !image.classList.contains('publion-generated-image')) return;
-		var figure = image.closest ? image.closest('figure.publion-article-media') : null;
-		if (figure) figure.remove();
+        if (image.dataset.publionRetried === '1') {
+            image.classList.add('publion-image-unavailable');
+            image.dataset.publionImageStatus = 'failed';
+            return;
+        }
+        image.dataset.publionRetried = '1';
+        var source = image.currentSrc || image.src;
+        window.setTimeout(function () {
+            image.removeAttribute('srcset');
+            image.src = source;
+        }, 1200);
 	}, true);
 	</script>
 	<?php
@@ -121,6 +130,9 @@ require_once PUBLION_PATH . 'includes/class-publion-settings.php';
 require_once PUBLION_PATH . 'includes/class-publion-ajax.php';
 require_once PUBLION_PATH . 'includes/class-publion-cron.php';
 require_once PUBLION_PATH . 'includes/functions-openai.php';
+require_once PUBLION_PATH . 'includes/functions-safety.php';
+require_once PUBLION_PATH . 'includes/functions-evidence.php';
+require_once PUBLION_PATH . 'includes/functions-media-pipeline.php';
 
 // Create DB table on activation.
 register_activation_hook( __FILE__, 'publion_create_queue_table' );
@@ -142,6 +154,13 @@ function publion_create_queue_table() {
 		scheduled_at DATETIME DEFAULT NULL,
 		schedule_locked TINYINT(1) DEFAULT 0,
 		processing_started_at DATETIME DEFAULT NULL,
+		claim_token VARCHAR(64) DEFAULT '',
+		attempts INT UNSIGNED DEFAULT 0,
+		retry_after DATETIME DEFAULT NULL,
+		last_error TEXT DEFAULT NULL,
+		draft_html LONGTEXT DEFAULT NULL,
+		artifact_state LONGTEXT DEFAULT NULL,
+		pipeline_hash VARCHAR(64) DEFAULT '',
 		post_created_at DATETIME DEFAULT NULL,
 		published_at DATETIME DEFAULT NULL,
 		PRIMARY KEY (id)
@@ -202,6 +221,13 @@ function publion_maybe_update_queue_table() {
 		scheduled_at DATETIME DEFAULT NULL,
 		schedule_locked TINYINT(1) DEFAULT 0,
 		processing_started_at DATETIME DEFAULT NULL,
+		claim_token VARCHAR(64) DEFAULT '',
+		attempts INT UNSIGNED DEFAULT 0,
+		retry_after DATETIME DEFAULT NULL,
+		last_error TEXT DEFAULT NULL,
+		draft_html LONGTEXT DEFAULT NULL,
+		artifact_state LONGTEXT DEFAULT NULL,
+		pipeline_hash VARCHAR(64) DEFAULT '',
 		post_created_at DATETIME DEFAULT NULL,
 		published_at DATETIME DEFAULT NULL,
 		PRIMARY KEY (id)

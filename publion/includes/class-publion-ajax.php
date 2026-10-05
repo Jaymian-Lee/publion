@@ -30,91 +30,79 @@ function publion_generation_lock_option_name( $topic ) {
 	return 'publion_gen_lock_' . substr( md5( publion_normalize_title( $topic ) ), 0, 28 );
 }
 
-function publion_acquire_generation_lock( $topic_id, $topic ) {
-	$option_name = publion_generation_lock_option_name( $topic );
-	$now         = time();
-	$existing    = get_option( $option_name, false );
-	if ( is_array( $existing ) && ! empty( $existing['started_at'] ) && ( $now - (int) $existing['started_at'] ) > 1800 ) {
-		delete_option( $option_name );
-		$existing = false;
-	}
-	if ( false !== $existing ) {
-		return false;
-	}
+/** Compare-and-delete prevents a stale worker removing a replacement lease. */
+function publion_delete_owned_lock( $name, $value ) {
+    global $wpdb;
+    $deleted = $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s", $name, maybe_serialize( $value ) ) );
+    if ( $deleted ) { wp_cache_delete( $name, 'options' ); }
+    return (bool) $deleted;
+}
 
-	return add_option(
-		$option_name,
-		array( 'topic_id' => absint( $topic_id ), 'started_at' => $now ),
-		'',
-		'no'
-	);
+function publion_acquire_generation_lock( $topic_id, $topic ) {
+    $name = publion_generation_lock_option_name( $topic );
+    $existing = get_option( $name, false );
+    if ( is_array( $existing ) && time() - (int) ( $existing['started_at'] ?? 0 ) > 1800 ) {
+        publion_delete_owned_lock( $name, $existing );
+    }
+    $token = wp_generate_uuid4();
+    if ( ! add_option( $name, array( 'topic_id' => absint( $topic_id ), 'started_at' => time(), 'token' => $token ), '', 'no' ) ) { return false; }
+    $GLOBALS['publion_claim_tokens'][absint( $topic_id )] = $token;
+    return true;
 }
 
 function publion_release_generation_lock( $topic_id, $topic ) {
-	$option_name = publion_generation_lock_option_name( $topic );
-	$existing    = get_option( $option_name, false );
-	if ( is_array( $existing ) && absint( $existing['topic_id'] ?? 0 ) === absint( $topic_id ) ) {
-		delete_option( $option_name );
-	}
+    $name = publion_generation_lock_option_name( $topic );
+    $existing = get_option( $name, false );
+    $token = $GLOBALS['publion_claim_tokens'][absint( $topic_id )] ?? '';
+    if ( $token && is_array( $existing ) && $token === ( $existing['token'] ?? '' ) ) { publion_delete_owned_lock( $name, $existing ); }
+    unset( $GLOBALS['publion_claim_tokens'][absint( $topic_id )] );
 }
 
-/** Recover only genuinely abandoned work after thirty minutes. */
 function publion_release_stale_processing_entries() {
-	global $wpdb;
-	publion_register_table_on_wpdb();
-	$cutoff = wp_date( 'Y-m-d H:i:s', current_time( 'timestamp' ) - ( 30 * MINUTE_IN_SECONDS ) );
-	$wpdb->query( // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->prepare(
-			"UPDATE {$wpdb->publion_queue} SET status = %s, processing_started_at = NULL WHERE status = %s AND (processing_started_at IS NULL OR processing_started_at < %s)",
-			'pending',
-			'processing',
-			$cutoff
-		)
-	);
+    global $wpdb;
+    publion_register_table_on_wpdb();
+    $cutoff = wp_date( 'Y-m-d H:i:s', time() - 1800 );
+    $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->publion_queue} SET status = CASE WHEN attempts >= 3 THEN 'blocked' ELSE 'pending' END, claim_token = '', processing_started_at = NULL WHERE status = %s AND (processing_started_at IS NULL OR processing_started_at < %s)", 'processing', $cutoff ) );
 }
 
-/** Atomically claim one pending queue entry before any AI request begins. */
 function publion_claim_queue_entry( $topic_id, $topic ) {
-	global $wpdb;
-	publion_register_table_on_wpdb();
-	publion_release_stale_processing_entries();
-	$claimed = $wpdb->query( // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->prepare(
-			"UPDATE {$wpdb->publion_queue} SET status = %s, processing_started_at = %s WHERE id = %d AND status = %s AND post_created_at IS NULL",
-			'processing',
-			current_time( 'mysql' ),
-			absint( $topic_id ),
-			'pending'
-		)
-	);
-	if ( 1 !== (int) $claimed ) {
-		return false;
-	}
-	if ( publion_acquire_generation_lock( $topic_id, $topic ) ) {
-		return true;
-	}
+    global $wpdb;
+    publion_register_table_on_wpdb();
+    publion_release_stale_processing_entries();
+    if ( ! publion_acquire_generation_lock( $topic_id, $topic ) ) { return false; }
+    $token = $GLOBALS['publion_claim_tokens'][absint( $topic_id )];
+    $claimed = $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->publion_queue} SET status = %s, processing_started_at = %s, claim_token = %s, attempts = COALESCE(attempts, 0) + 1 WHERE id = %d AND status = %s AND post_created_at IS NULL", 'processing', current_time( 'mysql' ), $token, absint( $topic_id ), 'pending' ) );
+    if ( 1 === (int) $claimed ) { return true; }
+    publion_release_generation_lock( $topic_id, $topic );
+    return false;
+}
 
-	$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->publion_queue,
-		array( 'status' => 'pending', 'processing_started_at' => null ),
-		array( 'id' => absint( $topic_id ), 'status' => 'processing' ),
-		array( '%s', '%s' ),
-		array( '%d', '%s' )
-	);
-	return false;
+function publion_renew_queue_claim( $id, $topic ) {
+    global $wpdb;
+    $token = $GLOBALS['publion_claim_tokens'][absint( $id )] ?? '';
+    $name = publion_generation_lock_option_name( $topic );
+    $existing = get_option( $name, false );
+    if ( ! $token || ! is_array( $existing ) || $token !== ( $existing['token'] ?? '' ) ) { return false; }
+    // Read ownership even if the timestamp would be unchanged in the same second.
+    $owned = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$wpdb->publion_queue} WHERE id = %d AND status = 'processing' AND claim_token = %s", absint( $id ), $token ) );
+    if ( ! $owned ) { return false; }
+    $fresh = $existing;
+    $fresh['started_at'] = time();
+    $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s", maybe_serialize( $fresh ), $name, maybe_serialize( $existing ) ) );
+    wp_cache_delete( $name, 'options' );
+    $wpdb->update( $wpdb->publion_queue, array( 'processing_started_at' => current_time( 'mysql' ) ), array( 'id' => absint( $id ), 'status' => 'processing', 'claim_token' => $token ) );
+    return ( get_option( $name, array() )['token'] ?? '' ) === $token;
 }
 
 function publion_release_queue_claim( $topic_id, $topic, $status = 'pending' ) {
-	global $wpdb;
-	publion_register_table_on_wpdb();
-	$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->publion_queue,
-		array( 'status' => sanitize_key( $status ), 'processing_started_at' => null ),
-		array( 'id' => absint( $topic_id ), 'status' => 'processing' ),
-		array( '%s', '%s' ),
-		array( '%d', '%s' )
-	);
-	publion_release_generation_lock( $topic_id, $topic );
+    global $wpdb;
+    publion_register_table_on_wpdb();
+    $token = $GLOBALS['publion_claim_tokens'][absint( $topic_id )] ?? '';
+    if ( ! $token ) { return; }
+    $wpdb->update( $wpdb->publion_queue, array( 'status' => sanitize_key( $status ), 'processing_started_at' => null, 'claim_token' => '' ), array( 'id' => absint( $topic_id ), 'status' => 'processing', 'claim_token' => $token ) );
+    publion_release_generation_lock( $topic_id, $topic );
+    publion_invalidate_pending_cache();
+    wp_cache_delete( 'next_pending_topic_v1', 'publion' );
 }
 
 /** Cache helpers */
@@ -134,7 +122,7 @@ function publion_cache_delete( $key ) {
  */
 function publion_build_error_payload( $code, $message, $overrides = array() ) {
 	$code    = sanitize_key( $code ?: 'operation_failed' );
-	$message = wp_strip_all_tags( (string) $message );
+	$message = publion_redact_error( wp_strip_all_tags( (string) $message ) );
 	$message = preg_replace( '/\bsk-[A-Za-z0-9_-]+\b/', '[redacted API key]', $message );
 	$message = trim( wp_html_excerpt( $message, 480, '…' ) );
 
@@ -481,7 +469,7 @@ function publion_get_post_author_id( $settings = null, $fallback_mode = 'current
 			)
 		);
 		foreach ( $users as $user ) {
-			if ( user_can( $user, 'edit_posts' ) ) {
+			if ( user_can( (int) $user->ID, 'edit_posts' ) ) {
 				return (int) $user->ID;
 			}
 		}
@@ -533,6 +521,14 @@ function publion_ensure_requested_post_status( $post_id, $requested_status ) {
 		return new WP_Error( 'publion_post_missing', __( 'De zojuist aangemaakte WordPress-post kon niet meer worden gevonden.', 'publion' ) );
 	}
 
+	if ( 'publish' === $requested_status ) {
+        $post = get_post( $post_id );
+        $valid = publion_validate_article_content( $post->post_content, $post->post_title, get_post_meta( $post_id, '_publion_focus_keyword', true ) );
+        if ( is_wp_error( $valid ) ) {
+            if ( 'publish' === $post->post_status ) { wp_update_post( array( 'ID' => $post_id, 'post_status' => 'draft' ) ); }
+            update_post_meta( $post_id, '_publion_publication_error', $valid->get_error_message() ); return $valid;
+        }
+    }
 	$actual_status = get_post_status( $post_id );
 	if ( $requested_status === $actual_status ) {
 		return true;
@@ -558,6 +554,14 @@ function publion_ensure_requested_post_status( $post_id, $requested_status ) {
 	}
 
 	clean_post_cache( $post_id );
+	if ( 'publish' === $requested_status ) {
+        $post = get_post( $post_id );
+        $valid = publion_validate_article_content( $post->post_content, $post->post_title, get_post_meta( $post_id, '_publion_focus_keyword', true ) );
+        if ( is_wp_error( $valid ) ) {
+            if ( 'publish' === $post->post_status ) { wp_update_post( array( 'ID' => $post_id, 'post_status' => 'draft' ) ); }
+            update_post_meta( $post_id, '_publion_publication_error', $valid->get_error_message() ); return $valid;
+        }
+    }
 	$actual_status = get_post_status( $post_id );
 	if ( $requested_status === $actual_status ) {
 		return true;
@@ -1870,9 +1874,8 @@ function publion_save_post_settings_callback() {
 		'rank_math_density_max' => $rank_math_density_max,
 		'rank_math_max_paragraph_words' => $rank_math_max_paragraph_words,
 		'rank_math_auto_repair' => ( isset( $_POST['rank_math_auto_repair'] ) && 'yes' === $_POST['rank_math_auto_repair'] ) ? 'yes' : 'no',
-		// A selected Publish status must remain authoritative for manual and
-		// scheduled creation alike. The quality report is still saved for review.
-		'rank_math_publish_gate' => ( 'publish' === $post_status ) ? 'no' : ( ( isset( $_POST['rank_math_publish_gate'] ) && 'yes' === $_POST['rank_math_publish_gate'] ) ? 'yes' : 'no' ),
+        // SEO preference is preserved independently of the final status choice.
+		'rank_math_publish_gate' => ( isset( $_POST['rank_math_publish_gate'] ) && 'yes' === $_POST['rank_math_publish_gate'] ) ? 'yes' : 'no',
 		'rank_math_add_toc' => ( isset( $_POST['rank_math_add_toc'] ) && 'yes' === $_POST['rank_math_add_toc'] ) ? 'yes' : 'no',
 		'rank_math_check_image_alt' => ( isset( $_POST['rank_math_check_image_alt'] ) && 'yes' === $_POST['rank_math_check_image_alt'] ) ? 'yes' : 'no',
 		'rank_math_check_external_link' => ( isset( $_POST['rank_math_check_external_link'] ) && 'yes' === $_POST['rank_math_check_external_link'] ) ? 'yes' : 'no',
@@ -2516,20 +2519,22 @@ function publion_cancel_post_creation() {
 	);
 }
 
-function publion_fail_post_creation( $topic_id, $message, $code = 'content_generation' ) {
-	$code    = publion_guess_error_code( $message, $code );
+function publion_fail_post_creation( $topic_id, $message, $code = 'content_generation', $error_data = array() ) {
+	$code = 0 === strpos( $code, 'publion_' ) ? sanitize_key( $code ) : publion_guess_error_code( $message, $code );
 	$payload = publion_build_error_payload( $code, $message );
 	global $wpdb;
 	publion_register_table_on_wpdb();
 	$entry = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->publion_queue} WHERE id = %d", absint( $topic_id ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	if ( $entry ) {
+        $token = $GLOBALS['publion_claim_tokens'][absint( $topic_id )] ?? '';
+        if ( ! $token || $token !== ( $entry->claim_token ?? '' ) ) { wp_send_json_error( $payload ); }
 		$linked_post_id = publion_get_post_id_for_queue_entry( $entry );
 		if ( $linked_post_id ) {
 			$final_status = ( 'publish' === get_post_status( $linked_post_id ) ) ? 'published' : 'created';
-			$wpdb->update( $wpdb->publion_queue, array( 'status' => $final_status, 'processing_started_at' => null ), array( 'id' => absint( $topic_id ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->update( $wpdb->publion_queue, array( 'status' => $final_status, 'processing_started_at' => null ), array( 'id' => absint( $topic_id ), 'claim_token' => $token ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			publion_release_generation_lock( $topic_id, $entry->topic );
 		} else {
-			publion_release_queue_claim( $topic_id, $entry->topic, ( 'duplicate_content' === $code ) ? 'blocked' : 'pending' );
+			publion_record_queue_failure( $topic_id, $entry->topic, new WP_Error( $code, $message, $error_data ) );
 		}
 	}
 	publion_set_creation_progress(
@@ -2565,7 +2570,7 @@ function publion_create_post_now() {
 	// Back-compat nonce handling.
 	if ( isset( $_POST['nonce'] ) ) {
 		check_ajax_referer( 'publion_nonce', 'nonce' );
-	} elseif ( isset( $_POST['_ajax_nonce'] ) ) {
+	} else {
 		check_ajax_referer( 'publion_nonce' );
 	}
 
@@ -2626,8 +2631,8 @@ function publion_create_post_now() {
 	$cta_link = esc_url_raw( $settings['cta_link'] ?? '' );
 
 	$seo_brief = ! empty( $topic->seo_brief ) ? json_decode( $topic->seo_brief, true ) : array();
-	$seo_brief = is_array( $seo_brief ) ? $seo_brief : array();
-	$seo_brief['focus_keyword'] = sanitize_text_field( $topic->focus_keyword ?? $topic->topic );
+    if ( ! is_array( $seo_brief ) ) { publion_fail_post_creation( $topic_id, 'De opgeslagen SEO-brief is ongeldige JSON.', 'publion_invalid_input' ); }
+	$seo_brief['focus_keyword'] = publion_effective_focus_keyword( $topic->focus_keyword ?? '', $topic->topic );
 	if ( ( $settings['rank_math_integration'] ?? 'no' ) === 'yes' ) {
 		$focus_validation = publion_validate_rank_math_focus_keyword( $seo_brief['focus_keyword'] );
 		if ( is_wp_error( $focus_validation ) ) {
@@ -2638,61 +2643,19 @@ function publion_create_post_now() {
 		? __( 'Actueel webonderzoek zoekt en controleert externe bronnen.', 'publion' )
 		: __( 'De bestaande contentkaart en zoekintentie worden meegenomen.', 'publion' );
 	publion_set_creation_progress( $topic_id, 'running', 15, __( 'Onderzoek', 'publion' ), $research_status );
-	$post_html = publion_generate_chatgpt_html( $topic->topic, $topic->category_label, $seo_brief );
+	$post_html = publion_generate_queue_article( $topic, $seo_brief );
 	if ( is_wp_error( $post_html ) || ! $post_html ) {
-		publion_fail_post_creation( $topic_id, is_wp_error( $post_html ) ? $post_html->get_error_message() : __( 'De artikeltekst is niet teruggekomen van OpenAI.', 'publion' ) );
+		publion_fail_post_creation( $topic_id, is_wp_error( $post_html ) ? $post_html->get_error_message() : __( 'De artikeltekst is niet teruggekomen van OpenAI.', 'publion' ), is_wp_error( $post_html ) ? $post_html->get_error_code() : 'publion_invalid_content', is_wp_error( $post_html ) ? $post_html->get_error_data() : array() );
 	}
 	publion_abort_if_creation_cancelled( $topic_id );
 	publion_set_creation_progress( $topic_id, 'running', 45, __( 'Tekst nakijken', 'publion' ), __( 'Artikeltekst is gegenereerd en wordt voorbereid voor afbeeldingen.', 'publion' ) );
 
-	// Generate 6 context-aware AI images based on nearby text.
-	$category      = get_term( (int) $topic->category_id, 'category' );
-	$category_name = ( $category && ! is_wp_error( $category ) ) ? (string) $category->name : '';
-	$api_key       = get_option( 'publion_api_key', '' );
-
-	// Placeholder in /includes/images/ (plugin root).
-	$plugin_root_url = plugin_dir_url( dirname( __FILE__ ) );
-	$placeholder     = trailingslashit( $plugin_root_url ) . 'includes/images/image-placeholder.jpg';
-
-	$prompts = publion_generate_contextual_image_prompts( $post_html, $topic->topic, $category_name );
-	$image_ids        = [];
-	$final_image_urls = [];
-	$image_layouts    = [];
-	$total_images     = max( 1, count( $prompts ) );
-	$image_index      = 0;
-	publion_set_creation_progress( $topic_id, 'running', 50, __( 'Afbeeldingen voorbereiden', 'publion' ), sprintf( __( '%d beeldopdrachten worden samengesteld.', 'publion' ), count( $prompts ) ) );
-
-	foreach ( $prompts as $item ) {
-		publion_abort_if_creation_cancelled( $topic_id );
-		$image_index++;
-		$image_percent = 50 + (int) floor( ( ( $image_index - 1 ) / $total_images ) * 30 );
-		publion_set_creation_progress( $topic_id, 'running', $image_percent, __( 'Afbeelding genereren', 'publion' ), sprintf( __( 'Afbeelding %1$d van %2$d wordt gegenereerd en geüpload.', 'publion' ), $image_index, $total_images ) );
-		$prompt_text = $item['prompt'] ?? '';
-		$context     = $item['context'] ?? $topic->topic;
-		$image_layout = ( isset( $item['layout'] ) && 'square' === $item['layout'] ) ? 'square' : 'landscape';
-		$image_size   = ( isset( $item['size'] ) && in_array( $item['size'], array( '1024x1024', '1536x1024', '1024x1536', '1536x864' ), true ) ) ? $item['size'] : '1024x1024';
-		$image_result = publion_generate_and_upload_images( $prompt_text, 1, $context, $api_key, $image_size );
-		publion_abort_if_creation_cancelled( $topic_id );
-		$image_layouts[] = $image_layout;
-		if ( ! empty( $image_result['urls'][0] ) && ! empty( $image_result['ids'][0] ) ) {
-			$final_image_urls[] = $image_result['urls'][0];
-			$image_ids[]        = (int) $image_result['ids'][0];
-		} else {
-			$final_image_urls[] = $placeholder;
-			$image_ids[]        = 0;
-		}
-	}
-
-	while ( count( $final_image_urls ) < 6 ) {
-		$final_image_urls[] = $placeholder;
-		$image_ids[]        = 0;
-		$image_layouts[]    = 'landscape';
-	}
-	publion_set_creation_progress( $topic_id, 'running', 82, __( 'Artikel samenstellen', 'publion' ), __( 'Afbeeldingen en alt-teksten worden in het concept verwerkt.', 'publion' ) );
-	publion_abort_if_creation_cancelled( $topic_id );
-
-	// Insert 5 images into content.
-	$post_html = publion_insert_images_into_content( $post_html, array_slice( $final_image_urls, 0, 5 ), array_slice( $image_layouts, 0, 5 ), $seo_brief['focus_keyword'] );
+	$category = get_term( (int) $topic->category_id, 'category' );
+	$category_name = ( $category && ! is_wp_error( $category ) ) ? $category->name : '';
+	$media = publion_generate_queue_media( $topic, $post_html, $category_name, get_option( 'publion_api_key', '' ) );
+	if ( is_wp_error( $media ) ) { publion_fail_post_creation( $topic_id, $media->get_error_message(), $media->get_error_code() ); }
+	$post_html = $media['html'];
+	if ( $media['requires_review'] ) { $post_status = 'draft'; }
 	$rank_math_enabled        = ( ( $settings['rank_math_integration'] ?? 'no' ) === 'yes' );
 	$rank_math_quality_report = array();
 	if ( $rank_math_enabled ) {
@@ -2708,14 +2671,18 @@ function publion_create_post_now() {
 		publion_fail_post_creation( $topic_id, __( 'Tijdens de generatie is al een vergelijkbaar artikel aangemaakt. Er is geen tweede post opgeslagen.', 'publion' ), 'duplicate_content' );
 	}
 
+    $valid = publion_validate_article_content( $post_html, $topic->topic, $seo_brief['focus_keyword'] );
+    if ( is_wp_error( $valid ) ) { publion_fail_post_creation( $topic_id, $valid->get_error_message(), $valid->get_error_code() ); }
+    if ( ! publion_renew_queue_claim( $topic_id, $topic->topic ) ) { publion_fail_post_creation( $topic_id, 'De generatieclaim is verlopen; er is geen post opgeslagen.', 'publion_claim_lost' ); }
 	// Create post.
 	publion_set_creation_progress( $topic_id, 'running', 88, __( 'Artikel opslaan', 'publion' ), __( 'Het artikel wordt in WordPress aangemaakt.', 'publion' ) );
 	$post_id = wp_insert_post(
 		[
 			'post_title'    => wp_strip_all_tags( $topic->topic ),
 			'post_name'     => publion_build_rank_math_slug( $seo_brief['focus_keyword'], $topic->topic ),
-			'post_content'  => $post_html,
-			'post_status'   => $post_status,
+			'post_content'  => wp_slash( $post_html ),
+			'post_status'   => 'draft',
+            'meta_input' => array( '_publion_queue_id' => (int) $topic->id ),
 			'comment_status'=> 'closed',
 			'ping_status'   => 'closed',
 			'post_category' => [ (int) $topic->category_id ],
@@ -2725,7 +2692,7 @@ function publion_create_post_now() {
 		true
 	);
 
-	if ( is_wp_error( $post_id ) ) {
+	if ( is_wp_error( $post_id ) || ! $post_id ) {
 		publion_fail_post_creation( $topic_id, __( 'WordPress kon het artikelconcept niet aanmaken.', 'publion' ), 'database' );
 	}
 
@@ -2740,23 +2707,12 @@ function publion_create_post_now() {
 		update_post_meta( (int) $post_id, '_publion_rank_math_quality_status', sanitize_key( $rank_math_quality_report['status'] ?? 'review_required' ) );
 	}
 
-	// Featured image: prefer 6th slot; use core helper to resolve attachment ID.
-	publion_set_creation_progress( $topic_id, 'running', 96, __( 'Afronden', 'publion' ), __( 'Uitgelichte afbeelding, status en wachtrij worden bijgewerkt.', 'publion' ) );
-	if ( isset( $final_image_urls[5] ) && $final_image_urls[5] && $final_image_urls[5] !== $placeholder ) {
-		$attachment_id = 0;
-		if ( isset( $image_ids[5] ) ) {
-			$attachment_id = (int) $image_ids[5];
-		} else {
-			$maybe_id = attachment_url_to_postid( $final_image_urls[5] );
-			if ( $maybe_id ) {
-				$attachment_id = (int) $maybe_id;
-			}
-		}
-		if ( $attachment_id ) {
-			set_post_thumbnail( $post_id, $attachment_id );
-		}
-	}
-
+	if ( $media['hero_id'] ) { set_post_thumbnail( $post_id, $media['hero_id'] ); }
+	update_post_meta( $post_id, '_publion_hero_display', publion_get_pipeline_limits()['hero_display'] );
+	update_post_meta( $post_id, '_publion_image_slots', $media['images'] );
+	publion_store_safety_report( $post_id, $post_html );
+    if ( ! publion_renew_queue_claim( $topic_id, $topic->topic ) ) { publion_fail_post_creation( $topic_id, 'Claim verlopen; het opgeslagen concept blijft behouden.', 'publion_claim_lost' ); }
+    if ( publion_source_review_required( $post_id ) ) { $post_status = 'draft'; update_post_meta( $post_id, '_publion_publication_error', 'Bronreview nodig. Open Publion Diagnose.' ); }
 	$status_result = publion_ensure_requested_post_status( $post_id, $post_status );
 	if ( is_wp_error( $status_result ) ) {
 		publion_fail_post_creation( $topic_id, $status_result->get_error_message(), 'publication' );
@@ -2773,7 +2729,7 @@ function publion_create_post_now() {
 			'post_created_at' => $now_mysql,
 			'published_at'    => ( 'publish' === $actual_post_status ? $now_mysql : null ),
 		],
-		[ 'id' => $topic_id ]
+		[ 'id' => $topic_id, 'claim_token' => $GLOBALS['publion_claim_tokens'][$topic_id] ?? '' ]
 	);
 	if ( false === $queue_update ) {
 		publion_fail_post_creation( $topic_id, __( 'Het artikelconcept is aangemaakt, maar de Publion-wachtrij kon niet worden bijgewerkt. Controleer de wachtrij na het verversen.', 'publion' ), 'database' );
