@@ -1,3 +1,7 @@
+# Publion 1.9.50
+
+- Geen door het model verzonnen afbeeldingen meer: prompt verbiedt <img>-tags/URL's en publion_strip_model_images() verwijdert ze uit elk modelantwoord.
+
 # Publion 1.9.49
 
 - GPT-5-modellen: het uitvoerbudget (max_completion_tokens) houdt rekening met reasoning-tokens (min. 12.000, max. 32.000). Voorheen werd het artikel bij 4096 tokens afgebroken (finish_reason "length") en door de strikte gate geweigerd.

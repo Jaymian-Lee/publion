@@ -1,7 +1,7 @@
 {
-  "version": "1.9.49",
-  "zip": "publion-wordpress-1.9.49.zip",
-  "sha256": "da8a4c0ba7fb91a6661eb4c96118248c63f2980ddf8e1e5e3bd2dcda4c5380ee",
+  "version": "1.9.50",
+  "zip": "publion-wordpress-1.9.50.zip",
+  "sha256": "1bbd32682fc31653eeb88789dc123330e9b25acd14bfd265851c6cd4313e86fd",
   "files": 17,
-  "bytes": 190697
+  "bytes": 190982
 }
