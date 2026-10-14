@@ -52,7 +52,17 @@ function publion_parse_article_response( $response ) {
     if ( ! empty( $choice['message']['refusal'] ) || 'stop' !== ( $choice['finish_reason'] ?? '' ) || ! is_string( $choice['message']['content'] ?? null ) ) {
         return new WP_Error( 'publion_incomplete_response', __( 'Het antwoord is geweigerd, onvolledig of afgebroken. Controleer het onderwerp en probeer opnieuw.', 'publion' ) );
     }
-    return trim( $choice['message']['content'] );
+    return publion_strip_model_images( trim( $choice['message']['content'] ) );
+}
+
+/**
+ * Models sometimes invent <img> tags with non-existent paths. Publion adds its
+ * own generated images later, so any image the model wrote is removed.
+ */
+function publion_strip_model_images( $html ) {
+    $html = preg_replace( '/<figure\b[^>]*>\s*(?:<img\b[^>]*>\s*)+(?:<figcaption\b[^>]*>.*?<\/figcaption>\s*)?<\/figure>\s*/is', '', (string) $html );
+    $html = preg_replace( '/<p>\s*(?:<img\b[^>]*>\s*)+<\/p>\s*/is', '', $html );
+    return preg_replace( '/<img\b[^>]*>/is', '', $html );
 }
 
 function publion_validate_article_content( $html, $topic = '', $keyword = '' ) {
