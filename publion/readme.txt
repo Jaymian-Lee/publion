@@ -5,7 +5,7 @@ Tags: ai content, chatgpt, blog automatisering, post generatie, blogpost ai
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.9.48
+Stable tag: 1.9.49
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -81,6 +81,10 @@ Deze versie maakt standaard blogposts aan.
 4. Maak automatisch volledige conceptposts met AI-afbeeldingen.
 
 == Changelog ==
+
+= 1.9.49 =
+* Herstelt mislukte generaties met GPT-5-modellen: het uitvoerbudget houdt nu rekening met reasoning-tokens (minimaal 12.000, maximaal 32.000), zodat artikelen niet meer met finish_reason "length" worden afgebroken en geweigerd.
+* Bij een bereikte tokenlimiet toont Publion nu een duidelijke melding en bewaart de laatste finish_reason en het tokengebruik (optie publion_last_openai_response_meta) voor diagnose.
 
 = 1.9.48 =
 * Registreert dashboard en diagnose na hetzelfde parentmenu en herstelt correcte admin.php?page= routes.

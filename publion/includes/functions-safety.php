@@ -37,6 +37,18 @@ function publion_parse_article_response( $response ) {
         return new WP_Error( 'publion_invalid_response', __( 'OpenAI gaf ongeldige JSON terug; er is niets gepubliceerd.', 'publion' ) );
     }
     $choice = $data['choices'][0] ?? array();
+    // Keep the real finish reason and token usage visible for diagnosis.
+    update_option( 'publion_last_openai_response_meta', array(
+        'finish_reason'     => is_scalar( $choice['finish_reason'] ?? null ) ? sanitize_key( (string) $choice['finish_reason'] ) : '',
+        'prompt_tokens'     => (int) ( $data['usage']['prompt_tokens'] ?? 0 ),
+        'completion_tokens' => (int) ( $data['usage']['completion_tokens'] ?? 0 ),
+        'reasoning_tokens'  => (int) ( $data['usage']['completion_tokens_details']['reasoning_tokens'] ?? 0 ),
+        'model'             => is_scalar( $data['model'] ?? null ) ? sanitize_text_field( (string) $data['model'] ) : '',
+        'time'              => time(),
+    ), false );
+    if ( 'length' === ( $choice['finish_reason'] ?? '' ) ) {
+        return new WP_Error( 'publion_incomplete_response', __( 'OpenAI bereikte de tokenlimiet voordat het antwoord compleet was (reasoning-tokens tellen mee). Het antwoord is niet gebruikt; probeer opnieuw of kies een model met meer uitvoercapaciteit.', 'publion' ) );
+    }
     if ( ! empty( $choice['message']['refusal'] ) || 'stop' !== ( $choice['finish_reason'] ?? '' ) || ! is_string( $choice['message']['content'] ?? null ) ) {
         return new WP_Error( 'publion_incomplete_response', __( 'Het antwoord is geweigerd, onvolledig of afgebroken. Controleer het onderwerp en probeer opnieuw.', 'publion' ) );
     }

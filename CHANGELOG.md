@@ -1,3 +1,8 @@
+# Publion 1.9.49
+
+- GPT-5-modellen: het uitvoerbudget (max_completion_tokens) houdt rekening met reasoning-tokens (min. 12.000, max. 32.000). Voorheen werd het artikel bij 4096 tokens afgebroken (finish_reason "length") en door de strikte gate geweigerd.
+- Bij finish_reason "length" een duidelijke melding; finish_reason en tokengebruik worden bewaard in de optie publion_last_openai_response_meta.
+
 # Publion 1.9.48
 
 - Dashboard en Diagnose worden samen na het hoofdmenu geregistreerd; juiste admin.php?page= routes en parentafhankelijke hooks. Dashboard blijft eerste submenu, ook bij vroege extensie. Beide callbacks controleren manage_options.

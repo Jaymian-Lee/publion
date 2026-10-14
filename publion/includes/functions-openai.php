@@ -421,7 +421,10 @@ function publion_build_openai_chat_body( $model, $messages, $max_output_tokens, 
     if ( 0 === strpos( $model, 'gpt-5' ) ) {
         // GPT-5 reasoning models use max_completion_tokens and do not accept
         // custom sampling temperatures in Chat Completions.
-        $body['max_completion_tokens'] = (int) $max_output_tokens;
+        // Reasoning tokens count against this limit. A plain article budget
+        // (for example 4096) is consumed by reasoning before any HTML is
+        // written, which ends the response with finish_reason "length".
+        $body['max_completion_tokens'] = (int) min( 32000, max( 12000, (int) $max_output_tokens * 4 ) );
     } else {
         $body['temperature'] = (float) $temperature;
         $body['max_tokens']  = (int) $max_output_tokens;
