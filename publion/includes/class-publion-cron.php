@@ -156,8 +156,8 @@ class Publion_Cron {
 				continue;
 			}
 
-			$body = json_decode( wp_remote_retrieve_body( $response ), true );
-			$text = $body['choices'][0]['message']['content'] ?? '';
+            $text = publion_parse_article_response( $response );
+            if ( is_wp_error( $text ) ) { update_option( 'publion_last_openai_error', $text->get_error_message() ); continue; }
 			if ( empty( $text ) ) {
 				update_option( 'publion_last_openai_error', 'OpenAI gaf geen onderwerpvoorstellen terug tijdens de geplande taak.' );
 				continue;
@@ -180,6 +180,7 @@ class Publion_Cron {
 					continue;
 				}
 
+                if ( ! publion_is_safe_suggestion_title( $line ) || preg_match( '/[<>]/', $line ) || publion_content_has_instruction_leak( $line ) ) { continue; }
 				// Check uniqueness against posts and queue.
 				if ( function_exists( 'publion_get_post_id_by_exact_title' ) ) {
 					if ( publion_get_post_id_by_exact_title( $line ) ) {
@@ -204,6 +205,7 @@ class Publion_Cron {
 					$wpdb->publion_queue,
 					array(
 						'topic'          => $line,
+                        'focus_keyword' => publion_effective_focus_keyword( '', $line ),
 						'category_id'    => (int) $category->term_id,
 						'category_label' => $category_name,
 						'status'         => 'pending',
@@ -265,8 +267,8 @@ class Publion_Cron {
 
 		// Select next pending by lowest ID via cached helper (keeps call site WPCS-clean).
 		$topic = publion_db_get_row_cached_cron(
-			"SELECT * FROM {$wpdb->publion_queue} WHERE status = %s AND post_created_at IS NULL ORDER BY (scheduled_at IS NULL) ASC, scheduled_at ASC, id ASC LIMIT 1",
-			array( 'pending' ),
+			"SELECT * FROM {$wpdb->publion_queue} WHERE status = %s AND post_created_at IS NULL AND (retry_after IS NULL OR retry_after <= %s) ORDER BY (scheduled_at IS NULL) ASC, scheduled_at ASC, id ASC LIMIT 1",
+			array( 'pending', current_time( 'mysql' ) ),
 			$this->cache_key_next_topic,
 			$this->cache_group,
 			60
@@ -290,7 +292,7 @@ class Publion_Cron {
 				array( 'id' => (int) $topic->id )
 			);
 			wp_cache_delete( $this->cache_key_next_topic, $this->cache_group );
-			return $this->maybe_create_queued_post();
+			return;
 		}
 		if ( ! publion_claim_queue_entry( (int) $topic->id, $topic->topic ) ) {
 			return;
@@ -300,84 +302,35 @@ class Publion_Cron {
 		// to keep it pending and block every later scheduled article.
 		$topic_validation = publion_validate_topic_originality( $topic->topic );
 		if ( is_wp_error( $topic_validation ) ) {
-			$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$wpdb->publion_queue,
-				array( 'status' => 'blocked', 'processing_started_at' => null ),
-				array( 'id' => (int) $topic->id ),
-				array( '%s' ),
-				array( '%d' )
-			);
-			wp_cache_delete( $this->cache_key_next_topic, $this->cache_group );
-			publion_release_generation_lock( (int) $topic->id, $topic->topic );
-			error_log( '[Publion][PUBLION-DUPLICATE-CONTENT] Queue item #' . (int) $topic->id . ' skipped: ' . $topic_validation->get_error_message() );
-			// Continue with the next eligible item during this cron run.
-			return $this->maybe_create_queued_post();
-		}
+            publion_record_queue_failure( (int) $topic->id, $topic->topic, $topic_validation );
+            return;
+        }
 
 		// Generate HTML content.
 		$seo_brief = ! empty( $topic->seo_brief ) ? json_decode( $topic->seo_brief, true ) : array();
-		$seo_brief = is_array( $seo_brief ) ? $seo_brief : array();
-		$seo_brief['focus_keyword'] = sanitize_text_field( $topic->focus_keyword ?? $topic->topic );
+        if ( ! is_array( $seo_brief ) ) { publion_record_queue_failure( (int) $topic->id, $topic->topic, new WP_Error( 'publion_invalid_input', 'De opgeslagen SEO-brief is ongeldige JSON.' ) ); return; }
+		$seo_brief['focus_keyword'] = publion_effective_focus_keyword( $topic->focus_keyword ?? '', $topic->topic );
 		if ( $rank_math_enabled && is_wp_error( publion_validate_rank_math_focus_keyword( $seo_brief['focus_keyword'] ) ) ) {
 			publion_release_queue_claim( (int) $topic->id, $topic->topic, 'blocked' );
 			return;
 		}
-		$post_html = publion_generate_chatgpt_html( $topic->topic, $topic->category_label, $seo_brief );
+		$post_html = publion_generate_queue_article( $topic, $seo_brief );
 		if ( is_wp_error( $post_html ) && 'publion_duplicate_content' === $post_html->get_error_code() ) {
-			$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$wpdb->publion_queue,
-				array( 'status' => 'blocked', 'processing_started_at' => null ),
-				array( 'id' => (int) $topic->id ),
-				array( '%s' ),
-				array( '%d' )
-			);
-			wp_cache_delete( $this->cache_key_next_topic, $this->cache_group );
-			publion_release_generation_lock( (int) $topic->id, $topic->topic );
-			error_log( '[Publion][PUBLION-DUPLICATE-CONTENT] Queue item #' . (int) $topic->id . ' skipped after generation: ' . $post_html->get_error_message() );
-			return $this->maybe_create_queued_post();
-		}
+            publion_record_queue_failure( (int) $topic->id, $topic->topic, $post_html );
+            return;
+        }
+
 		if ( is_wp_error( $post_html ) || ! $post_html ) {
-			publion_release_queue_claim( (int) $topic->id, $topic->topic, 'pending' );
+			publion_record_queue_failure( (int) $topic->id, $topic->topic, $post_html );
 			return;
 		}
 
-		// Image setup — generate 6 context-aware AI images based on nearby text.
-		$category      = get_term( $topic->category_id, 'category' );
+		$category = get_term( (int) $topic->category_id, 'category' );
 		$category_name = ( $category && ! is_wp_error( $category ) ) ? $category->name : '';
-		$api_key       = get_option( 'publion_api_key', '' );
-
-		$plugin_dir_url = plugin_dir_url( __FILE__ );
-		$placeholder    = $plugin_dir_url . 'images/image-placeholder.jpg';
-
-		$prompts = publion_generate_contextual_image_prompts( $post_html, $topic->topic, $category_name );
-		$image_ids        = array();
-		$final_image_urls = array();
-		$image_layouts    = array();
-
-		foreach ( $prompts as $item ) {
-			$prompt_text = $item['prompt'] ?? '';
-			$context     = $item['context'] ?? $topic->topic;
-			$image_layout = ( isset( $item['layout'] ) && 'square' === $item['layout'] ) ? 'square' : 'landscape';
-			$image_size   = ( isset( $item['size'] ) && in_array( $item['size'], array( '1024x1024', '1536x1024', '1024x1536', '1536x864' ), true ) ) ? $item['size'] : '1024x1024';
-			$image_result = publion_generate_and_upload_images( $prompt_text, 1, $context, $api_key, $image_size );
-			$image_layouts[] = $image_layout;
-			if ( ! empty( $image_result['urls'][0] ) && ! empty( $image_result['ids'][0] ) ) {
-				$final_image_urls[] = $image_result['urls'][0];
-				$image_ids[]        = (int) $image_result['ids'][0];
-			} else {
-				$final_image_urls[] = $placeholder;
-				$image_ids[]        = 0;
-			}
-		}
-
-		while ( count( $final_image_urls ) < 6 ) {
-			$final_image_urls[] = $placeholder;
-			$image_ids[]        = 0;
-			$image_layouts[]    = 'landscape';
-		}
-
-		// Insert images into content (first 5).
-		$post_html = publion_insert_images_into_content( $post_html, array_slice( $final_image_urls, 0, 5 ), array_slice( $image_layouts, 0, 5 ), $seo_brief['focus_keyword'] );
+		$media = publion_generate_queue_media( $topic, $post_html, $category_name, get_option( 'publion_api_key', '' ) );
+		if ( is_wp_error( $media ) ) { publion_record_queue_failure( (int) $topic->id, $topic->topic, $media ); return; }
+		$post_html = $media['html'];
+		if ( $media['requires_review'] ) { $post_status = 'draft'; }
 		$rank_math_quality_report = array();
 		if ( $rank_math_enabled ) {
 			$rank_math_quality_report = publion_get_rank_math_quality_report( $post_html, $seo_brief['focus_keyword'], $topic->topic );
@@ -393,22 +346,26 @@ class Publion_Cron {
 		// created an equivalent article while this cron job generated images.
 		$final_conflict = publion_find_existing_content_conflict( $topic->topic, $post_html );
 		if ( $final_conflict ) {
-			publion_release_queue_claim( (int) $topic->id, $topic->topic, 'blocked' );
+			publion_record_queue_failure( (int) $topic->id, $topic->topic, new WP_Error( 'publion_duplicate_content', 'Tijdens de generatie is een vergelijkbaar artikel aangemaakt.' ) );
 			return;
 		}
 
+        $valid = publion_validate_article_content( $post_html, $topic->topic, $seo_brief['focus_keyword'] );
+        if ( is_wp_error( $valid ) ) { publion_record_queue_failure( (int) $topic->id, $topic->topic, $valid ); return; }
+        if ( ! publion_renew_queue_claim( (int) $topic->id, $topic->topic ) ) { return; }
 		// Create post.
 		$post_id = wp_insert_post( array(
 			'post_title'    => $topic->topic,
 			'post_name'     => publion_build_rank_math_slug( $seo_brief['focus_keyword'], $topic->topic ),
-			'post_content'  => $post_html,
-			'post_status'   => $post_status,
+			'post_content'  => wp_slash( $post_html ),
+			'post_status'   => 'draft',
+            'meta_input' => array( '_publion_queue_id' => (int) $topic->id ),
 			'comment_status'=> 'closed',
 			'ping_status'   => 'closed',
 			'post_category' => array( $topic->category_id ),
 			'post_type'     => 'post',
 			'post_author'   => $author_id,
-		) );
+		), true );
 		
 		if ( ! is_wp_error( $post_id ) && $post_id ) {
 			// Link post -> queue row for reliable lookups later.
@@ -424,15 +381,16 @@ class Publion_Cron {
 		}
 		
 		if ( is_wp_error( $post_id ) || ! $post_id ) {
-			publion_release_queue_claim( (int) $topic->id, $topic->topic, 'pending' );
+			publion_record_queue_failure( (int) $topic->id, $topic->topic, new WP_Error( 'publion_post_write_failed', 'WordPress kon het gevalideerde concept niet opslaan.' ) );
 			return;
 		}
 
-		// Set featured image (slot 6) if not placeholder.
-		if ( isset( $final_image_urls[5] ) && $final_image_urls[5] !== $placeholder && isset( $image_ids[5] ) ) {
-			set_post_thumbnail( $post_id, $image_ids[5] );
-		}
-
+		if ( $media['hero_id'] ) { set_post_thumbnail( $post_id, $media['hero_id'] ); }
+		update_post_meta( $post_id, '_publion_hero_display', publion_get_pipeline_limits()['hero_display'] );
+		update_post_meta( $post_id, '_publion_image_slots', $media['images'] );
+		publion_store_safety_report( $post_id, $post_html );
+        if ( ! publion_renew_queue_claim( (int) $topic->id, $topic->topic ) ) { return; }
+        if ( publion_source_review_required( $post_id ) ) { $post_status = 'draft'; update_post_meta( $post_id, '_publion_publication_error', 'Bronreview nodig. Open Publion Diagnose.' ); }
 		$status_result = publion_ensure_requested_post_status( $post_id, $post_status );
 		if ( is_wp_error( $status_result ) ) {
 			$now = current_time( 'mysql' );
@@ -443,13 +401,13 @@ class Publion_Cron {
 					'processing_started_at' => null,
 					'post_created_at'       => $now,
 				),
-				array( 'id' => (int) $topic->id ),
-				array( '%s', '%s', '%s' ),
-				array( '%d' )
+				array( 'id' => (int) $topic->id, 'claim_token' => $GLOBALS['publion_claim_tokens'][(int) $topic->id] ?? '' ),
+                null,
+                array( '%d', '%s' )
 			);
 			wp_cache_delete( $this->cache_key_next_topic, $this->cache_group );
 			publion_release_generation_lock( (int) $topic->id, $topic->topic );
-			error_log( '[Publion][PUBLION-POST-STATUS] Queue item #' . (int) $topic->id . ': ' . $status_result->get_error_message() );
+			error_log( '[Publion][PUBLION-POST-STATUS] Queue item #' . (int) $topic->id . ': ' . publion_redact_error( $status_result->get_error_message() ) );
 			return;
 		}
 		$actual_post_status = get_post_status( $post_id );
@@ -464,9 +422,9 @@ class Publion_Cron {
 				'post_created_at' => $now,
 				'published_at'    => ( 'publish' === $actual_post_status ? $now : null ),
 			),
-			array( 'id' => (int) $topic->id ),
-			array( '%s', '%s', '%s' ),
-			array( '%d' )
+			array( 'id' => (int) $topic->id, 'claim_token' => $GLOBALS['publion_claim_tokens'][(int) $topic->id] ?? '' ),
+			null,
+			array( '%d', '%s' )
 		);
 		wp_cache_delete( $this->cache_key_next_topic, $this->cache_group );
 		publion_release_generation_lock( (int) $topic->id, $topic->topic );
@@ -484,4 +442,3 @@ class Publion_Cron {
 		}
 	}
 }
-
