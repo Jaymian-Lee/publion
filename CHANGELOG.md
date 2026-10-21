@@ -1,3 +1,11 @@
+# Publion 1.9.52
+
+- Nieuwe optionele affiliate-module (standaard uit): centraal beheerde aanbiedingen (id, label, url, type, intents, categories, keywords, placement, style, text, enabled) als JSON bij de postinstellingen.
+- Generatie plaatst na alle inhoudsgates een neutrale [publion_affiliate]-shortcode: eerste match na de tweede H2, volgende voor de FAQ/onderaan. Het model schrijft zelf nooit affiliate-URL's; links blijven centraal aanpasbaar en verdwijnen netjes als een aanbieding uit staat of weg is.
+- Front-end rendert blokken (box/button/link) met rel="sponsored noopener noreferrer" en target="_blank", plus automatische disclosure boven artikelen met een affiliate-link.
+- Instellingen: module aan/uit, max. 1-3 blokken per artikel, eigen disclosure-tekst; de JSON wordt bij opslaan gevalideerd met duidelijke foutmeldingen.
+- tests/affiliate-standalone.php: los draaiende unitchecks (parsing, matching, plaatsing, rendering, disclosure) zonder WordPress-installatie.
+
 # Publion 1.9.51
 
 - Slugs bij lange focus-keywords: publion_build_rank_math_slug() kapt niet meer midden in een zin af. Bij een te lange slug (vaak een volledige vraag als focus-keyword) worden Nederlandse stopwoorden verwijderd tot de keywordkern; ontkenningen (niet/geen/zonder) blijven bewust staan. Fallback blijft afkappen op woordgrens.

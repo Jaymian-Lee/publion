@@ -860,6 +860,11 @@ class Publion_Admin {
             <?php
             $settings    = get_option( 'publion_post_settings', [] );
             $cta_enabled = $settings['cta_enabled'] ?? 'no';
+            $affiliate_enabled = $settings['affiliate_enabled'] ?? 'no';
+            $affiliate_disclosure = (string) ( $settings['affiliate_disclosure_text'] ?? publion_default_affiliate_disclosure() );
+            $affiliate_offers_json = (string) ( $settings['affiliate_offers_json'] ?? '' );
+            $affiliate_max_blocks = (int) ( $settings['affiliate_max_blocks'] ?? 2 );
+            $affiliate_example_json = '[{"id":"dak-offertes","label":"Vergelijk gratis dakoffertes","url":"https://voorbeeld.nl/aanvraag","type":"lead","intents":["commercieel","transactioneel"],"categories":["dakwerk"],"keywords":["dakkapel","dakbedekking"],"placement":"mid","style":"box","text":"Benieuwd wat jouw dakwerk kost?","enabled":true}]';
             $author_id   = isset( $settings['default_post_author'] ) ? (int) $settings['default_post_author'] : 0;
             $post_schedule_mode = function_exists( 'publion_get_post_schedule_mode' ) ? publion_get_post_schedule_mode( $settings ) : 'every_n_days';
             $posts_per_day = function_exists( 'publion_get_posts_per_day' ) ? publion_get_posts_per_day( $settings ) : 1;
@@ -1260,6 +1265,48 @@ class Publion_Admin {
                             <td>
                                 <input type="url" id="publion_cta_link" name="cta_link" style="width:100%;"
                                     value="<?php echo esc_url( $settings['cta_link'] ?? '' ); ?>" />
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th scope="row"><label for="publion_affiliate_enabled"><?php esc_html_e( 'Affiliate-module inschakelen?', 'publion' ); ?></label></th>
+                            <td>
+                                <select id="publion_affiliate_enabled" name="affiliate_enabled">
+                                    <option value="no" <?php selected( $affiliate_enabled, 'no' ); ?>><?php esc_html_e( 'Nee', 'publion' ); ?></option>
+                                    <option value="yes" <?php selected( $affiliate_enabled, 'yes' ); ?>><?php esc_html_e( 'Ja', 'publion' ); ?></option>
+                                </select>
+                                <p class="description"><?php esc_html_e( 'Plaatst bij nieuwe artikelen automatisch passende affiliate-blokken op basis van zoekintentie, categorie en zoekterm. Bestaande artikelen blijven ongewijzigd.', 'publion' ); ?></p>
+                            </td>
+                        </tr>
+
+                        <tr class="publion_affiliate_fields" style="<?php echo ( $affiliate_enabled === 'yes' ) ? '' : 'display:none;'; ?>">
+                            <th><label for="publion_affiliate_offers_json"><?php esc_html_e( 'Affiliate-aanbiedingen (JSON)', 'publion' ); ?></label></th>
+                            <td>
+                                <textarea id="publion_affiliate_offers_json" name="affiliate_offers_json" rows="8" style="width:100%;max-width:720px;font-family:monospace;" placeholder="<?php echo esc_attr( $affiliate_example_json ); ?>"><?php echo esc_textarea( $affiliate_offers_json ); ?></textarea>
+                                <p class="description">
+                                    <?php esc_html_e( 'Een lijst van aanbiedingen. Velden per aanbieding: id (verplicht, uniek), label (linktekst, verplicht), url (verplicht), type (lead/product/custom), intents (bijv. commercieel, transactioneel; leeg = elke intentie), categories (categorienamen, leeg = elke categorie), keywords (alleen plaatsen als de zoekterm of het onderwerp een van deze woorden bevat), placement (mid = na de tweede H2, end = voor de FAQ/onderaan), style (box/button/link), text (optionele zin boven de link) en enabled (true/false).', 'publion' ); ?>
+                                    <?php esc_html_e( 'Links worden centraal beheerd: pas je hier een URL aan, dan verandert die overal waar het blok staat. Het AI-model schrijft zelf nooit affiliate-URL\'s.', 'publion' ); ?>
+                                </p>
+                            </td>
+                        </tr>
+
+                        <tr class="publion_affiliate_fields" style="<?php echo ( $affiliate_enabled === 'yes' ) ? '' : 'display:none;'; ?>">
+                            <th><label for="publion_affiliate_max_blocks"><?php esc_html_e( 'Max. affiliate-blokken per artikel', 'publion' ); ?></label></th>
+                            <td>
+                                <select id="publion_affiliate_max_blocks" name="affiliate_max_blocks">
+                                    <?php for ( $publion_i = 1; $publion_i <= 3; $publion_i++ ) : ?>
+                                    <option value="<?php echo (int) $publion_i; ?>" <?php selected( $affiliate_max_blocks, $publion_i ); ?>><?php echo (int) $publion_i; ?></option>
+                                    <?php endfor; ?>
+                                </select>
+                                <p class="description"><?php esc_html_e( 'Houd het beperkt: te veel affiliate-blokken oogt als een pure affiliatesite en kan rankings en vertrouwen kosten.', 'publion' ); ?></p>
+                            </td>
+                        </tr>
+
+                        <tr class="publion_affiliate_fields" style="<?php echo ( $affiliate_enabled === 'yes' ) ? '' : 'display:none;'; ?>">
+                            <th><label for="publion_affiliate_disclosure_text"><?php esc_html_e( 'Affiliate-melding (disclosure)', 'publion' ); ?></label></th>
+                            <td>
+                                <textarea id="publion_affiliate_disclosure_text" name="affiliate_disclosure_text" rows="2" style="width:100%;max-width:720px;"><?php echo esc_textarea( $affiliate_disclosure ); ?></textarea>
+                                <p class="description"><?php esc_html_e( 'Wordt automatisch boven elk artikel gezet waarin een affiliate-link wordt getoond. Affiliate-links krijgen altijd rel="sponsored" en openen in een nieuw tabblad.', 'publion' ); ?></p>
                             </td>
                         </tr>
 
