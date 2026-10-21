@@ -1,3 +1,7 @@
+# Publion 1.9.51
+
+- Slugs bij lange focus-keywords: publion_build_rank_math_slug() kapt niet meer midden in een zin af. Bij een te lange slug (vaak een volledige vraag als focus-keyword) worden Nederlandse stopwoorden verwijderd tot de keywordkern; ontkenningen (niet/geen/zonder) blijven bewust staan. Fallback blijft afkappen op woordgrens.
+
 # Publion 1.9.50
 
 - Geen door het model verzonnen afbeeldingen meer: prompt verbiedt <img>-tags/URL's en publion_strip_model_images() verwijdert ze uit elk modelantwoord.

@@ -1015,6 +1015,60 @@ function publion_validate_rank_math_focus_keyword( $focus_keyword ) {
 }
 
 /**
+ * Dutch function words that add slug length without keyword value. Negations
+ * (niet, geen, zonder) deliberately stay: dropping them would flip the meaning
+ * of the slug.
+ */
+function publion_slug_stopwords() {
+    return array(
+        'de', 'het', 'een', 'en', 'of', 'in', 'op', 'van', 'voor', 'met', 'aan',
+        'bij', 'te', 'uit', 'over', 'door', 'naar', 'tot', 'per', 'om', 'als',
+        'dan', 'ook', 'er', 'hier', 'daar', 'nu', 'toch', 'al', 'nog', 'weer',
+        'zo', 'maar', 'want', 'dus', 'heel', 'erg', 'veel', 'meer', 'meest',
+        'beste', 'best', 'eens',
+        'je', 'jij', 'jou', 'jouw', 'ik', 'mijn', 'we', 'wij', 'ons', 'u', 'uw',
+        'ze', 'zij', 'hij', 'hun', 'hen',
+        'die', 'dat', 'dit', 'deze',
+        'is', 'zijn', 'was', 'waren', 'wordt', 'worden', 'werd',
+        'heb', 'hebt', 'heeft', 'hebben', 'had', 'hadden',
+        'hoe', 'waarom', 'wanneer', 'welke', 'welk', 'wat', 'waar', 'wie',
+        'waardoor', 'waarvoor', 'waarin',
+        'kan', 'kun', 'kunt', 'kunnen', 'mag', 'mogen', 'moet', 'moeten',
+        'wil', 'willen', 'zou', 'zouden', 'zal', 'zullen', 'laat', 'laten',
+        'ga', 'gaat', 'gaan', 'kom', 'komt', 'komen', 'doe', 'doet', 'doen',
+    );
+}
+
+/**
+ * Compress an over-long slug (often a full question used as focus keyword) to
+ * its keyword core: drop Dutch stopwords, then trim to the length cap at a
+ * word boundary. Falls back to plain word-boundary truncation when stopword
+ * removal would leave too little.
+ */
+function publion_shorten_slug( $slug, $max_length ) {
+    $words     = array_values( array_filter( explode( '-', $slug ) ) );
+    $stopwords = publion_slug_stopwords();
+    $kept      = array();
+    foreach ( $words as $word ) {
+        if ( ! in_array( $word, $stopwords, true ) ) {
+            $kept[] = $word;
+        }
+    }
+    if ( count( $kept ) >= 3 ) {
+        $short = implode( '-', $kept );
+        if ( strlen( $short ) <= $max_length ) {
+            return $short;
+        }
+    }
+    // Fallback: truncate the original (or the still-too-long kept variant) at
+    // a word boundary.
+    $short = strlen( implode( '-', $kept ) ) >= 20 ? implode( '-', $kept ) : $slug;
+    $short = substr( $short, 0, $max_length );
+    $short = preg_replace( '/-[^-]*$/', '', $short );
+    return trim( (string) $short, '-' );
+}
+
+/**
  * Build a compact, keyword-led permalink for new posts. A short slug is more
  * useful than copying a long editorial title verbatim, while WordPress still
  * guarantees uniqueness when it saves the post.
@@ -1029,15 +1083,13 @@ function publion_build_rank_math_slug( $focus_keyword, $topic = '' ) {
 	// enough room for the site URL while retaining the keyword-led slug.
 	$home_url_length = strlen( untrailingslashit( home_url( '/' ) ) );
 	$slug_max_length = max( 20, min( 75, 75 - $home_url_length - 1 ) );
-	$was_truncated   = strlen( $slug ) > $slug_max_length;
-	$slug = substr( $slug, 0, $slug_max_length );
-    // Only remove a possible partial word after an actual truncation. Removing
-    // the final segment unconditionally would drop the last word of a short,
-    // otherwise perfect focus-keyword slug.
-    if ( $was_truncated ) {
-        $slug = preg_replace( '/-[^-]*$/', '', $slug );
-    }
-    return trim( (string) $slug, '-' );
+	if ( strlen( $slug ) <= $slug_max_length ) {
+		return $slug;
+	}
+
+	// Long focus keywords are often full questions; cut to the keyword core
+	// instead of a mid-sentence fragment.
+	return publion_shorten_slug( $slug, $slug_max_length );
 }
 
 function publion_build_rank_math_seo_title( $topic, $focus_keyword ) {
