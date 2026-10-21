@@ -927,6 +927,8 @@ Geef uitsluitend valide HTML-content terug, zonder uitleg, notities of Markdown.
 
     $valid = publion_validate_article_content( $html_output, $topic, $focus_keyword );
     if ( is_wp_error( $valid ) ) { return $valid; }
+    // Monetization: place neutral affiliate shortcodes after all content gates.
+    $html_output = publion_insert_affiliate_placeholders( $html_output, $seo_brief, (string) $category_name, (string) $topic );
     $web_research = publion_review_article_evidence( $html_output, $web_research );
     $GLOBALS['publion_article_research'] = $web_research;
     delete_option( 'publion_last_openai_error' );

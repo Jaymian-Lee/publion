@@ -1812,6 +1812,17 @@ function publion_save_post_settings_callback() {
 	$cta_enabled_raw    = sanitize_text_field( wp_unslash( $_POST['cta_enabled'] ?? 'no' ) );
 	$cta_text           = sanitize_text_field( wp_unslash( $_POST['cta_text'] ?? '' ) );
 	$cta_link           = esc_url_raw( wp_unslash( $_POST['cta_link'] ?? '' ) );
+	$affiliate_enabled  = ( isset( $_POST['affiliate_enabled'] ) && 'yes' === $_POST['affiliate_enabled'] ) ? 'yes' : 'no';
+	$affiliate_disclosure_text = sanitize_textarea_field( wp_unslash( $_POST['affiliate_disclosure_text'] ?? '' ) );
+	$affiliate_max_blocks = max( 1, min( 3, absint( wp_unslash( $_POST['affiliate_max_blocks'] ?? 2 ) ) ) );
+	$affiliate_offers_json = trim( (string) wp_unslash( $_POST['affiliate_offers_json'] ?? '' ) );
+	if ( '' !== $affiliate_offers_json ) {
+		$affiliate_offers_parsed = publion_parse_affiliate_offers_json( $affiliate_offers_json );
+		if ( is_wp_error( $affiliate_offers_parsed ) ) {
+			publion_send_error( 'validation', $affiliate_offers_parsed->get_error_message() );
+		}
+		$affiliate_offers_json = (string) wp_json_encode( $affiliate_offers_parsed, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+	}
 	$notification_email = sanitize_email( wp_unslash( $_POST['notification_email'] ?? '' ) );
 	$hide_title         = ( isset( $_POST['hide_title'] ) && 'yes' === $_POST['hide_title'] ) ? 'yes' : 'no';
 	$auto_daily_topic   = ( isset( $_POST['auto_daily_topic'] ) && 'yes' === $_POST['auto_daily_topic'] ) ? 'yes' : 'no';
@@ -1865,6 +1876,10 @@ function publion_save_post_settings_callback() {
 		'cta_enabled'        => ( 'yes' === $cta_enabled_raw ? 'yes' : 'no' ),
 		'cta_text'           => $cta_text,
 		'cta_link'           => $cta_link,
+		'affiliate_enabled'         => $affiliate_enabled,
+		'affiliate_disclosure_text' => $affiliate_disclosure_text,
+		'affiliate_offers_json'     => $affiliate_offers_json,
+		'affiliate_max_blocks'      => $affiliate_max_blocks,
 		'notification_email' => $notification_email,
 		'hide_title'         => $hide_title,
 		'auto_daily_topic'   => $auto_daily_topic,

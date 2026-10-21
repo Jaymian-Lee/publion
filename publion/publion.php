@@ -3,7 +3,7 @@
 Plugin Name: Publion
 Plugin URI: https://jaymian-lee.nl/publion
 Description: Genereer en verfijn blogposts met AI. Kies een categorie, krijg onderwerp-ideeën, zet SEO-geoptimaliseerde posts met afbeeldingen in de wachtrij en plan het aanmaken in WordPress.
-Version: 1.9.51
+Version: 1.9.52
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'PUBLION_VERSION', '1.9.51' );
+define( 'PUBLION_VERSION', '1.9.52' );
 define( 'PUBLION_PATH', plugin_dir_path( __FILE__ ) );
 define( 'PUBLION_URL', plugin_dir_url( __FILE__ ) );
 
@@ -62,6 +62,11 @@ function publion_load_textdomain() {
 	}
 }
 add_action( 'plugins_loaded', 'publion_load_textdomain', 1 );
+
+// Affiliate monetization renders on the front end only: generation places a
+// neutral shortcode, the offer URL/text lives centrally in the settings.
+add_shortcode( 'publion_affiliate', 'publion_affiliate_shortcode' );
+add_filter( 'the_content', 'publion_affiliate_disclosure_filter', 9 );
 
 /**
  * Publion generates articles, never discussion replies. Keep comments and
@@ -133,6 +138,7 @@ require_once PUBLION_PATH . 'includes/functions-openai.php';
 require_once PUBLION_PATH . 'includes/functions-safety.php';
 require_once PUBLION_PATH . 'includes/functions-evidence.php';
 require_once PUBLION_PATH . 'includes/functions-media-pipeline.php';
+require_once PUBLION_PATH . 'includes/functions-affiliate.php';
 
 // Create DB table on activation.
 register_activation_hook( __FILE__, 'publion_create_queue_table' );

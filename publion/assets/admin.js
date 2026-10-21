@@ -688,6 +688,14 @@ jQuery(document).ready(function ($) {
         }
     });
 
+    $('#publion_affiliate_enabled').on('change', function () {
+        if ($(this).val() === 'yes') {
+            $('.publion_affiliate_fields').show();
+        } else {
+            $('.publion_affiliate_fields').hide();
+        }
+    });
+
 	function toggleRefinedStyleControls() {
 		$('.publion-refined-style-control').toggle($('#publion_article_style_mode').val() === 'refined');
 	}
@@ -758,6 +766,10 @@ jQuery(document).ready(function ($) {
 		    cta_enabled: $('#publion_cta_enabled').val(),
 		    cta_text: $('#publion_cta_text').val(),
 		    cta_link: $('#publion_cta_link').val(),
+		    affiliate_enabled: $('#publion_affiliate_enabled').val(),
+		    affiliate_disclosure_text: $('#publion_affiliate_disclosure_text').val(),
+		    affiliate_offers_json: $('#publion_affiliate_offers_json').val(),
+		    affiliate_max_blocks: $('#publion_affiliate_max_blocks').val(),
 		    notification_email: $('#publion_notification_email').val(),
 		    hide_title: $('#publion_hide_title').is(':checked') ? 'yes' : 'no',
 		    auto_daily_topic: $('#publion_auto_daily_topic').is(':checked') ? 'yes' : 'no',
