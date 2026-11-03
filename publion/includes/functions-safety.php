@@ -9,8 +9,73 @@ function publion_redact_error( $message ) {
     return sanitize_text_field( $message );
 }
 
+/**
+ * A long question topic copied into the focus keyword can never satisfy the
+ * Rank Math slug/title checks: the slug is shortened to its keyword core and
+ * the SEO title is capped at 60 characters, so the full question is never a
+ * substring of its own slug or title. Only those topic-shaped keywords need a
+ * derived compact keyword; short topics and explicit keywords stay untouched.
+ */
+function publion_focus_keyword_needs_derivation( $topic ) {
+    $topic      = trim( (string) $topic );
+    $normalized = publion_normalize_content_for_comparison( $topic );
+    $words      = array_filter( explode( ' ', $normalized ) );
+    return strlen( $topic ) > 60 || count( $words ) > 6;
+}
+
+/**
+ * Derive a compact focus keyword from a long topic: drop Dutch function words
+ * (the same stopword list the slug builder uses) and keep the first 3-5
+ * content words within a 40-character budget. The result is a sensible search
+ * phrase that fits the SEO title and matches its own slug.
+ */
+function publion_derive_focus_keyword( $topic ) {
+    $normalized = publion_normalize_content_for_comparison( $topic );
+    $words      = array_values( array_filter( explode( ' ', $normalized ) ) );
+    $stopwords  = publion_slug_stopwords();
+    $kept       = array();
+    foreach ( $words as $word ) {
+        if ( ! in_array( $word, $stopwords, true ) ) {
+            $kept[] = $word;
+        }
+    }
+    if ( count( $kept ) < 3 ) {
+        $kept = $words;
+    }
+    $keyword = '';
+    foreach ( array_slice( $kept, 0, 5 ) as $word ) {
+        $candidate = '' === $keyword ? $word : $keyword . ' ' . $word;
+        if ( strlen( $candidate ) > 40 ) {
+            break;
+        }
+        $keyword = $candidate;
+    }
+    return $keyword;
+}
+
 function publion_effective_focus_keyword( $keyword, $topic ) {
-    return trim( sanitize_text_field( is_scalar( $keyword ) ? (string) $keyword : '' ) ) ?: trim( sanitize_text_field( is_scalar( $topic ) ? (string) $topic : '' ) );
+    $keyword = trim( sanitize_text_field( is_scalar( $keyword ) ? (string) $keyword : '' ) );
+    $topic   = trim( sanitize_text_field( is_scalar( $topic ) ? (string) $topic : '' ) );
+    if ( '' === $topic ) {
+        return $keyword;
+    }
+    if ( '' === $keyword ) {
+        $keyword = $topic;
+    }
+    // A stored keyword that merely copies the topic is not a real focus
+    // keyword; treat it like an empty keyword so older queue rows and drafts
+    // created before this derivation get the same repair as new ones.
+    $same_as_topic = 0 === strcasecmp(
+        publion_normalize_content_for_comparison( $keyword ),
+        publion_normalize_content_for_comparison( $topic )
+    );
+    if ( $same_as_topic && publion_focus_keyword_needs_derivation( $topic ) ) {
+        $derived = publion_derive_focus_keyword( $topic );
+        if ( '' !== $derived ) {
+            return $derived;
+        }
+    }
+    return $keyword;
 }
 
 function publion_validate_generation_input( $topic, $brief = array() ) {

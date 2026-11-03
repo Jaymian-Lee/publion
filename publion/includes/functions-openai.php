@@ -1293,10 +1293,14 @@ function publion_get_rank_math_quality_report( $html, $focus_keyword, $post_titl
     $seo_description = publion_build_rank_math_meta_description( $html, $focus_keyword );
     $seo_slug        = publion_build_rank_math_slug( $focus_keyword, $post_title );
     $seo_url         = trailingslashit( home_url( '/' ) ) . ltrim( $seo_slug, '/' );
-    $title_has_keyword_early = '' !== trim( (string) $focus_keyword ) && false !== strpos(
-        mb_strtolower( mb_substr( $seo_title, 0, max( 1, (int) ceil( mb_strlen( $seo_title ) / 2 ) ) ) ),
-        mb_strtolower( trim( (string) $focus_keyword ) )
-    );
+    // Rank Math's actual requirement: the focus keyword must appear at the
+    // beginning of the SEO title. Requiring the whole keyword inside the
+    // first HALF of the title failed even when the title was the keyword
+    // itself, so check where the keyword starts instead.
+    $focus_keyword_normalized = mb_strtolower( trim( (string) $focus_keyword ) );
+    $seo_title_normalized     = mb_strtolower( $seo_title );
+    $keyword_position         = '' !== $focus_keyword_normalized ? mb_strpos( $seo_title_normalized, $focus_keyword_normalized ) : false;
+    $title_has_keyword_early  = false !== $keyword_position && $keyword_position <= (int) floor( mb_strlen( $seo_title_normalized ) / 2 );
     $title_has_number = (bool) preg_match( '/\d/u', $seo_title );
     $title_has_power_word = (bool) preg_match( '/\b(?:beste|praktische|complete|essentiële|essentiele|slimme|krachtige|eenvoudige|ultimate|best|complete|essential|practical|powerful|easy)\b/iu', $seo_title );
     $title_has_sentiment = (bool) preg_match( '/\b(?:succesvol|veilig|sterk|effectief|onmisbaar|geweldig|betrouwbaar|successful|safe|strong|effective|essential|great|reliable)\b/iu', $seo_title );
