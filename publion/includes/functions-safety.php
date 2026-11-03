@@ -24,16 +24,60 @@ function publion_focus_keyword_needs_derivation( $topic ) {
 }
 
 /**
- * Derive a compact focus keyword from a long topic: drop Dutch function words
- * (the same stopword list the slug builder uses) and keep the first 3-5
- * content words within a 40-character budget. The result is a sensible search
- * phrase that fits the SEO title and matches its own slug.
+ * Words that may not start or end a derived keyword: the slug stopwords plus
+ * conjunctions and adverbs that leave a dangling phrase at a cut boundary.
+ * They stay allowed INSIDE a keyword, where they read naturally.
+ */
+function publion_focus_keyword_edge_stopwords() {
+    return array_merge( publion_slug_stopwords(), array(
+        'terwijl', 'toen', 'omdat', 'zodra', 'zodat', 'hoewel', 'tenzij',
+        'zolang', 'indien', 'doordat', 'ondanks', 'mits', 'zoals',
+    ) );
+}
+
+/**
+ * Derive a compact focus keyword from a long topic: take the topic's first
+ * contiguous 3-5 words (within a 40-character budget) after trimming
+ * question words and other function words from the edges. A contiguous span
+ * keeps the keyword a verbatim substring of the topic, so articles that
+ * quote their topic in the title, intro or a heading satisfy the Rank Math
+ * keyword checks, and the phrase reads the way people actually search.
+ * Falls back to a stopword-stripped join when no clean span exists.
  */
 function publion_derive_focus_keyword( $topic ) {
     $normalized = publion_normalize_content_for_comparison( $topic );
     $words      = array_values( array_filter( explode( ' ', $normalized ) ) );
-    $stopwords  = publion_slug_stopwords();
-    $kept       = array();
+    $edge_stop  = publion_focus_keyword_edge_stopwords();
+
+    while ( $words && in_array( $words[0], $edge_stop, true ) ) {
+        array_shift( $words );
+    }
+    while ( $words && in_array( end( $words ), $edge_stop, true ) ) {
+        array_pop( $words );
+    }
+
+    $keyword = '';
+    foreach ( array_slice( $words, 0, 5 ) as $word ) {
+        $candidate = '' === $keyword ? $word : $keyword . ' ' . $word;
+        if ( strlen( $candidate ) > 40 ) {
+            break;
+        }
+        $keyword = $candidate;
+    }
+    // Never end on an edge stopword cut mid-phrase.
+    $parts = explode( ' ', $keyword );
+    while ( count( $parts ) > 1 && in_array( end( $parts ), $edge_stop, true ) ) {
+        array_pop( $parts );
+    }
+    $keyword = implode( ' ', $parts );
+
+    if ( count( explode( ' ', $keyword ) ) >= 3 ) {
+        return $keyword;
+    }
+
+    // Fallback: stopword-stripped keyword core.
+    $stopwords = publion_slug_stopwords();
+    $kept      = array();
     foreach ( $words as $word ) {
         if ( ! in_array( $word, $stopwords, true ) ) {
             $kept[] = $word;

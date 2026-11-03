@@ -72,9 +72,9 @@ foreach ( $question_topics as $topic ) {
 	check( "derive [$topic]: not the full topic", $keyword !== $topic );
 	check( "derive [$topic]: 3-5 words", count( $words ) >= 3 && count( $words ) <= 5 );
 	check( "derive [$topic]: <= 40 chars", strlen( $keyword ) <= 40 );
-	$has_stop = false;
-	foreach ( $words as $w ) { if ( in_array( $w, $stopwords, true ) ) { $has_stop = true; } }
-	check( "derive [$topic]: no stopwords", ! $has_stop );
+	$edge = publion_focus_keyword_edge_stopwords();
+	check( "derive [$topic]: no edge stopwords", ! in_array( $words[0], $edge, true ) && ! in_array( end( $words ), $edge, true ) );
+	check( "derive [$topic]: contiguous span of topic", false !== strpos( publion_normalize_content_for_comparison( $topic ), $keyword ) );
 
 	// The derived keyword must satisfy the actual checks it feeds.
 	$slug = publion_build_rank_math_slug( $keyword, $topic );

@@ -1111,11 +1111,17 @@ function publion_build_rank_math_seo_title( $topic, $focus_keyword ) {
     // helpful for Rank Math's title checks without inventing numbers or claims.
     $prefix    = $focus_keyword . ': ' . __( 'praktische gids', 'publion' );
     $remaining = max( 0, 60 - mb_strlen( $prefix ) - 3 );
-    if ( $remaining < 12 || '' === $topic ) {
+    // The trim helper floors at 20 characters; a smaller budget would come
+    // back longer than asked and push the title past 60.
+    if ( $remaining < 20 || '' === $topic ) {
         return publion_trim_text_at_word_boundary( $prefix, 60 );
     }
 
-    return $prefix . ' - ' . publion_trim_text_at_word_boundary( $topic, $remaining );
+    $title = $prefix . ' - ' . publion_trim_text_at_word_boundary( $topic, $remaining );
+    if ( mb_strlen( $title ) > 60 ) {
+        return publion_trim_text_at_word_boundary( $prefix, 60 );
+    }
+    return $title;
 }
 
 function publion_build_rank_math_meta_description( $html, $focus_keyword ) {
