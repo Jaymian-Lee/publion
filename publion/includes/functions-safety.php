@@ -32,6 +32,9 @@ function publion_focus_keyword_edge_stopwords() {
     return array_merge( publion_slug_stopwords(), array(
         'terwijl', 'toen', 'omdat', 'zodra', 'zodat', 'hoewel', 'tenzij',
         'zolang', 'indien', 'doordat', 'ondanks', 'mits', 'zoals',
+        // Words that read as a fragment when a cut lands on them.
+        'alleen', 'echter', 'vooral', 'ligt', 'zit', 'lijkt', 'blijft',
+        'wordt', 'raakt', 'valt',
     ) );
 }
 
