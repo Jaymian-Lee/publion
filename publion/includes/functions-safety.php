@@ -35,7 +35,36 @@ function publion_focus_keyword_edge_stopwords() {
         // Words that read as a fragment when a cut lands on them.
         'alleen', 'echter', 'vooral', 'ligt', 'zit', 'lijkt', 'blijft',
         'wordt', 'raakt', 'valt',
+        // Prepositions and adverbs that dangle at a phrase edge.
+        'zonder', 'tussen', 'onder', 'boven', 'achter', 'langs', 'rond',
+        'rondom', 'tegen', 'tegenover', 'via', 'sinds', 'tijdens', 'volgens',
+        'vanwege', 'wegens', 'naast', 'behalve', 'dankzij', 'inclusief',
+        'exclusief', 'betreffende', 'betreft', 'aangaande', 'niet', 'wel',
+        'nooit', 'altijd', 'vaak',
     ) );
+}
+
+/**
+ * True when a word at the start of a topic reads as an imperative verb:
+ * either a regular -iseer/-eer imperative ("optimaliseer", "repareer") or a
+ * common short imperative. Callers must confirm a pronoun ("je", "u")
+ * follows, so noun topics starting with the same word ("plan van aanpak",
+ * "verf op kozijnen") stay untouched.
+ */
+function publion_is_imperative_verb( $word ) {
+    $word = (string) $word;
+    if ( preg_match( '/(iseer|eer)$/u', $word ) ) {
+        return true;
+    }
+    static $imperatives = array(
+        'maak', 'kies', 'gebruik', 'voorkom', 'los', 'vervang', 'schrijf',
+        'start', 'begin', 'leer', 'vind', 'plan', 'regel', 'verhoog',
+        'verlaag', 'bouw', 'haal', 'plaats', 'verwijder', 'herstel',
+        'vergelijk', 'bereken', 'bekijk', 'bespaar', 'verdien', 'promoot',
+        'verkoop', 'koop', 'huur', 'bel', 'vraag', 'zoek', 'krijg', 'neem',
+        'geef', 'zet', 'leg', 'trek', 'verbeter',
+    );
+    return in_array( $word, $imperatives, true );
 }
 
 /**
@@ -57,6 +86,20 @@ function publion_derive_focus_keyword( $topic ) {
     }
     while ( $words && in_array( end( $words ), $edge_stop, true ) ) {
         array_pop( $words );
+    }
+
+    // Drop a leading imperative verb when the topic phrases the search as an
+    // instruction ("Optimaliseer je lokale SEO zonder ..."): the noun phrase
+    // that follows reads naturally in titles and intros, the command form
+    // forces ungrammatical sentences when the gate asks for the exact phrase.
+    if ( count( $words ) >= 2
+        && in_array( $words[1], array( 'je', 'u', 'jouw' ), true )
+        && publion_is_imperative_verb( $words[0] )
+    ) {
+        array_shift( $words );
+        while ( $words && in_array( $words[0], $edge_stop, true ) ) {
+            array_shift( $words );
+        }
     }
 
     $keyword = '';

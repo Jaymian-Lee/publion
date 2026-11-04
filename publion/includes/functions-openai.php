@@ -1435,6 +1435,34 @@ function publion_repair_rank_math_content( $html, $focus_keyword, $report, $api_
     return publion_normalize_article_html( publion_clean_html_output( $replacement ) );
 }
 
+/**
+ * Reject anchors that read as filler instead of a descriptive link: a single
+ * generic word ("seo", "website", "bedrijf") tells the reader nothing about
+ * the target. Multi-word phrases and specific single terms stay eligible.
+ */
+function publion_is_usable_internal_link_anchor( $keyword ) {
+    $keyword = trim( (string) $keyword );
+    if ( false !== strpos( $keyword, ' ' ) ) {
+        return true;
+    }
+    if ( strlen( $keyword ) < 8 ) {
+        return false;
+    }
+    static $generic = array(
+        'website', 'websites', 'webshop', 'webdesign', 'bedrijf',
+        'bedrijven', 'onderneming', 'ondernemer', 'pagina', 'artikel',
+        'dienst', 'diensten', 'product', 'producten', 'marketing',
+        'zoekmachine', 'zoekmachines', 'google', 'klant', 'klanten',
+        'gebruiker', 'gebruikers', 'content', 'informatie', 'advies',
+        'voorbeeld', 'manier', 'manieren', 'links', 'video', 'nieuws',
+        'homepage', 'landingspagina', 'zoekwoord', 'zoekwoorden', 'ranking',
+        'rankings', 'bezoekers', 'conversie', 'conversies', 'strategie',
+        'platform', 'software', 'resultaat', 'resultaten', 'antwoord',
+        'kosten', 'mensen', 'online',
+    );
+    return ! in_array( mb_strtolower( $keyword ), $generic, true );
+}
+
 /** Link only text nodes in paragraphs to a closely matching published title. */
 function publion_auto_internal_links( $html, $keywords ) {
     if ( ! is_array( $keywords ) || ! $keywords || ! class_exists( 'DOMDocument' ) ) { return $html; }
@@ -1446,6 +1474,7 @@ function publion_auto_internal_links( $html, $keywords ) {
     $linked = 0; $targets = array();
     foreach ( array_slice( $keywords, 0, 10 ) as $keyword ) {
         if ( ! is_string( $keyword ) || strlen( $keyword ) < 3 || strlen( $keyword ) > 100 || $linked >= 4 ) { continue; }
+        if ( ! publion_is_usable_internal_link_anchor( $keyword ) ) { continue; }
         $query = new WP_Query( array( 's' => $keyword, 'posts_per_page' => 5, 'post_status' => 'publish', 'post_type' => array( 'post', 'page' ), 'orderby' => 'relevance' ) );
         foreach ( $query->posts as $post ) {
             if ( isset( $targets[$post->ID] ) || ! publion_article_has_focus_keyword( $post->post_title, $keyword ) ) { continue; }

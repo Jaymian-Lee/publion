@@ -102,5 +102,38 @@ check( 'title==keyword-prefix passes early check', title_check_passes( $title, $
 check( 'keyword absent from title fails', ! title_check_passes( 'Praktische gids voor wonen', $keyword ) );
 check( 'keyword only in second half fails', ! title_check_passes( 'Praktische complete gids voor wonen - ' . $keyword, $keyword ) );
 
+
+// --- 1.9.56: dangling edge words and imperative-led instruction topics ---
+$seo_topic = 'Hoe optimaliseer je lokale SEO zonder fysiek bezoekadres?';
+$seo_kw    = publion_derive_focus_keyword( $seo_topic );
+check( 'imperative-led topic drops the command verb', 0 !== strpos( $seo_kw, 'optimaliseer' ) );
+check( 'derived keyword keeps the noun phrase', 'lokale seo zonder fysiek bezoekadres' === $seo_kw );
+check( 'no dangling preposition at keyword end', ! preg_match( '/ (zonder|met|voor|van|tegen|via|tijdens|volgens)$/u', $seo_kw ) );
+check( 'derived seo keyword is substring-safe length', strlen( $seo_kw ) <= 40 );
+
+$leak_kw = publion_derive_focus_keyword( 'Wat doe je bij een lekkage zonder zichtbare bron?' );
+check( 'function-word prefix trimmed', 0 === strpos( $leak_kw, 'lekkage' ) );
+check( 'no trailing zonder fragment', ! preg_match( '/ zonder$/u', $leak_kw ) );
+
+$verf_kw = publion_derive_focus_keyword( 'Verf bladdert af op houten kozijnen door vocht en zon' );
+check( 'noun-led topic keeps its leading noun', 0 === strpos( $verf_kw, 'verf' ) );
+
+$plan_kw = publion_derive_focus_keyword( 'Plan van aanpak voor een verbouwing in een oud huis' );
+check( 'noun plan untouched without pronoun', 0 === strpos( $plan_kw, 'plan' ) );
+
+$imp_kw = publion_derive_focus_keyword( 'Hoe repareer je een houten schuifraam dat vastloopt?' );
+check( 'imperative repareer dropped', 0 !== strpos( $imp_kw, 'repareer' ) );
+check( 'noun phrase preserved after drop', 0 === strpos( $imp_kw, 'houten schuifraam' ) );
+
+// --- 1.9.56: internal link anchor quality ---
+check( 'single generic anchor seo rejected', ! publion_is_usable_internal_link_anchor( 'seo' ) );
+check( 'single generic anchor website rejected', ! publion_is_usable_internal_link_anchor( 'website' ) );
+check( 'single generic anchor bedrijf rejected', ! publion_is_usable_internal_link_anchor( 'bedrijf' ) );
+check( 'single generic anchor zoekmachine rejected', ! publion_is_usable_internal_link_anchor( 'zoekmachine' ) );
+check( 'short single word anchor rejected', ! publion_is_usable_internal_link_anchor( 'parket' ) );
+check( 'specific single word anchor allowed', publion_is_usable_internal_link_anchor( 'dakkapel' ) );
+check( 'multi-word anchor allowed', publion_is_usable_internal_link_anchor( 'lokale seo' ) );
+check( 'multi-word generic words allowed as phrase', publion_is_usable_internal_link_anchor( 'website laten maken' ) );
+
 echo $fails ? "\n$fails FAILURES\n" : "\nALL PASS\n";
 exit( $fails ? 1 : 0 );
