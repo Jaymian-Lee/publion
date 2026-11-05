@@ -35,6 +35,11 @@ function publion_focus_keyword_edge_stopwords() {
         // Words that read as a fragment when a cut lands on them.
         'alleen', 'echter', 'vooral', 'ligt', 'zit', 'lijkt', 'blijft',
         'wordt', 'raakt', 'valt',
+        // Finite verb forms that read as a question fragment at an edge
+        // ("werkt", "kost"): they are not imperatives, so the pronoun-guarded
+        // imperative trim does not catch them.
+        'werkt', 'kost', 'komt', 'zorgt', 'helpt', 'maakt', 'hoort', 'blijkt',
+        'geldt', 'lukt', 'ontstaat', 'betaalt',
         // Prepositions and adverbs that dangle at a phrase edge.
         'zonder', 'tussen', 'onder', 'boven', 'achter', 'langs', 'rond',
         'rondom', 'tegen', 'tegenover', 'via', 'sinds', 'tijdens', 'volgens',

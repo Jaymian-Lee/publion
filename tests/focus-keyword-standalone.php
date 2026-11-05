@@ -135,5 +135,35 @@ check( 'specific single word anchor allowed', publion_is_usable_internal_link_an
 check( 'multi-word anchor allowed', publion_is_usable_internal_link_anchor( 'lokale seo' ) );
 check( 'multi-word generic words allowed as phrase', publion_is_usable_internal_link_anchor( 'website laten maken' ) );
 
+
+// --- 1.9.57: finite-verb leading fragments ---
+$werk_kw = publion_derive_focus_keyword( 'Hoe werkt lokale SEO voor een bedrijf zonder fysieke winkel of bezoekadres?' );
+check( 'finite verb werkt dropped from leading edge', 0 !== strpos( $werk_kw, 'werkt' ) );
+check( 'refacthor failing topic derives natural phrase', 'lokale seo voor een bedrijf' === $werk_kw );
+$soepel_kw = publion_derive_focus_keyword( 'Kunststof kozijn werkt niet meer soepel: zo smeer je de scharnieren' );
+check( 'interior werkt untouched', false !== strpos( $soepel_kw, 'werkt' ) );
+check( 'noun-led kozijn topic keeps leading noun', 0 === strpos( $soepel_kw, 'kunststof' ) );
+
+// --- 1.9.57: topical-equivalence dedup ---
+check( 'question frame vs published title is duplicate', publion_titles_are_topically_equivalent(
+	'Hoe werkt lokale SEO voor een bedrijf zonder fysieke winkel of bezoekadres?',
+	'Lokale SEO zonder fysiek bezoekadres'
+) );
+check( 'inflection fysieke stems to fysiek', publion_stem_word_for_comparison( 'fysieke' ) === publion_stem_word_for_comparison( 'fysiek' ) );
+check( 'plural kozijnen stems to kozijn', publion_stem_word_for_comparison( 'kozijnen' ) === publion_stem_word_for_comparison( 'kozijn' ) );
+check( 'short words never stemmed', publion_stem_word_for_comparison( 'seo' ) === 'seo' );
+check( 'different angle on same broad topic passes', ! publion_titles_are_topically_equivalent(
+	'Lokale SEO kosten voor zzpers uitgelegd',
+	'Lokale SEO zonder fysiek bezoekadres'
+) );
+check( 'different material same action passes', ! publion_titles_are_topically_equivalent(
+	'Kunststof kozijn schilderen met verf',
+	'Houten kozijn schilderen met verf'
+) );
+check( 'unrelated topics pass', ! publion_titles_are_topically_equivalent(
+	'Radiator blijft helemaal koud: oorzaken en oplossingen',
+	'Lokale SEO zonder fysiek bezoekadres'
+) );
+
 echo $fails ? "\n$fails FAILURES\n" : "\nALL PASS\n";
 exit( $fails ? 1 : 0 );

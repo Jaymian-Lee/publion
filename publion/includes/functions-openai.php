@@ -540,6 +540,63 @@ function publion_get_content_shingles( $text, $size = 5 ) {
 }
 
 /**
+ * Light Dutch inflection stem for topic comparisons: strips one common
+ * plural/adjective suffix so "fysieke" matches "fysiek" and "kozijnen"
+ * matches "kozijn". Not a linguistic stemmer; only for dedup matching.
+ */
+function publion_stem_word_for_comparison( $word ) {
+    $word = (string) $word;
+    $len  = function_exists( 'mb_strlen' ) ? mb_strlen( $word, 'UTF-8' ) : strlen( $word );
+    if ( $len <= 4 ) {
+        return $word;
+    }
+    if ( preg_match( '/en$/u', $word ) ) { return preg_replace( '/en$/u', '', $word ); }
+    if ( preg_match( '/e$/u', $word ) )  { return preg_replace( '/e$/u', '', $word ); }
+    if ( preg_match( '/s$/u', $word ) )  { return preg_replace( '/s$/u', '', $word ); }
+    return $word;
+}
+
+/**
+ * Stopword-stripped, lightly stemmed token set of a title or topic, so the
+ * distinctive content words drive near-duplicate detection.
+ */
+function publion_get_title_stem_set( $title ) {
+    $stopwords = array_flip( publion_slug_stopwords() );
+    $set       = array();
+    foreach ( preg_split( '/\s+/u', publion_normalize_content_for_comparison( $title ) ) as $word ) {
+        if ( '' === $word || isset( $stopwords[ $word ] ) ) {
+            continue;
+        }
+        $stem = publion_stem_word_for_comparison( $word );
+        if ( 3 > ( function_exists( 'mb_strlen' ) ? mb_strlen( $stem, 'UTF-8' ) : strlen( $stem ) ) ) {
+            continue;
+        }
+        $set[ $stem ] = true;
+    }
+    return $set;
+}
+
+/**
+ * True when two titles/topics share so much distinctive vocabulary that they
+ * target the same search intent ("Hoe werkt lokale SEO zonder fysiek
+ * bezoekadres" vs "Lokale SEO zonder fysiek bezoekadres"), even when word
+ * order, inflection and question framing differ. String similarity misses
+ * those because the question frame dominates the raw strings.
+ */
+function publion_titles_are_topically_equivalent( $a, $b ) {
+    $set_a = publion_get_title_stem_set( $a );
+    $set_b = publion_get_title_stem_set( $b );
+    if ( empty( $set_a ) || empty( $set_b ) ) {
+        return false;
+    }
+    $shared = count( array_intersect_key( $set_a, $set_b ) );
+    if ( $shared < 4 ) {
+        return false;
+    }
+    return ( $shared / min( count( $set_a ), count( $set_b ) ) ) >= 0.8;
+}
+
+/**
  * Check a candidate against every local post. Exact/near-identical titles and
  * repeated five-word sequences are blocked before WordPress creates a draft.
  */
@@ -566,6 +623,9 @@ function publion_find_existing_content_conflict( $candidate_title, $candidate_ht
             similar_text( $candidate_title, $existing_title, $title_score );
             if ( $candidate_title === $existing_title || $title_score >= 88 ) {
                 return array( 'post_id' => (int) $post->ID, 'title' => get_the_title( $post ), 'reason' => 'titel' );
+            }
+            if ( publion_titles_are_topically_equivalent( $candidate_title, $existing_title ) ) {
+                return array( 'post_id' => (int) $post->ID, 'title' => get_the_title( $post ), 'reason' => 'onderwerp' );
             }
         }
 
