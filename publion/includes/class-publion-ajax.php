@@ -322,24 +322,6 @@ function publion_db_get_results_cached( $query, array $args, $cache_key, $ttl = 
 	return $result;
 }
 
-/**
- * Convert a MySQL local datetime (stored with current_time('mysql')) to a UNIX timestamp
- * honoring the site timezone (so wp_date() renders correctly).
- */
-function publion_mysql_to_timestamp( $mysql_datetime ) {
-	if ( empty( $mysql_datetime ) ) {
-		return 0;
-	}
-	try {
-		$tz = wp_timezone();
-		$dt = DateTimeImmutable::createFromFormat( 'Y-m-d H:i:s', $mysql_datetime, $tz );
-		if ( $dt instanceof DateTimeImmutable ) {
-			return $dt->getTimestamp();
-		}
-	} catch ( Throwable $e ) {}
-	return strtotime( $mysql_datetime );
-}
-
 function publion_datetime_from_mysql( $mysql_datetime, DateTimeZone $tz ) {
 	$ts = publion_mysql_to_timestamp( $mysql_datetime );
 	if ( ! $ts ) {

@@ -1,3 +1,9 @@
+# Publion 1.9.59
+
+- Hersteld: geplande artikelen konden tot gmt_offset uur te vroeg publiceren. De cron bewaakte scheduled_at met current_time('timestamp') (een offset-verschoven waarde) tegen een echte epoch uit publion_mysql_to_timestamp(); nu wordt met time() (echte epoch) vergeleken, zodat slots op hun geconfigureerde tijd blijven.
+- publion_mysql_to_timestamp() verhuisd naar includes/functions-time.php zodat het conversiepad direct testbaar is.
+- tests/time-standalone.php: 13 checks op de echte conversie (UTC, Europe/Amsterdam winter/zomer-DST, Australia/Sydney) plus een regressie die aantoont dat de oude vergelijking ~gmt_offset te vroeg publiceerde en de nieuwe blokkeert.
+
 # Publion 1.9.52
 
 - Nieuwe optionele affiliate-module (standaard uit): centraal beheerde aanbiedingen (id, label, url, type, intents, categories, keywords, placement, style, text, enabled) als JSON bij de postinstellingen.

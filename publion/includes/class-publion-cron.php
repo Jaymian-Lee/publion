@@ -279,7 +279,7 @@ class Publion_Cron {
 		}
 
 		$scheduled_ts = $topic->scheduled_at ? publion_mysql_to_timestamp( $topic->scheduled_at ) : 0;
-		$now_ts       = current_time( 'timestamp' );
+		$now_ts       = time(); // True epoch: current_time('timestamp') is offset-shifted and let slots run up to gmt_offset early.
 		if ( $scheduled_ts && $now_ts < $scheduled_ts ) {
 			return;
 		}

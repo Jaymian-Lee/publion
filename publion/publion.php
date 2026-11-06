@@ -3,7 +3,7 @@
 Plugin Name: Publion
 Plugin URI: https://jaymian-lee.nl/publion
 Description: Genereer en verfijn blogposts met AI. Kies een categorie, krijg onderwerp-ideeën, zet SEO-geoptimaliseerde posts met afbeeldingen in de wachtrij en plan het aanmaken in WordPress.
-Version: 1.9.58
+Version: 1.9.59
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'PUBLION_VERSION', '1.9.58' );
+define( 'PUBLION_VERSION', '1.9.59' );
 define( 'PUBLION_PATH', plugin_dir_path( __FILE__ ) );
 define( 'PUBLION_URL', plugin_dir_url( __FILE__ ) );
 
@@ -130,6 +130,7 @@ add_filter(
 );
 
 // Load core files.
+require_once PUBLION_PATH . 'includes/functions-time.php';
 require_once PUBLION_PATH . 'includes/class-publion-admin.php';
 require_once PUBLION_PATH . 'includes/class-publion-settings.php';
 require_once PUBLION_PATH . 'includes/class-publion-ajax.php';
