@@ -165,5 +165,14 @@ check( 'unrelated topics pass', ! publion_titles_are_topically_equivalent(
 	'Lokale SEO zonder fysiek bezoekadres'
 ) );
 
+
+// --- 1.9.58: remaining high-frequency finite verbs at edges ---
+$water_kw = publion_derive_focus_keyword( 'Waarom staat er water in de sponning van mijn raam en zijn de afwateringsgaatjes verstopt?' );
+check( 'staat dropped from leading edge', 0 !== strpos( $water_kw, 'staat' ) );
+check( 'sponning topic derives natural phrase', 'water in de sponning' === $water_kw );
+check( 'zit dropped from leading edge', 0 !== strpos( publion_derive_focus_keyword( 'Waarom zit er lucht in mijn radiatorkraan en hoe ontlucht ik hem?' ), 'zit' ) );
+check( 'hangt dropped from leading edge', 0 !== strpos( publion_derive_focus_keyword( 'Waarom hangt mijn deur scheef in het kozijn?' ), 'hangt' ) );
+check( 'interior staat untouched', false !== strpos( publion_derive_focus_keyword( 'Kraan staat strak aangedraaid en geeft geen water' ), 'staat' ) );
+
 echo $fails ? "\n$fails FAILURES\n" : "\nALL PASS\n";
 exit( $fails ? 1 : 0 );

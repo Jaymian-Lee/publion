@@ -40,6 +40,10 @@ function publion_focus_keyword_edge_stopwords() {
         // imperative trim does not catch them.
         'werkt', 'kost', 'komt', 'zorgt', 'helpt', 'maakt', 'hoort', 'blijkt',
         'geldt', 'lukt', 'ontstaat', 'betaalt',
+        // High-frequency housing-topic verbs ("Waarom staat/zit/hangt ...").
+        'staat', 'zit', 'zitten', 'hangt', 'hangen', 'vloeit', 'druipt',
+        'stroomt', 'loopt', 'spuit', 'stinkt', 'ruikt', 'piept', 'kraakt',
+        'trilt', 'zakt', 'klopt', 'slaat', 'lekt',
         // Prepositions and adverbs that dangle at a phrase edge.
         'zonder', 'tussen', 'onder', 'boven', 'achter', 'langs', 'rond',
         'rondom', 'tegen', 'tegenover', 'via', 'sinds', 'tijdens', 'volgens',
