@@ -1263,7 +1263,7 @@ function publion_get_rank_math_generation_instruction( $focus_keyword, $enabled 
         return '';
     }
 
-    return "\n\nSEO/GEO-KWALITEITSCONTROLE: Gebruik de exacte focus-keyword \"" . sanitize_text_field( $focus_keyword ) . "\" natuurlijk in de eerste alinea, in ten minste één beschrijvende <h2> of <h3> en waar het inhoudelijk past. Gebruik synoniemen en natuurlijke formuleringen zonder een keyworddichtheidsquotum. Houd alle alinea's korter dan 120 woorden. Schrijf zelf nooit <img>-tags, afbeeldings-URL's of bestandsnamen: Publion genereert en plaatst de afbeeldingen zelf. Een betrouwbare externe bronlink is verplicht zodra er een gecontroleerde bron of live onderzoeksbron beschikbaar is; gebruik nooit nofollow voor zo'n redactionele bron. Verwerk relevante interne links zodra er passende bestaande pagina's zijn. Voeg een getal, sentimentwoord of power word alleen toe wanneer het feitelijk is en de titel daardoor niet misleidend wordt.";
+    return "\n\nSEO/GEO-KWALITEITSCONTROLE: Gebruik de focus-keyword \"" . sanitize_text_field( $focus_keyword ) . "\" in de eerste alinea, in ten minste één beschrijvende <h2> of <h3> en waar het inhoudelijk past. Grammaticaal correct en natuurlijk Nederlands gaat altijd vóór op de exacte vorm: vormt de exacte keyword een zinsfragment dat geen correcte zin toelaat, gebruik dan in de lopende tekst een grammaticale variant (andere woordvolgorde of vervoeging) en behoud de exacte vorm waar die wel past, zoals in een kop of de titel. Verbuig of knip nooit een zin om de exacte vorm te bewaren. Gebruik synoniemen en natuurlijke formuleringen zonder een keyworddichtheidsquotum. Houd alle alinea's korter dan 120 woorden. Schrijf zelf nooit <img>-tags, afbeeldings-URL's of bestandsnamen: Publion genereert en plaatst de afbeeldingen zelf. Een betrouwbare externe bronlink is verplicht zodra er een gecontroleerde bron of live onderzoeksbron beschikbaar is; gebruik nooit nofollow voor zo'n redactionele bron. Verwerk relevante interne links zodra er passende bestaande pagina's zijn. Voeg een getal, sentimentwoord of power word alleen toe wanneer het feitelijk is en de titel daardoor niet misleidend wordt.";
 }
 
 function publion_ensure_rank_math_keyword_intro( $html, $focus_keyword, $enabled ) {
@@ -1402,7 +1402,11 @@ function publion_get_rank_math_quality_report( $html, $focus_keyword, $post_titl
         'sentiment_in_seo_title'     => $title_has_sentiment,
     );
 
-    $required_checks = array( 'focus_keyword_in_seo_title', 'focus_keyword_in_meta_description', 'focus_keyword_in_url', 'focus_keyword_in_intro', 'focus_keyword_in_content', 'focus_keyword_in_heading', 'content_length', 'short_paragraphs' );
+    // The exact keyword in the first paragraph is advisory, never a hard gate:
+    // a fragment-shaped keyword (e.g. "schuifpui loopt zwaar") cannot always
+    // fill a grammatical Dutch sentence, and forcing it produced broken intros.
+    // Grammar outranks verbatim placement; a mismatch stays visible for editors.
+    $required_checks = array( 'focus_keyword_in_seo_title', 'focus_keyword_in_meta_description', 'focus_keyword_in_url', 'focus_keyword_in_content', 'focus_keyword_in_heading', 'content_length', 'short_paragraphs' );
     $failed_required = array();
     foreach ( $required_checks as $check ) {
         if ( empty( $checks[ $check ] ) ) {
@@ -1412,7 +1416,7 @@ function publion_get_rank_math_quality_report( $html, $focus_keyword, $post_titl
 
     // A number is intentionally not a requirement: adding one where no real
     // quantity exists would make a title less trustworthy, not more useful.
-    $advisory_checks = array( 'focus_keyword_density', 'table_of_contents', 'media_count', 'focus_keyword_in_image_alt', 'external_link', 'followed_external_link', 'internal_link', 'short_url', 'power_word_in_seo_title', 'sentiment_in_seo_title' );
+    $advisory_checks = array( 'focus_keyword_in_intro', 'focus_keyword_density', 'table_of_contents', 'media_count', 'focus_keyword_in_image_alt', 'external_link', 'followed_external_link', 'internal_link', 'short_url', 'power_word_in_seo_title', 'sentiment_in_seo_title' );
     $needs_editor_review = array();
     foreach ( $advisory_checks as $check ) {
         if ( empty( $checks[ $check ] ) ) {
@@ -1421,7 +1425,8 @@ function publion_get_rank_math_quality_report( $html, $focus_keyword, $post_titl
     }
 
     return array(
-        'version'             => 1,
+        // Version 2: focus_keyword_in_intro moved from required to advisory.
+        'version'             => 2,
         'focus_keyword'       => sanitize_text_field( $focus_keyword ),
         'word_count'          => $word_count,
         'keyword_occurrences' => $keyword_occurrences,

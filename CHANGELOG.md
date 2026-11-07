@@ -1,3 +1,10 @@
+# Publion 1.9.60
+
+- Grammatica gaat voor op exacte keywordplaatsing: de generatie-instructie eist niet langer de exacte focus-keyword in de eerste alinea; grammaticaal correct en natuurlijk Nederlands heeft nu expliciet voorrang, met de exacte vorm waar die past (kop/titel) en een grammaticale variant in de lopende tekst. Dit herstelt de structurele druk die ongrammaticale intro's gaf bij zinsfragment-keywords (bijv. "Wanneer een schuifpui loopt zwaar ...").
+- Kwaliteitsrapport: focus_keyword_in_intro verplaatst van vereiste naar adviescheck (needs_editor_review). Een intro zonder exacte keyword triggert de (betaalde) auto-repair niet meer en blokkeert publicatie via de publish-gate niet meer; de afwijking blijft zichtbaar als advies. Alle overige vereiste checks (titel, meta, url, content, kop, lengte, alinealengte) en alle bron-/veiligheidsgates blijven ongewijzigd. Rapportversie 2.
+- Achtergrond (gecorrigeerde aanname): de keyword in de intro werd nooit mechanisch ingevoegd - publion_ensure_rank_math_keyword_intro()/ _heading() zijn no-ops; de plaatsing was prompt-gedreven via publion_get_rank_math_generation_instruction().
+- tests/quality-report-standalone.php: 18 checks op het echte rapport (intro-mismatch blijft publicabel + advies zichtbaar; ontbrekende keyword in content/kop blijft vereiste fout; exacte intro blijft herkend) en op de consumers (publish-gate en auto-repair lezen uitsluitend failed_required).
+
 # Publion 1.9.59
 
 - Hersteld: geplande artikelen konden tot gmt_offset uur te vroeg publiceren. De cron bewaakte scheduled_at met current_time('timestamp') (een offset-verschoven waarde) tegen een echte epoch uit publion_mysql_to_timestamp(); nu wordt met time() (echte epoch) vergeleken, zodat slots op hun geconfigureerde tijd blijven.
