@@ -1,3 +1,10 @@
+# Publion 1.9.61
+
+- Foutantwoord-blokkade uitgebreid met de waargenomen varianten uit de concept-stubs van sep/okt 2026 (posts 2679 t/m 2811): "de primaire zoekterm is niet opgegeven", "zoektermoptimalisatie/-frequentie/-dichtheid niet betrouwbaar" en "deze HTML niet betrouwbaar worden herschreven". Die stubs werden al geblokkeerd via de bronnen-footer en de lengtevloer, maar een langer foutantwoord in deze bewoording zonder die footer passeerde alle gates; dat restgat is nu dicht.
+- Negatieve controles toegevoegd: legitieme artikelen die over zoektermen/SEO schrijven (advies, Rank Math-waarschuwingen, meetonzekerheid) worden niet gemarkeerd.
+- tests/leak-variants-standalone.php: 21 checks (waargenomen foutzinnen, opgevuld >=150-woorden foutantwoord geblokkeerd, 8 negatieve controles, legitiem SEO-artikel door de volledige validator, bestaande detecties ongewijzigd).
+- Eerlijke grens: dit blijft een woordenlijst, geen algemene foutdetectie; de structurele vloer (150 woorden/opbouw) en menselijke review blijven de robuuste lagen.
+
 # Publion 1.9.60
 
 - Grammatica gaat voor op exacte keywordplaatsing: de generatie-instructie eist niet langer de exacte focus-keyword in de eerste alinea; grammaticaal correct en natuurlijk Nederlands heeft nu expliciet voorrang, met de exacte vorm waar die past (kop/titel) en een grammaticale variant in de lopende tekst. Dit herstelt de structurele druk die ongrammaticale intro's gaf bij zinsfragment-keywords (bijv. "Wanneer een schuifpui loopt zwaar ...").
