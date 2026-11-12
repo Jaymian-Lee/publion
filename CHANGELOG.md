@@ -1,3 +1,12 @@
+# Publion 1.9.62
+
+- Hersteld: de plugin-eigen bronnen-footer (div.publion-research-sources) telde mee in de instructie-leakcontrole. De exacte plugin-markup van die footer bevatte tot 1.9.5x de zin "Controleer deze bronnen altijd voordat je publiceert.", die ook in de leak-bloklijst staat. Oudere gepubliceerde berichten met die footer raakten daardoor bij elke bewerking+opslag gedegradeerd naar concept (waargenomen: post 2707 na een interne-linkbewerking; 41 gepubliceerde berichten dragen de zin latent). De footer is plugin-output, geen modeloutput, en wordt nu met een exacte class-tokenmatch (DOM) uitgesloten van de leakcontrole, in lijn met de bestaande woordtelling.
+- Beveiliging behouden: de onveilige-markupregex scant nog steeds de volledige HTML inclusief footer (script/event-handler/javascript:-href in de footer blijft blokkeren); lookalike-classnamen (publion-research-sources-extra, xpublion-research-sources) worden nooit gestript; fouttekst in de footer kan geen artikel vervangen want de footer telt niet mee voor de lengte-/structuurvloer.
+- readme.txt Stable tag bijgewerkt naar de echte releaseversie (was 1.9.52; veroorzaakte verwarrende versierapportages).
+- tests/research-footer-leak-standalone.php: 12 checks (volledig artikel + oude/huidige footer doorlaatbaar, fouttekst + footer geblokkeerd, instructie buiten de footer geblokkeerd, lookalike-classes geblokkeerd, dubbele footer, script en javascript:-href in de footer geblokkeerd, ongesloten footer geblokkeerd via de tagbalans, in-footer verborgen fouttekst zonder artikel geblokkeerd via de lengtevloer, multi-class footer gestript).
+- Regressie: de exacte opgeslagen bodies van de 9 historische concept-stubs (2679 t/m 2811) blijven geblokkeerd; bestaande suites ongewijzigd groen (leak-variants 21, focus-keyword 107, quality-report 18, affiliate 36, time 13).
+- Eerlijke grens: de uitsluiting geldt alleen voor de exacte plugin-class; foutdetectie buiten de footer blijft een woordenlijst, met de structurele vloer en menselijke review als robuuste lagen.
+
 # Publion 1.9.61
 
 - Foutantwoord-blokkade uitgebreid met de waargenomen varianten uit de concept-stubs van sep/okt 2026 (posts 2679 t/m 2811): "de primaire zoekterm is niet opgegeven", "zoektermoptimalisatie/-frequentie/-dichtheid niet betrouwbaar" en "deze HTML niet betrouwbaar worden herschreven". Die stubs werden al geblokkeerd via de bronnen-footer en de lengtevloer, maar een langer foutantwoord in deze bewoording zonder die footer passeerde alle gates; dat restgat is nu dicht.

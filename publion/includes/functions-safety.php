@@ -229,11 +229,38 @@ function publion_strip_model_images( $html ) {
     return preg_replace( '/<img\b[^>]*>/is', '', $html );
 }
 
+/** Plugin-appended research footer is not model output; exclude it from the leak check. */
+function publion_strip_research_sources_for_leak_check( $html ) {
+    $html = (string) $html;
+    if ( '' === $html || false === stripos( $html, 'publion-research-sources' ) || ! class_exists( 'DOMDocument' ) ) {
+        return $html;
+    }
+    $document = new DOMDocument();
+    $previous = libxml_use_internal_errors( true );
+    $document->loadHTML( '<?xml encoding="UTF-8"><div>' . $html . '</div>', LIBXML_NONET );
+    libxml_clear_errors();
+    libxml_use_internal_errors( $previous );
+    $xpath = new DOMXPath( $document );
+    // Exact class-token match: lookalike class names are never stripped.
+    foreach ( iterator_to_array( $xpath->query( '//div[contains(concat(" ", normalize-space(@class), " "), " publion-research-sources ")]' ) ) as $node ) {
+        $node->parentNode->removeChild( $node );
+    }
+    $wrapper = $document->getElementsByTagName( 'div' )->item( 0 );
+    $out = '';
+    if ( $wrapper ) {
+        foreach ( iterator_to_array( $wrapper->childNodes ) as $child ) {
+            $out .= $document->saveHTML( $child );
+        }
+    }
+    return $out;
+}
+
 function publion_validate_article_content( $html, $topic = '', $keyword = '' ) {
     if ( ! is_string( $html ) || '' === trim( $html ) || strlen( $html ) > 1000000 ) {
         return new WP_Error( 'publion_invalid_content', __( 'Er is geen bruikbaar artikel ontvangen.', 'publion' ) );
     }
-    if ( publion_content_has_instruction_leak( $html ) || preg_match( '/(?:```|<\s*(?:script|iframe|object|embed|form|input|meta|head|body)\b|<[^>]+\son\w+\s*=|(?:href|src)\s*=\s*["\']\s*(?:javascript|data)\s*:)/i', $html ) ) {
+    // Leak phrases are checked on model output only; unsafe markup still scans the full HTML, footer included.
+    if ( publion_content_has_instruction_leak( publion_strip_research_sources_for_leak_check( $html ) ) || preg_match( '/(?:```|<\s*(?:script|iframe|object|embed|form|input|meta|head|body)\b|<[^>]+\son\w+\s*=|(?:href|src)\s*=\s*["\']\s*(?:javascript|data)\s*:)/i', $html ) ) {
         return new WP_Error( 'publion_instruction_leak', __( 'Het concept bevat een generatie-instructie, foutantwoord of onveilige markup. Review en herstel de tekst voordat je publiceert.', 'publion' ) );
     }
     // A fragment must have balanced explicit tags. DOM alone repairs truncated output.
