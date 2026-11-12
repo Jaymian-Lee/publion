@@ -229,8 +229,14 @@ function publion_strip_model_images( $html ) {
     return preg_replace( '/<img\b[^>]*>/is', '', $html );
 }
 
-/** Plugin-appended research footer is not model output; exclude it from the leak check. */
-function publion_strip_research_sources_for_leak_check( $html ) {
+/**
+ * The plugin-appended research footer (div.publion-research-sources) is plugin
+ * output, not model output, but a stored CSS class is not provenance: other
+ * footer text still goes through the leak check. Only the exact historical
+ * boilerplate sentence that collides with the blocklist is neutralized, and
+ * only inside an exact-class footer.
+ */
+function publion_neutralize_research_footer_boilerplate( $html ) {
     $html = (string) $html;
     if ( '' === $html || false === stripos( $html, 'publion-research-sources' ) || ! class_exists( 'DOMDocument' ) ) {
         return $html;
@@ -241,15 +247,26 @@ function publion_strip_research_sources_for_leak_check( $html ) {
     libxml_clear_errors();
     libxml_use_internal_errors( $previous );
     $xpath = new DOMXPath( $document );
-    // Exact class-token match: lookalike class names are never stripped.
-    foreach ( iterator_to_array( $xpath->query( '//div[contains(concat(" ", normalize-space(@class), " "), " publion-research-sources ")]' ) ) as $node ) {
-        $node->parentNode->removeChild( $node );
+    $footers = iterator_to_array( $xpath->query( '//div[contains(concat(" ", normalize-space(@class), " "), " publion-research-sources ")]' ) );
+    if ( empty( $footers ) ) {
+        return $html;
     }
-    $wrapper = $document->getElementsByTagName( 'div' )->item( 0 );
-    $out = '';
-    if ( $wrapper ) {
-        foreach ( iterator_to_array( $wrapper->childNodes ) as $child ) {
-            $out .= $document->saveHTML( $child );
+    // Exact plugin-authored sentences from functions-openai.php
+    // (publion_append_web_research_sources), current and historical.
+    $boilerplate = array(
+        'Controleer deze bronnen altijd voordat je publiceert.',
+    );
+    $out = $html;
+    foreach ( $footers as $node ) {
+        $footer_html = '';
+        foreach ( iterator_to_array( $node->childNodes ) as $child ) {
+            $footer_html .= $document->saveHTML( $child );
+        }
+        $neutralized = str_ireplace( $boilerplate, '', $footer_html );
+        if ( $neutralized !== $footer_html ) {
+            // Replace only this footer's serialized inner HTML, leaving every
+            // other byte (and all other footer text) for the leak check.
+            $out = str_replace( $footer_html, $neutralized, $out );
         }
     }
     return $out;
@@ -259,8 +276,8 @@ function publion_validate_article_content( $html, $topic = '', $keyword = '' ) {
     if ( ! is_string( $html ) || '' === trim( $html ) || strlen( $html ) > 1000000 ) {
         return new WP_Error( 'publion_invalid_content', __( 'Er is geen bruikbaar artikel ontvangen.', 'publion' ) );
     }
-    // Leak phrases are checked on model output only; unsafe markup still scans the full HTML, footer included.
-    if ( publion_content_has_instruction_leak( publion_strip_research_sources_for_leak_check( $html ) ) || preg_match( '/(?:```|<\s*(?:script|iframe|object|embed|form|input|meta|head|body)\b|<[^>]+\son\w+\s*=|(?:href|src)\s*=\s*["\']\s*(?:javascript|data)\s*:)/i', $html ) ) {
+    // Only the exact plugin footer boilerplate is exempted from the leak check; all other footer text and the full-HTML unsafe-markup scan still apply.
+    if ( publion_content_has_instruction_leak( publion_neutralize_research_footer_boilerplate( $html ) ) || preg_match( '/(?:```|<\s*(?:script|iframe|object|embed|form|input|meta|head|body)\b|<[^>]+\son\w+\s*=|(?:href|src)\s*=\s*["\']\s*(?:javascript|data)\s*:)/i', $html ) ) {
         return new WP_Error( 'publion_instruction_leak', __( 'Het concept bevat een generatie-instructie, foutantwoord of onveilige markup. Review en herstel de tekst voordat je publiceert.', 'publion' ) );
     }
     // A fragment must have balanced explicit tags. DOM alone repairs truncated output.

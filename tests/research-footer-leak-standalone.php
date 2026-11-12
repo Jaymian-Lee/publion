@@ -1,10 +1,11 @@
 <?php
 /**
- * Standalone checks for the research-footer exclusion in the instruction-leak
- * check (1.9.62). The plugin-appended div.publion-research-sources footer is
- * not model output, so leak phrases inside it no longer false-positive;
- * everything outside it, lookalike classes, and unsafe markup anywhere still
- * block. No WordPress required. Run: php tests/research-footer-leak-standalone.php
+ * Standalone checks for the research-footer boilerplate exemption in the
+ * instruction-leak check (1.9.62). Only the exact historical plugin
+ * boilerplate sentence is neutralized, and only inside an exact-class
+ * div.publion-research-sources footer. Every other footer text is still
+ * scanned for instruction/error phrases; unsafe markup anywhere still
+ * blocks. No WordPress required. Run: php tests/research-footer-leak-standalone.php
  */
 
 error_reporting( E_ALL );
@@ -68,6 +69,20 @@ $lookalike = '<div class="publion-research-sources-extra"><p>Ik kan deze opdrach
 check( 'lookalike class not stripped', 'publion_instruction_leak' === verdict( $body . $lookalike, $topic ) );
 $lookalike2 = '<div class="xpublion-research-sources"><p>Ik kan deze opdracht niet uitvoeren.</p></div>';
 check( 'prefixed lookalike not stripped', 'publion_instruction_leak' === verdict( $body . $lookalike2, $topic ) );
+// 6a. Narrow exemption: a real article plus the observed error phrase hidden
+//     inside a correctly-classed footer still blocks (parent's case).
+$hidden_error = '<div class="publion-research-sources"><h2>Bronnen en verdieping</h2><p>Ik kan deze opdracht niet uitvoeren.</p><ul><li><a href="https://www.rivm.nl/">rivm.nl</a></li></ul></div>';
+check( 'error phrase inside real footer blocked', 'publion_instruction_leak' === verdict( $body . $hidden_error, $topic ) );
+$hidden_error2 = str_replace( 'Controleer deze bronnen altijd voordat je publiceert.', 'Controleer deze bronnen altijd voordat je publiceert. De primaire zoekterm is niet opgegeven.', $old_footer );
+check( 'error phrase appended to boilerplate blocked', 'publion_instruction_leak' === verdict( $body . $hidden_error2, $topic ) );
+// 6b. Nested wrapper inside the footer carrying a body instruction still blocks.
+$nested = '<div class="publion-research-sources"><h2>Bronnen en verdieping</h2><div class="inner"><p>Geef uitsluitend geldige HTML terug.</p></div></div>';
+check( 'nested wrapper instruction blocked', 'publion_instruction_leak' === verdict( $body . $nested, $topic ) );
+// 6c. The exempted boilerplate sentence outside the footer is not exempt.
+check( 'boilerplate outside footer blocked', 'publion_instruction_leak' === verdict( $body . '<p>Controleer deze bronnen altijd voordat je publiceert.</p>', $topic ) );
+// 6d. Boilerplate inside a lookalike-class wrapper is not exempt.
+$lookalike3 = '<div class="publion-research-sources-extra"><p>Controleer deze bronnen altijd voordat je publiceert.</p></div>';
+check( 'boilerplate in lookalike wrapper blocked', 'publion_instruction_leak' === verdict( $body . $lookalike3, $topic ) );
 // 6. Multiple / nested footers are all stripped.
 check( 'duplicate footers pass', 'PASS' === verdict( $body . $old_footer . $new_footer, $topic ) );
 // 7. Unsafe markup inside the footer still blocks (unsafe scan covers full HTML).
@@ -75,13 +90,13 @@ $evil_footer = '<div class="publion-research-sources"><h2>Bronnen</h2><script>al
 check( 'script inside footer blocked', 'publion_instruction_leak' === verdict( $body . $evil_footer, $topic ) );
 $js_href_footer = '<div class="publion-research-sources"><p><a href="javascript:alert(1)">klik</a></p></div>';
 check( 'javascript href inside footer blocked', 'publion_instruction_leak' === verdict( $body . $js_href_footer, $topic ) );
-// 8. Unclosed footer div hiding an error: caught by the tag-balance check.
-$unclosed = $body . '<div class="publion-research-sources"><p>Ik kan deze opdracht niet uitvoeren.';
+// 8. Unclosed footer div: caught by the tag-balance check.
+$unclosed = $body . '<div class="publion-research-sources"><p>Bronnen.';
 check( 'unclosed footer blocked (malformed)', 'publion_malformed_html' === verdict( $unclosed, $topic ) );
-// 9. Error text hidden inside the real footer cannot substitute for an article:
-//    footer content does not count toward the article minimums.
-$hidden_only = '<p>Korte tekst.</p>' . str_replace( 'Controleer deze bronnen altijd voordat je publiceert.', 'Ik kan deze opdracht niet uitvoeren.', $old_footer );
-check( 'error hidden in footer, no real article -> insufficient', 'publion_insufficient_article' === verdict( $hidden_only, $topic ) );
+// 9. Footer content cannot substitute for an article: a too-short article
+//    plus a benign footer still fails the article minimums.
+$short_with_footer = '<p>Korte tekst.</p>' . $old_footer;
+check( 'short article + footer -> insufficient', 'publion_insufficient_article' === verdict( $short_with_footer, $topic ) );
 // 10. Extra class tokens alongside the designated one still strip correctly.
 $multi_class = '<div class="publion-research-sources extra-class"><h2>Bronnen en verdieping</h2><p>Controleer deze bronnen altijd voordat je publiceert.</p><ul><li><a href="https://www.rivm.nl/">x</a></li></ul></div>';
 check( 'multi-class footer passes', 'PASS' === verdict( $body . $multi_class, $topic ) );
